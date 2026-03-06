@@ -30,7 +30,7 @@ We have a couple of tools we can use to perform a read operation.
 
 ### ROS featured entities read tool (Recommended when available)
 
-- **name**: `tensorfleet-telemetry.entity.read`
+- **name**: `tensorfleet-telemetry-entity-read`
 - **purpose**: Use our custom entity system built on top of ROS to access a group of nodes and utility functionalities.
 - **can use when**: Use when our custom system has the entity id and functionality for what we need. Otherwise use raw ros access. Use `"--list"` for `entity_id` to list the available entities. Use `["--list"]` for `parameters` to list available parameters to read.
 - **additional notes**: Under the hood it performs multiple raw ros operations using our custom utilities. If available, can give you much more structured data.
@@ -39,7 +39,7 @@ We have a couple of tools we can use to perform a read operation.
 
 ### ROS node read tool
 
-- **name**: `tensorfleet-telemetry.ros-node.read`
+- **name**: `tensorfleet-telemetry-ros-node-read`
 - **purpose**: Read from the parameters of an ros node
 - **can use when**: The ros node's path and the required parameters are known. Use `"--list"` for `node_id` to get a list of available ros nodes at the time.  Use `["--list"]` for `parameters` to list available parameters to read.
 - **returns**: An array of requested parameters. Returns "null" for each member if the parameter is unavailable.
@@ -47,7 +47,7 @@ We have a couple of tools we can use to perform a read operation.
 
 ### ROS topic subscription tool
 
-- **name**: `tensorfleet-telemetry.ros-topic.read`
+- **name**: `tensorfleet-telemetry-ros-topic-read`
 - **purpose**: Subscribe to an ros topic and wait for a publication on the topic.
 - **can use when**: The topic's global path is known. Use `"--list"` for `topic_id` to get a list of available topics.
 - **additional notes**: We can subscribe to a topic before it's published. Subscription happens when it becomes available if timeout hasn't occurred yet.
@@ -55,7 +55,7 @@ We have a couple of tools we can use to perform a read operation.
 
 ### ROS service call tool
 
-- **name**: `tensorfleet-telemetry.service-call`
+- **name**: `tensorfleet-telemetry-service-call`
 - **purpose**: Send a request and receive a response.
 - **can use when**: The service's global path and it's schema is known. Use `"--list"` for `service_id` to get a list of available services and their schema.
 - **don't use when**: The service has a side effect or the schema of a service is not known.

@@ -19,9 +19,9 @@ function loadSchema(filename: string) {
 }
 
 export default function (api: ToolAPI) {
-  // Register tensorfleet-telemetry.entity.read tool
+  // Register tensorfleet-telemetry-entity-read tool
   api.registerTool({
-    name: "tensorfleet-telemetry.entity.read",
+    name: "tensorfleet-telemetry-entity-read",
     description: "Read from the parameters of a tensorfleet entity",
     parameters: loadSchema("tensorfleet-telemetry.entity.read.input.json"),
     async execute(_id: string, params: any) {
@@ -35,9 +35,9 @@ export default function (api: ToolAPI) {
     },
   });
 
-  // Register tensorfleet-telemetry.ros-node.read tool
+  // Register tensorfleet-telemetry-ros-node-read tool
   api.registerTool({
-    name: "tensorfleet-telemetry.ros-node.read",
+    name: "tensorfleet-telemetry-ros-node-read",
     description: "Read from the parameters of an ros node",
     parameters: loadSchema("tensorfleet-telemetry.ros-node.read.input.json"),
     async execute(_id: string, params: any) {
@@ -51,9 +51,9 @@ export default function (api: ToolAPI) {
     },
   });
 
-  // Register tensorfleet-telemetry.ros-topic.read tool
+  // Register tensorfleet-telemetry-ros-topic-read tool
   api.registerTool({
-    name: "tensorfleet-telemetry.ros-topic.read",
+    name: "tensorfleet-telemetry-ros-topic-read",
     description: "Subscribe to an ros topic and wait for a publication on the topic",
     parameters: loadSchema("tensorfleet-telemetry.ros-topic.read.input.json"),
     async execute(_id: string, params: any) {
@@ -67,9 +67,9 @@ export default function (api: ToolAPI) {
     },
   });
 
-  // Register tensorfleet-telemetry.ros-service.read tool
+  // Register tensorfleet-telemetry-ros-service-read tool
   api.registerTool({
-    name: "tensorfleet-telemetry.ros-service.read",
+    name: "tensorfleet-telemetry-ros-service-read",
     description: "Send a request and receive a response",
     parameters: loadSchema("tensorfleet-telemetry.ros-service.read.input.json"),
     async execute(_id: string, params: any) {
