@@ -10,7 +10,6 @@ tags:
   - drone
 tools:
   - network
-version: 0.0.1
 author: tensorfleet
 ---
 

@@ -3,6 +3,7 @@
   "name": "tensorfleet-claw-interface",
   "description": "Test plugin with a single echo skill.",
   "version": "0.0.2",
+  "skills": ["./skills"],
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

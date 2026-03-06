@@ -9,13 +9,19 @@
     "dev": "ts-node src/index.ts",
     "watch": "tsc --watch"
   },
-  "keywords": ["typescript", "nodejs"],
+  "keywords": [
+    "typescript",
+    "nodejs"
+  ],
   "author": "",
   "dependencies": {
-    "@sinclair/typebox": "^0.33.0"
+    "@sinclair/typebox": "^0.33.22",
+    "fs": "^0.0.1-security"
   },
   "openclaw": {
-    "extensions": ["./src/index.ts"]
+    "extensions": [
+      "./src/index.ts"
+    ]
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
