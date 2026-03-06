@@ -16,7 +16,6 @@
             "description": "The return type for the response, defaults to JSON"
         }
     },
-    "required": ["service_id", "arguments"],
     "top_filter": {
         "type": "object",
         "description": "Top-level filter to apply to the query",
@@ -37,5 +36,6 @@
         },
         "required": ["field", "operator", "value"],
         "additionalProperties": false
-    }
+    },
+    "required": ["service_id", "arguments"]
 }
