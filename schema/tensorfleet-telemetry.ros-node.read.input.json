@@ -4,12 +4,12 @@
     "properties": {
         "node_id": { 
             "type": "string",
-            "description": "ROS node path to read from"
+            "description": "Global ROS path of the ROS node to read from. Use `--list` to get a list of available nodes"
         },
         "parameters": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "A list of parameters to read from the ROS node"
+            "description": "A list of parameters to read from. Use `[\"--list\"]` to get a list of available parameters"
         },
         "return_type": {
             "type": "string",
@@ -17,5 +17,26 @@
             "description": "The return type for the response, defaults to JSON"
         }
     },
-    "required": ["node_id", "parameters"]
+    "required": ["node_id", "parameters", "top_filter"],
+    "top_filter": {
+        "type": "object",
+        "description": "Top-level filter to apply to the query",
+        "properties": {
+            "field": {
+                "type": "string",
+                "description": "Field to filter on"
+            },
+            "operator": {
+                "type": "string",
+                "enum": ["eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "like", "regex"],
+                "description": "Operator to use for filtering"
+            },
+            "value": {
+                "type": "string",
+                "description": "Value to filter by"
+            }
+        },
+        "required": ["field", "operator", "value"],
+        "additionalProperties": false
+    }
 }
