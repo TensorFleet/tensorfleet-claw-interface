@@ -1,0 +1,25 @@
+{
+  "name": "tensorfleet-claw-interface",
+  "version": "1.0.0",
+  "description": "Empty TypeScript Node.js project",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "watch": "tsc --watch"
+  },
+  "keywords": ["typescript", "nodejs"],
+  "author": "",
+  "dependencies": {
+    "@sinclair/typebox": "^0.33.0"
+  },
+  "openclaw": {
+    "extensions": ["./src/index.ts"]
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  }
+}
