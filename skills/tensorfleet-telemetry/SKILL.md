@@ -36,7 +36,7 @@ We have a couple of tools we can use to perform a read operation.
 - **can use when**: Use when our custom system has the entity id and functionality for what we need. Otherwise use raw ros access. Use `"--list"` for `entity_id` to list the available entities. Use `["--list"]` for `parameters` to list available parameters to read.
 - **additional notes**: Under the hood it performs multiple raw ros operations using our custom utilities. If available, can give you much more structured data.
 - **returns**: An array of requested parameters. Returns "null" for each member if the parameter is unavailable.
-- **additional notes**: An ros-node can have parameters to set/read. Set and reads are performed via ros service calls under the hood.
+- **additional notes**: An ROS node can have parameters to set/read. Set and reads are performed via ROS service calls under the hood.
 
 ### ROS node read tool
 
@@ -44,7 +44,7 @@ We have a couple of tools we can use to perform a read operation.
 - **purpose**: Read from the parameters of an ros node
 - **can use when**: The ros node's path and the required parameters are known. Use `"--list"` for `node_id` to get a list of available ros nodes at the time.  Use `["--list"]` for `parameters` to list available parameters to read.
 - **returns**: An array of requested parameters. Returns "null" for each member if the parameter is unavailable.
-- **additional notes**: An ros-node can have parameters to set/read. Set and reads are performed via ros service calls under the hood.
+- **additional notes**: An ROS node can have parameters to set/read. Set and reads are performed via ROS service calls under the hood.
 
 ### ROS topic subscription tool
 
@@ -64,7 +64,7 @@ We have a couple of tools we can use to perform a read operation.
 - **returns**: Can be anything depending on the service.
 
 ## Optional parameters
-Each tool can have additional parametsr passed to the input.
+Each tool can have additional parameters passed to the input.
 
 ### Filtering params
 If the response is suspected to be too big, Try filter params to prevent the Agent context from filling with useless information.
