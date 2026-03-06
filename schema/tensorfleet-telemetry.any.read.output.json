@@ -1,0 +1,5 @@
+{
+    "type": "array",
+    "items": {},
+    "description": "An array of values the requested parametsr in the same order"
+}

@@ -1,0 +1,21 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "node_id": { 
+            "type": "string",
+            "description": "ROS node path to read from"
+        },
+        "parameters": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "A list of parameters to read from the ROS node"
+        },
+        "return_type": {
+            "type": "string",
+            "default": "JSON",
+            "description": "The return type for the response, defaults to JSON"
+        }
+    },
+    "required": ["node_id", "parameters"]
+}
