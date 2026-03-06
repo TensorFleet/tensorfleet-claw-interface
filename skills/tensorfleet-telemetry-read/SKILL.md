@@ -49,7 +49,7 @@ We have a couple of tools we can use to perform a read operation.
 
 - **name**: `tensorfleet-telemetry.ros-topic.read`
 - **purpose**: Subscribe to an ros topic and wait for a publication on the topic.
-- **can use when**: The topic's global path is known.
+- **can use when**: The topic's global path is known. Use `"--list"` for `topic_id` to get a list of available topics.
 - **additional notes**: We can subscribe to a topic before it's published. Subscription happens when it becomes available if timeout hasn't occurred yet.
 - **returns**: Normally just the last published value. Depends on additional parameters passed to the request.
 

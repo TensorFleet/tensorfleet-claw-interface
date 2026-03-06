@@ -4,7 +4,7 @@
     "properties": {
         "service_id": { 
             "type": "string",
-            "description": "Global ROS path of the service. Use `\"--list\"` for `service_id` to get a list of available services and their schema."
+            "description": "Global ROS path of the service. Use `\"--list\"` for `service_id` to get a list of available services and their schema (and pass null for `arguments`)"
         },
         "arguments": {
             "type": "object",

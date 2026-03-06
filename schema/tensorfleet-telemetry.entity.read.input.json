@@ -4,7 +4,7 @@
     "properties": {
         "entity_id": { 
             "type": "string",
-            "description": "Entity id to read from. Use `--list` to get a list of available entities"
+            "description": "Entity id to read from. Use `--list` to get a list of available entities (and pass empty array for `parameters`)"
         },
         "parameters": {
             "type": "array",

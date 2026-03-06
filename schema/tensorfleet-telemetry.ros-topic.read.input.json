@@ -4,7 +4,7 @@
     "properties": {
         "topic_id": { 
             "type": "string",
-            "description": "ROS global topic path to read from. Use `\"--list\"` to list the available services"
+            "description": "ROS global topic path to read from. Use `\"--list\"` to list the available ROS topics"
         },
         "parameters": {
             "type": "array",

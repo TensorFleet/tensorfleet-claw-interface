@@ -4,7 +4,7 @@
     "properties": {
         "node_id": { 
             "type": "string",
-            "description": "Global ROS path of the ROS node to read from. Use `--list` to get a list of available nodes"
+            "description": "Global ROS path of the ROS node to read from. Use `--list` to get a list of available nodes (and pass empty array for `parameters`)"
         },
         "parameters": {
             "type": "array",
