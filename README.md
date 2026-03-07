@@ -1,19 +1,24 @@
-# Tensorfleet openclaw plugin
-In this plugin we provide the integration for openclaw to be able to access the ros environment in the Tensorfleet runtime and also assist the user by controlling the vscode extension's UI.
+# Tensorfleet OpenClaw Plugin
 
-# Getting started
+This plugin provides integration between OpenClaw and the ROS environment in the Tensorfleet runtime. It also assists users by controlling the VS Code extension's UI.
 
-First make sure you have openclaw installed. Then install the plugin
+## Getting Started
 
-```
-openclaw plugins install -l .
-```
+1. **Prerequisites**: Ensure you have OpenClaw installed on your system.
 
-This will link the plugin's source code instead of copying it.
+2. **Install the Plugin**: Install the plugin in development mode to link the source code:
 
-Now everytime you want to update openclaw with the latest implementation of just restart the openclaw gateway
+   ```bash
+   openclaw plugins install -l .
+   ```
 
-```
-openclaw gateway restart
-```
+   This command links the plugin's source code instead of copying it, allowing for real-time development.
+
+3. **Update Changes**: After making changes to the plugin code, restart the OpenClaw gateway to apply the latest implementation:
+
+   ```bash
+   openclaw gateway restart
+   ```
+
+   This ensures that OpenClaw uses the most recent version of your plugin.
 
