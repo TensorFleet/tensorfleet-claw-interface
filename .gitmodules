@@ -1,0 +1,3 @@
+[submodule "packages/tensorfleet-util"]
+	path = packages/tensorfleet-util
+	url = https://github.com/TensorFleet/tensorfleet-util.git
