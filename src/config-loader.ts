@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import { TEMPLATE_TO_CONFIG_ID, getConfigById } from "../packages/tensorfleet-util/src/config/vm-config";
+import { logger } from "./logger";
 
 /**
  * Load and validate .tensorfleet configuration from a file path

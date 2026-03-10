@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { TensorfleetTelemetryRosServiceRead } from "../schema-types/tensorfleet-telemetry.ros-service.read.input";
 import { loadTensorfleetConfig } from "../config-loader";
+import { logger } from "../logger";
 
 interface ToolAPI {
   registerTool(tool: {
