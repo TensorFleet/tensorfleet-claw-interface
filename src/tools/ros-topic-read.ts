@@ -2,6 +2,7 @@ import { Type } from "@sinclair/typebox";
 import * as fs from "fs";
 import * as path from "path";
 import { TensorfleetTelemetryRosTopicRead } from "../schema-types/tensorfleet-telemetry.ros-topic.read.input";
+import { loadTensorfleetConfig } from "../config-loader";
 
 interface ToolAPI {
   registerTool(tool: {
@@ -25,6 +26,9 @@ export function registerRosTopicReadTool(api: ToolAPI) {
     description: "Subscribe to an ros topic and wait for a publication on the topic",
     parameters: loadSchema("tensorfleet-telemetry.ros-topic.read.input.json"),
     async execute(_id: string, params: TensorfleetTelemetryRosTopicRead) {
+      // Load and validate .tensorfleet configuration
+      await loadTensorfleetConfig(params['config-file']);
+
       // For now, just return the input back to the user
       return { 
         content: [{ 
