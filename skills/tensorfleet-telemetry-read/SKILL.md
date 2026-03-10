@@ -28,6 +28,10 @@ Use this skill when the user asks to:
 
 We have a couple of tools we can use to perform a read operation.
 
+
+## Tensorfleet config file
+All the tools mentioned here need an additional param passed called `config-file` which is the absolute path to a config file for the connection.
+
 ### ROS featured entities read tool (Recommended when available)
 
 - **name**: `tensorfleet-telemetry-entity-read`

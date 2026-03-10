@@ -15,6 +15,10 @@
             "type": "string",
             "default": "JSON",
             "description": "The return type for the response, defaults to JSON"
+        },
+        "config-file": {
+            "type": "string",
+            "description": ".tensorfleet file absolute path. found in the root of a tensorfleet project folder"
         }
     },
     "top_filter": {
@@ -38,5 +42,5 @@
         "required": ["field", "operator", "value"],
         "additionalProperties": false
     },
-    "required": ["entity_id", "parameters"]
+    "required": ["entity_id", "parameters", "config-file"]
 }

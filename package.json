@@ -7,7 +7,8 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "tsc",
+    "generate:schema-types": "node scripts/generate-schema-types.cjs",
+    "build": "npm run generate:schema-types && tsc",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "watch": "tsc --watch",
@@ -20,8 +21,7 @@
   ],
   "author": "",
   "dependencies": {
-    "@sinclair/typebox": "^0.33.22",
-    "fs": "^0.0.1-security"
+    "@sinclair/typebox": "^0.33.22"
   },
   "openclaw": {
     "extensions": [
@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "json-schema-to-typescript": "^15.0.4",
     "ts-node": "^10.9.0",
     "typescript": "^5.0.0"
   }
