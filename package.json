@@ -8,12 +8,14 @@
     "packages/@types/*"
   ],
   "scripts": {
+    "dev": "vite",
+    "build": "bun run generate:schema-types && vite build",
+    "preview": "vite preview",
     "generate:schema-types": "node scripts/generate-schema-types.cjs",
-    "build": "bun run generate:schema-types && tsc",
     "start": "node dist/index.js",
-    "dev": "ts-node src/index.ts",
     "watch": "tsc --watch",
-    "build:packages": "bun run build --workspaces",
+    "build:workspace": "bun run build --filter=packages/*",
+    "build:packages": "bun run build:workspace",
     "build:all": "bun run build && bun run build:packages"
   },
   "keywords": [
@@ -75,6 +77,9 @@
     "lodash-es": "^4.17.21",
     "ol": "^10.7.0",
     "protobufjs": "^7.5.4",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-hover-observer": "^1.0.17",
     "react-i18next": "^16.3.5",
     "react-json-tree": "^0.20.0",
     "react-use": "^17.6.0",
@@ -97,6 +102,10 @@
     "@foxglove/wasm-lz4": "^1.0.2",
     "@foxglove/wasm-zstd": "^1.0.1",
     "@rollup/plugin-url": "^8.0.2",
-    "@types/three": "^0.181.0"
+    "@types/three": "^0.181.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.2"
   }
 }
