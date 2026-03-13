@@ -9,11 +9,11 @@
   ],
   "scripts": {
     "dev": "vite",
+    "watch": "vite build --watch",
     "build": "bun run generate:schema-types && vite build",
     "preview": "vite preview",
     "generate:schema-types": "node scripts/generate-schema-types.cjs",
     "start": "node dist/index.js",
-    "watch": "tsc --watch",
     "build:workspace": "bun run build --filter=packages/*",
     "build:packages": "bun run build:workspace",
     "build:all": "bun run build && bun run build:packages"
