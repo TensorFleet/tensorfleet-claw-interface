@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { TensorfleetTelemetryRosTopicRead } from "../schema-types/tensorfleet-telemetry.ros-topic.read.input";
 import { loadTensorfleetConfig } from "../config-loader";
+import { setupWindowMock, validateProxyConfig } from "../window-mock";
 import { logger } from "../logger";
 
 interface ToolAPI {
@@ -28,7 +29,15 @@ export function registerRosTopicReadTool(api: ToolAPI) {
     parameters: loadSchema("tensorfleet-telemetry.ros-topic.read.input.json"),
     async execute(_id: string, params: TensorfleetTelemetryRosTopicRead) {
       // Load and validate .tensorfleet configuration
-      await loadTensorfleetConfig(params['config-file']);
+      const config = await loadTensorfleetConfig(params['config-file']);
+
+      // Set up window mock with proxy configuration for ROS2Bridge
+      setupWindowMock(config);
+
+      // Validate that proxy configuration is properly set
+      if (!validateProxyConfig()) {
+        throw new Error('Proxy configuration is incomplete. Please check your .tensorfleet file contains the required proxy settings.');
+      }
 
       // For now, just return the input back to the user
       return { 
