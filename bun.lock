@@ -21,8 +21,31 @@
         "vite": "^5.4.2",
       },
     },
-    "packages/tensorfleet-tools": {
+    "packages/tensorfleet-openclaw-plugin": {
       "name": "tensorfleet-claw-interface",
+      "version": "1.0.0",
+      "dependencies": {
+        "tensorfleet-tools": "workspace:*",
+      },
+      "devDependencies": {
+        "@foxglove/wasm-bz2": "^0.1.1",
+        "@foxglove/wasm-lz4": "^1.0.2",
+        "@foxglove/wasm-zstd": "^1.0.1",
+        "@rollup/plugin-url": "^8.0.2",
+        "@types/node": "^20.0.0",
+        "@types/react": "^18.3.3",
+        "@types/react-dom": "^18.3.0",
+        "@types/three": "^0.181.0",
+        "@vitejs/plugin-react": "^4.3.1",
+        "json-schema-to-typescript": "^15.0.4",
+        "ts-node": "^10.9.0",
+        "tsup": "^8.5.1",
+        "typescript": "^5.8.0",
+        "vite": "^5.4.2",
+      },
+    },
+    "packages/tensorfleet-tools": {
+      "name": "tensorfleet-tools",
       "version": "1.0.0",
       "dependencies": {
         "@babel/runtime": "^7.28.4",
@@ -2802,7 +2825,9 @@
 
     "tapable": ["tapable@2.3.0", "", {}, "sha512-g9ljZiwki/LfxmQADO3dEY1CbpmXT5Hm2fJ+QaGKwSXUylMybePR7/67YW7jOrrvjEgL1Fmz5kzyAjWVWLlucg=="],
 
-    "tensorfleet-claw-interface": ["tensorfleet-claw-interface@workspace:packages/tensorfleet-tools"],
+    "tensorfleet-claw-interface": ["tensorfleet-claw-interface@workspace:packages/tensorfleet-openclaw-plugin"],
+
+    "tensorfleet-tools": ["tensorfleet-tools@workspace:packages/tensorfleet-tools"],
 
     "terser": ["terser@5.46.0", "", { "dependencies": { "@jridgewell/source-map": "^0.3.3", "acorn": "^8.15.0", "commander": "^2.20.0", "source-map-support": "~0.5.20" }, "bin": { "terser": "bin/terser" } }, "sha512-jTwoImyr/QbOWFFso3YoU3ik0jBBDJ6JTOQiy/J2YxVJdZCc+5u7skhNwiOR3FQIygFqVUPHl7qbbxtjW2K3Qg=="],
 
@@ -3302,33 +3327,33 @@
 
     "svgo/css-tree": ["css-tree@2.3.1", "", { "dependencies": { "mdn-data": "2.0.30", "source-map-js": "^1.0.1" } }, "sha512-6Fv1DV/TYw//QF5IzQdqsNDjx/wc8TrMBZsqjL9eW01tWb7R7k/mq+/VXfJCl7SoD5emsJop9cOByJZfs8hYIw=="],
 
-    "tensorfleet-claw-interface/@fluentui/react-icons": ["@fluentui/react-icons@2.0.321", "", { "dependencies": { "@griffel/react": "^1.6.1", "tslib": "^2.1.0" }, "peerDependencies": { "react": ">=16.8.0 <20.0.0" } }, "sha512-29aafyoCrpl0OoJk0tNbHAFj/eOza3y9cljW2NurUF9+TcVmYpdLKIlcRFMWPFw7QeKhEbvWey3Lt8dzHWKs+A=="],
+    "tensorfleet-tools/@fluentui/react-icons": ["@fluentui/react-icons@2.0.321", "", { "dependencies": { "@griffel/react": "^1.6.1", "tslib": "^2.1.0" }, "peerDependencies": { "react": ">=16.8.0 <20.0.0" } }, "sha512-29aafyoCrpl0OoJk0tNbHAFj/eOza3y9cljW2NurUF9+TcVmYpdLKIlcRFMWPFw7QeKhEbvWey3Lt8dzHWKs+A=="],
 
-    "tensorfleet-claw-interface/@foxglove/schemas": ["@foxglove/schemas@1.11.0", "", { "dependencies": { "@foxglove/rosmsg-msgs-common": "^3.2.2", "tslib": "^2" } }, "sha512-IMt7SeL5q1fCtIl6uEfi7zGxoJuRH3UOIuIuSJNTwBjc+JnnDcaMJVMYjpdEgifcbcTohi50gQPdl23G7EosQA=="],
+    "tensorfleet-tools/@foxglove/schemas": ["@foxglove/schemas@1.11.0", "", { "dependencies": { "@foxglove/rosmsg-msgs-common": "^3.2.2", "tslib": "^2" } }, "sha512-IMt7SeL5q1fCtIl6uEfi7zGxoJuRH3UOIuIuSJNTwBjc+JnnDcaMJVMYjpdEgifcbcTohi50gQPdl23G7EosQA=="],
 
-    "tensorfleet-claw-interface/@foxglove/ws-protocol": ["@foxglove/ws-protocol@0.8.0", "", { "dependencies": { "debug": "^4", "eventemitter3": "^5.0.1", "tslib": "^2.8.1" } }, "sha512-Wh3dlmgoCr3D9D8c3Wk2GXvyMiftScItFT6LKK1apJZagElod2PQBPdyVN/GXATOvavKhw97eMGrcDTU7vekVw=="],
+    "tensorfleet-tools/@foxglove/ws-protocol": ["@foxglove/ws-protocol@0.8.0", "", { "dependencies": { "debug": "^4", "eventemitter3": "^5.0.1", "tslib": "^2.8.1" } }, "sha512-Wh3dlmgoCr3D9D8c3Wk2GXvyMiftScItFT6LKK1apJZagElod2PQBPdyVN/GXATOvavKhw97eMGrcDTU7vekVw=="],
 
-    "tensorfleet-claw-interface/@mcap/core": ["@mcap/core@2.2.0", "", { "dependencies": { "@foxglove/crc": "^0.0.3", "heap-js": "^2.2.0", "tslib": "^2.5.0" } }, "sha512-EwNT+8OJfVo5u0lFSV0TEOJapmzD74FxzDJKyR/tG3lMRfc3fD3yxOBKtwtAz+is3EkIyqdkwfrbOXVUmz0jYw=="],
+    "tensorfleet-tools/@mcap/core": ["@mcap/core@2.2.0", "", { "dependencies": { "@foxglove/crc": "^0.0.3", "heap-js": "^2.2.0", "tslib": "^2.5.0" } }, "sha512-EwNT+8OJfVo5u0lFSV0TEOJapmzD74FxzDJKyR/tG3lMRfc3fD3yxOBKtwtAz+is3EkIyqdkwfrbOXVUmz0jYw=="],
 
-    "tensorfleet-claw-interface/@mui/icons-material": ["@mui/icons-material@7.3.9", "", { "dependencies": { "@babel/runtime": "^7.28.6" }, "peerDependencies": { "@mui/material": "^7.3.9", "@types/react": "^17.0.0 || ^18.0.0 || ^19.0.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0" }, "optionalPeers": ["@types/react"] }, "sha512-BT+zPJXss8Hg/oEMRmHl17Q97bPACG4ufFSfGEdhiE96jOyR5Dz1ty7ZWt1fVGR0y1p+sSgEwQT/MNZQmoWDCw=="],
+    "tensorfleet-tools/@mui/icons-material": ["@mui/icons-material@7.3.9", "", { "dependencies": { "@babel/runtime": "^7.28.6" }, "peerDependencies": { "@mui/material": "^7.3.9", "@types/react": "^17.0.0 || ^18.0.0 || ^19.0.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0" }, "optionalPeers": ["@types/react"] }, "sha512-BT+zPJXss8Hg/oEMRmHl17Q97bPACG4ufFSfGEdhiE96jOyR5Dz1ty7ZWt1fVGR0y1p+sSgEwQT/MNZQmoWDCw=="],
 
-    "tensorfleet-claw-interface/@mui/material": ["@mui/material@7.3.9", "", { "dependencies": { "@babel/runtime": "^7.28.6", "@mui/core-downloads-tracker": "^7.3.9", "@mui/system": "^7.3.9", "@mui/types": "^7.4.12", "@mui/utils": "^7.3.9", "@popperjs/core": "^2.11.8", "@types/react-transition-group": "^4.4.12", "clsx": "^2.1.1", "csstype": "^3.2.3", "prop-types": "^15.8.1", "react-is": "^19.2.3", "react-transition-group": "^4.4.5" }, "peerDependencies": { "@emotion/react": "^11.5.0", "@emotion/styled": "^11.3.0", "@mui/material-pigment-css": "^7.3.9", "@types/react": "^17.0.0 || ^18.0.0 || ^19.0.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0", "react-dom": "^17.0.0 || ^18.0.0 || ^19.0.0" }, "optionalPeers": ["@emotion/react", "@emotion/styled", "@mui/material-pigment-css", "@types/react"] }, "sha512-I8yO3t4T0y7bvDiR1qhIN6iBWZOTBfVOnmLlM7K6h3dx5YX2a7rnkuXzc2UkZaqhxY9NgTnEbdPlokR1RxCNRQ=="],
+    "tensorfleet-tools/@mui/material": ["@mui/material@7.3.9", "", { "dependencies": { "@babel/runtime": "^7.28.6", "@mui/core-downloads-tracker": "^7.3.9", "@mui/system": "^7.3.9", "@mui/types": "^7.4.12", "@mui/utils": "^7.3.9", "@popperjs/core": "^2.11.8", "@types/react-transition-group": "^4.4.12", "clsx": "^2.1.1", "csstype": "^3.2.3", "prop-types": "^15.8.1", "react-is": "^19.2.3", "react-transition-group": "^4.4.5" }, "peerDependencies": { "@emotion/react": "^11.5.0", "@emotion/styled": "^11.3.0", "@mui/material-pigment-css": "^7.3.9", "@types/react": "^17.0.0 || ^18.0.0 || ^19.0.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0", "react-dom": "^17.0.0 || ^18.0.0 || ^19.0.0" }, "optionalPeers": ["@emotion/react", "@emotion/styled", "@mui/material-pigment-css", "@types/react"] }, "sha512-I8yO3t4T0y7bvDiR1qhIN6iBWZOTBfVOnmLlM7K6h3dx5YX2a7rnkuXzc2UkZaqhxY9NgTnEbdPlokR1RxCNRQ=="],
 
-    "tensorfleet-claw-interface/@types/node": ["@types/node@22.9.3", "", { "dependencies": { "undici-types": "~6.19.8" } }, "sha512-F3u1fs/fce3FFk+DAxbxc78DF8x0cY09RRL8GnXLmkJ1jvx3TtPdWoTT5/NiYfI5ASqXBmfqJi9dZ3gxMx4lzw=="],
+    "tensorfleet-tools/@types/node": ["@types/node@22.9.3", "", { "dependencies": { "undici-types": "~6.19.8" } }, "sha512-F3u1fs/fce3FFk+DAxbxc78DF8x0cY09RRL8GnXLmkJ1jvx3TtPdWoTT5/NiYfI5ASqXBmfqJi9dZ3gxMx4lzw=="],
 
-    "tensorfleet-claw-interface/flatbuffers": ["flatbuffers@25.9.23", "", {}, "sha512-MI1qs7Lo4Syw0EOzUl0xjs2lsoeqFku44KpngfIduHBYvzm8h2+7K8YMQh1JtVVVrUvhLpNwqVi4DERegUJhPQ=="],
+    "tensorfleet-tools/flatbuffers": ["flatbuffers@25.9.23", "", {}, "sha512-MI1qs7Lo4Syw0EOzUl0xjs2lsoeqFku44KpngfIduHBYvzm8h2+7K8YMQh1JtVVVrUvhLpNwqVi4DERegUJhPQ=="],
 
-    "tensorfleet-claw-interface/flatbuffers_reflection": ["flatbuffers_reflection@1.3.0", "", {}, "sha512-vzrH+4j0mQ4gjieO82fIVrqF5IVxDeAPvUsCNndA2CGLx/t6iRuYBgasdMEuz1czONuue7ez7kRLzNRTqfTXkA=="],
+    "tensorfleet-tools/flatbuffers_reflection": ["flatbuffers_reflection@1.3.0", "", {}, "sha512-vzrH+4j0mQ4gjieO82fIVrqF5IVxDeAPvUsCNndA2CGLx/t6iRuYBgasdMEuz1czONuue7ez7kRLzNRTqfTXkA=="],
 
-    "tensorfleet-claw-interface/i18next": ["i18next@25.8.18", "", { "dependencies": { "@babel/runtime": "^7.28.6" }, "peerDependencies": { "typescript": "^5" }, "optionalPeers": ["typescript"] }, "sha512-lzY5X83BiL5AP77+9DydbrqkQHFN9hUzWGjqjLpPcp5ZOzuu1aSoKaU3xbBLSjWx9dAzW431y+d+aogxOZaKRA=="],
+    "tensorfleet-tools/i18next": ["i18next@25.8.18", "", { "dependencies": { "@babel/runtime": "^7.28.6" }, "peerDependencies": { "typescript": "^5" }, "optionalPeers": ["typescript"] }, "sha512-lzY5X83BiL5AP77+9DydbrqkQHFN9hUzWGjqjLpPcp5ZOzuu1aSoKaU3xbBLSjWx9dAzW431y+d+aogxOZaKRA=="],
 
-    "tensorfleet-claw-interface/protobufjs": ["protobufjs@7.5.4", "", { "dependencies": { "@protobufjs/aspromise": "^1.1.2", "@protobufjs/base64": "^1.1.2", "@protobufjs/codegen": "^2.0.4", "@protobufjs/eventemitter": "^1.1.0", "@protobufjs/fetch": "^1.1.0", "@protobufjs/float": "^1.0.2", "@protobufjs/inquire": "^1.1.0", "@protobufjs/path": "^1.1.2", "@protobufjs/pool": "^1.1.0", "@protobufjs/utf8": "^1.1.0", "@types/node": ">=13.7.0", "long": "^5.0.0" } }, "sha512-CvexbZtbov6jW2eXAvLukXjXUW1TzFaivC46BpWc/3BpcCysb5Vffu+B3XHMm8lVEuy2Mm4XGex8hBSg1yapPg=="],
+    "tensorfleet-tools/protobufjs": ["protobufjs@7.5.4", "", { "dependencies": { "@protobufjs/aspromise": "^1.1.2", "@protobufjs/base64": "^1.1.2", "@protobufjs/codegen": "^2.0.4", "@protobufjs/eventemitter": "^1.1.0", "@protobufjs/fetch": "^1.1.0", "@protobufjs/float": "^1.0.2", "@protobufjs/inquire": "^1.1.0", "@protobufjs/path": "^1.1.2", "@protobufjs/pool": "^1.1.0", "@protobufjs/utf8": "^1.1.0", "@types/node": ">=13.7.0", "long": "^5.0.0" } }, "sha512-CvexbZtbov6jW2eXAvLukXjXUW1TzFaivC46BpWc/3BpcCysb5Vffu+B3XHMm8lVEuy2Mm4XGex8hBSg1yapPg=="],
 
-    "tensorfleet-claw-interface/react-hover-observer": ["react-hover-observer@1.1.1", "", { "dependencies": { "babel-runtime": "^6.6.1", "lodash.assign": "^4.2.0", "lodash.noop": "^3.0.1", "lodash.omit": "^4.5.0" }, "peerDependencies": { "react": "~0.14.8 || ^15.0.0", "react-dom": "~0.14.8 || ^15.0.0" } }, "sha512-W48KUF7hsqNBI1SCUf8fx462yqnUVodCeXLIrZG3dbNh2VZBbmLeb23GVx9trCXTGFEREL7R0fpxoql5XVkzag=="],
+    "tensorfleet-tools/react-hover-observer": ["react-hover-observer@1.1.1", "", { "dependencies": { "babel-runtime": "^6.6.1", "lodash.assign": "^4.2.0", "lodash.noop": "^3.0.1", "lodash.omit": "^4.5.0" }, "peerDependencies": { "react": "~0.14.8 || ^15.0.0", "react-dom": "~0.14.8 || ^15.0.0" } }, "sha512-W48KUF7hsqNBI1SCUf8fx462yqnUVodCeXLIrZG3dbNh2VZBbmLeb23GVx9trCXTGFEREL7R0fpxoql5XVkzag=="],
 
-    "tensorfleet-claw-interface/react-i18next": ["react-i18next@16.5.8", "", { "dependencies": { "@babel/runtime": "^7.28.4", "html-parse-stringify": "^3.0.1", "use-sync-external-store": "^1.6.0" }, "peerDependencies": { "i18next": ">= 25.6.2", "react": ">= 16.8.0", "typescript": "^5" }, "optionalPeers": ["typescript"] }, "sha512-2ABeHHlakxVY+LSirD+OiERxFL6+zip0PaHo979bgwzeHg27Sqc82xxXWIrSFmfWX0ZkrvXMHwhsi/NGUf5VQg=="],
+    "tensorfleet-tools/react-i18next": ["react-i18next@16.5.8", "", { "dependencies": { "@babel/runtime": "^7.28.4", "html-parse-stringify": "^3.0.1", "use-sync-external-store": "^1.6.0" }, "peerDependencies": { "i18next": ">= 25.6.2", "react": ">= 16.8.0", "typescript": "^5" }, "optionalPeers": ["typescript"] }, "sha512-2ABeHHlakxVY+LSirD+OiERxFL6+zip0PaHo979bgwzeHg27Sqc82xxXWIrSFmfWX0ZkrvXMHwhsi/NGUf5VQg=="],
 
-    "tensorfleet-claw-interface/three": ["three@0.181.2", "", {}, "sha512-k/CjiZ80bYss6Qs7/ex1TBlPD11whT9oKfT8oTGiHa34W4JRd1NiH/Tr1DbHWQ2/vMUypxksLnF2CfmlmM5XFQ=="],
+    "tensorfleet-tools/three": ["three@0.181.2", "", {}, "sha512-k/CjiZ80bYss6Qs7/ex1TBlPD11whT9oKfT8oTGiHa34W4JRd1NiH/Tr1DbHWQ2/vMUypxksLnF2CfmlmM5XFQ=="],
 
     "terser-webpack-plugin/@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
@@ -3572,17 +3597,17 @@
 
     "svgo/css-tree/mdn-data": ["mdn-data@2.0.30", "", {}, "sha512-GaqWWShW4kv/G9IEucWScBx9G1/vsFZZJUO+tD26M8J8z3Kw5RDQjaoZe03YAClgeS/SWPOcb4nkFBTEi5DUEA=="],
 
-    "tensorfleet-claw-interface/@mui/material/@mui/core-downloads-tracker": ["@mui/core-downloads-tracker@7.3.9", "", {}, "sha512-MOkOCTfbMJwLshlBCKJ59V2F/uaLYfmKnN76kksj6jlGUVdI25A9Hzs08m+zjBRdLv+sK7Rqdsefe8X7h/6PCw=="],
+    "tensorfleet-tools/@mui/material/@mui/core-downloads-tracker": ["@mui/core-downloads-tracker@7.3.9", "", {}, "sha512-MOkOCTfbMJwLshlBCKJ59V2F/uaLYfmKnN76kksj6jlGUVdI25A9Hzs08m+zjBRdLv+sK7Rqdsefe8X7h/6PCw=="],
 
-    "tensorfleet-claw-interface/@mui/material/@mui/system": ["@mui/system@7.3.9", "", { "dependencies": { "@babel/runtime": "^7.28.6", "@mui/private-theming": "^7.3.9", "@mui/styled-engine": "^7.3.9", "@mui/types": "^7.4.12", "@mui/utils": "^7.3.9", "clsx": "^2.1.1", "csstype": "^3.2.3", "prop-types": "^15.8.1" }, "peerDependencies": { "@emotion/react": "^11.5.0", "@emotion/styled": "^11.3.0", "@types/react": "^17.0.0 || ^18.0.0 || ^19.0.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0" }, "optionalPeers": ["@emotion/react", "@emotion/styled", "@types/react"] }, "sha512-aL1q9am8XpRrSabv9qWf5RHhJICJql34wnrc1nz0MuOglPRYF/liN+c8VqZdTvUn9qg+ZjRVbKf4sJVFfIDtmg=="],
+    "tensorfleet-tools/@mui/material/@mui/system": ["@mui/system@7.3.9", "", { "dependencies": { "@babel/runtime": "^7.28.6", "@mui/private-theming": "^7.3.9", "@mui/styled-engine": "^7.3.9", "@mui/types": "^7.4.12", "@mui/utils": "^7.3.9", "clsx": "^2.1.1", "csstype": "^3.2.3", "prop-types": "^15.8.1" }, "peerDependencies": { "@emotion/react": "^11.5.0", "@emotion/styled": "^11.3.0", "@types/react": "^17.0.0 || ^18.0.0 || ^19.0.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0" }, "optionalPeers": ["@emotion/react", "@emotion/styled", "@types/react"] }, "sha512-aL1q9am8XpRrSabv9qWf5RHhJICJql34wnrc1nz0MuOglPRYF/liN+c8VqZdTvUn9qg+ZjRVbKf4sJVFfIDtmg=="],
 
-    "tensorfleet-claw-interface/@mui/material/@mui/utils": ["@mui/utils@7.3.9", "", { "dependencies": { "@babel/runtime": "^7.28.6", "@mui/types": "^7.4.12", "@types/prop-types": "^15.7.15", "clsx": "^2.1.1", "prop-types": "^15.8.1", "react-is": "^19.2.3" }, "peerDependencies": { "@types/react": "^17.0.0 || ^18.0.0 || ^19.0.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0" }, "optionalPeers": ["@types/react"] }, "sha512-U6SdZaGbfb65fqTsH3V5oJdFj9uYwyLE2WVuNvmbggTSDBb8QHrFsqY8BN3taK9t3yJ8/BPHD/kNvLNyjwM7Yw=="],
+    "tensorfleet-tools/@mui/material/@mui/utils": ["@mui/utils@7.3.9", "", { "dependencies": { "@babel/runtime": "^7.28.6", "@mui/types": "^7.4.12", "@types/prop-types": "^15.7.15", "clsx": "^2.1.1", "prop-types": "^15.8.1", "react-is": "^19.2.3" }, "peerDependencies": { "@types/react": "^17.0.0 || ^18.0.0 || ^19.0.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0" }, "optionalPeers": ["@types/react"] }, "sha512-U6SdZaGbfb65fqTsH3V5oJdFj9uYwyLE2WVuNvmbggTSDBb8QHrFsqY8BN3taK9t3yJ8/BPHD/kNvLNyjwM7Yw=="],
 
-    "tensorfleet-claw-interface/@mui/material/clsx": ["clsx@2.1.1", "", {}, "sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA=="],
+    "tensorfleet-tools/@mui/material/clsx": ["clsx@2.1.1", "", {}, "sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA=="],
 
-    "tensorfleet-claw-interface/@mui/material/react-is": ["react-is@19.2.4", "", {}, "sha512-W+EWGn2v0ApPKgKKCy/7s7WHXkboGcsrXE+2joLyVxkbyVQfO3MUEaUQDHoSmb8TFFrSKYa9mw64WZHNHSDzYA=="],
+    "tensorfleet-tools/@mui/material/react-is": ["react-is@19.2.4", "", {}, "sha512-W+EWGn2v0ApPKgKKCy/7s7WHXkboGcsrXE+2joLyVxkbyVQfO3MUEaUQDHoSmb8TFFrSKYa9mw64WZHNHSDzYA=="],
 
-    "tensorfleet-claw-interface/@types/node/undici-types": ["undici-types@6.19.8", "", {}, "sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw=="],
+    "tensorfleet-tools/@types/node/undici-types": ["undici-types@6.19.8", "", {}, "sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw=="],
 
     "terser-webpack-plugin/schema-utils/ajv": ["ajv@8.18.0", "", { "dependencies": { "fast-deep-equal": "^3.1.3", "fast-uri": "^3.0.1", "json-schema-traverse": "^1.0.0", "require-from-string": "^2.0.2" } }, "sha512-PlXPeEWMXMZ7sPYOHqmDyCJzcfNrUr3fGNKtezX14ykXOEIvyK81d+qydx89KY5O71FKMPaQ2vBfBFI5NHR63A=="],
 
@@ -3666,9 +3691,9 @@
 
     "jest-message-util/@jest/types/@types/node/undici-types": ["undici-types@6.19.8", "", {}, "sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw=="],
 
-    "tensorfleet-claw-interface/@mui/material/@mui/system/@mui/private-theming": ["@mui/private-theming@7.3.9", "", { "dependencies": { "@babel/runtime": "^7.28.6", "@mui/utils": "^7.3.9", "prop-types": "^15.8.1" }, "peerDependencies": { "@types/react": "^17.0.0 || ^18.0.0 || ^19.0.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0" }, "optionalPeers": ["@types/react"] }, "sha512-ErIyRQvsiQEq7Yvcvfw9UDHngaqjMy9P3JDPnRAaKG5qhpl2C4tX/W1S4zJvpu+feihmZJStjIyvnv6KDbIrlw=="],
+    "tensorfleet-tools/@mui/material/@mui/system/@mui/private-theming": ["@mui/private-theming@7.3.9", "", { "dependencies": { "@babel/runtime": "^7.28.6", "@mui/utils": "^7.3.9", "prop-types": "^15.8.1" }, "peerDependencies": { "@types/react": "^17.0.0 || ^18.0.0 || ^19.0.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0" }, "optionalPeers": ["@types/react"] }, "sha512-ErIyRQvsiQEq7Yvcvfw9UDHngaqjMy9P3JDPnRAaKG5qhpl2C4tX/W1S4zJvpu+feihmZJStjIyvnv6KDbIrlw=="],
 
-    "tensorfleet-claw-interface/@mui/material/@mui/system/@mui/styled-engine": ["@mui/styled-engine@7.3.9", "", { "dependencies": { "@babel/runtime": "^7.28.6", "@emotion/cache": "^11.14.0", "@emotion/serialize": "^1.3.3", "@emotion/sheet": "^1.4.0", "csstype": "^3.2.3", "prop-types": "^15.8.1" }, "peerDependencies": { "@emotion/react": "^11.4.1", "@emotion/styled": "^11.3.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0" }, "optionalPeers": ["@emotion/react", "@emotion/styled"] }, "sha512-JqujWt5bX4okjUPGpVof/7pvgClqh7HvIbsIBIOOlCh2u3wG/Bwp4+E1bc1dXSwkrkp9WUAoNdI5HEC+5HKvMw=="],
+    "tensorfleet-tools/@mui/material/@mui/system/@mui/styled-engine": ["@mui/styled-engine@7.3.9", "", { "dependencies": { "@babel/runtime": "^7.28.6", "@emotion/cache": "^11.14.0", "@emotion/serialize": "^1.3.3", "@emotion/sheet": "^1.4.0", "csstype": "^3.2.3", "prop-types": "^15.8.1" }, "peerDependencies": { "@emotion/react": "^11.4.1", "@emotion/styled": "^11.3.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0" }, "optionalPeers": ["@emotion/react", "@emotion/styled"] }, "sha512-JqujWt5bX4okjUPGpVof/7pvgClqh7HvIbsIBIOOlCh2u3wG/Bwp4+E1bc1dXSwkrkp9WUAoNdI5HEC+5HKvMw=="],
 
     "terser-webpack-plugin/schema-utils/ajv/json-schema-traverse": ["json-schema-traverse@1.0.0", "", {}, "sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug=="],
 

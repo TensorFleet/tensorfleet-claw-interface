@@ -1,5 +1,5 @@
 {
-  "name": "tensorfleet-claw-interface",
+  "name": "tensorfleet-tools",
   "version": "1.0.0",
   "description": "Empty TypeScript Node.js project",
   "main": "dist/index.js",
