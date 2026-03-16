@@ -438,6 +438,37 @@
         "zustand": "4.5.7",
       },
     },
+    "packages/tensorfleet-tools/packages/tensorfleet-ros": {
+      "name": "tensorfleet-ros",
+      "version": "1.0.0",
+      "dependencies": {
+        "tensorfleet-util": "workspace:*",
+      },
+      "devDependencies": {
+        "@lichtblick/tsconfig": "^1.0.2",
+        "typescript": "^5.5.3",
+      },
+      "peerDependencies": {
+        "@foxglove/ws-protocol": "^0.8.0",
+        "@lichtblick/ros2idl-parser": "^1.0.0",
+        "@lichtblick/rosmsg": "^1.0.0",
+        "@lichtblick/rosmsg-msgs-common": "^1.0.1",
+        "@lichtblick/rosmsg-serialization": "^1.0.0",
+        "@lichtblick/rosmsg2-serialization": "^1.0.0",
+        "@lichtblick/suite-base": "workspace:*",
+      },
+    },
+    "packages/tensorfleet-tools/packages/tensorfleet-util": {
+      "name": "tensorfleet-util",
+      "version": "1.0.0",
+      "dependencies": {
+        "fast-deep-equal": "^3.1.3",
+      },
+      "devDependencies": {
+        "@types/node": "^20.0.0",
+        "typescript": "^5.0.0",
+      },
+    },
     "packages/tensorfleet-tools/packages/theme": {
       "name": "@lichtblick/theme",
       "devDependencies": {
@@ -2843,7 +2874,11 @@
 
     "tensorfleet-cli": ["tensorfleet-cli@workspace:packages/tensorfleet-cli"],
 
+    "tensorfleet-ros": ["tensorfleet-ros@workspace:packages/tensorfleet-tools/packages/tensorfleet-ros"],
+
     "tensorfleet-tools": ["tensorfleet-tools@workspace:packages/tensorfleet-tools"],
+
+    "tensorfleet-util": ["tensorfleet-util@workspace:packages/tensorfleet-tools/packages/tensorfleet-util"],
 
     "terser": ["terser@5.46.0", "", { "dependencies": { "@jridgewell/source-map": "^0.3.3", "acorn": "^8.15.0", "commander": "^2.20.0", "source-map-support": "~0.5.20" }, "bin": { "terser": "bin/terser" } }, "sha512-jTwoImyr/QbOWFFso3YoU3ik0jBBDJ6JTOQiy/J2YxVJdZCc+5u7skhNwiOR3FQIygFqVUPHl7qbbxtjW2K3Qg=="],
 
@@ -3344,6 +3379,8 @@
     "svgo/commander": ["commander@7.2.0", "", {}, "sha512-QrWXB+ZQSVPmIWIhtEO9H+gwHaMGYiF5ChvoJ+K9ZGHG/sVsa6yiesAD1GC/x46sET00Xlwo1u49RVVVzvcSkw=="],
 
     "svgo/css-tree": ["css-tree@2.3.1", "", { "dependencies": { "mdn-data": "2.0.30", "source-map-js": "^1.0.1" } }, "sha512-6Fv1DV/TYw//QF5IzQdqsNDjx/wc8TrMBZsqjL9eW01tWb7R7k/mq+/VXfJCl7SoD5emsJop9cOByJZfs8hYIw=="],
+
+    "tensorfleet-ros/@foxglove/ws-protocol": ["@foxglove/ws-protocol@0.8.0", "", { "dependencies": { "debug": "^4", "eventemitter3": "^5.0.1", "tslib": "^2.8.1" } }, "sha512-Wh3dlmgoCr3D9D8c3Wk2GXvyMiftScItFT6LKK1apJZagElod2PQBPdyVN/GXATOvavKhw97eMGrcDTU7vekVw=="],
 
     "tensorfleet-tools/@fluentui/react-icons": ["@fluentui/react-icons@2.0.321", "", { "dependencies": { "@griffel/react": "^1.6.1", "tslib": "^2.1.0" }, "peerDependencies": { "react": ">=16.8.0 <20.0.0" } }, "sha512-29aafyoCrpl0OoJk0tNbHAFj/eOza3y9cljW2NurUF9+TcVmYpdLKIlcRFMWPFw7QeKhEbvWey3Lt8dzHWKs+A=="],
 
