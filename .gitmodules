@@ -1,6 +1,6 @@
 [submodule "packages/tensorfleet-util"]
-	path = packages/tensorfleet-util
+	path = packages/tensorfleet-tools/packages/tensorfleet-util
 	url = https://github.com/TensorFleet/tensorfleet-util.git
 [submodule "packages/tensorfleet-ros"]
-	path = packages/tensorfleet-ros
+	path = packages/tensorfleet-tools/packages/tensorfleet-ros
 	url = https://github.com/TensorFleet/tensorfleet-ros.git
