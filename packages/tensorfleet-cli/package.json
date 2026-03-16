@@ -1,0 +1,28 @@
+{
+  "name": "tensorfleet-cli",
+  "version": "0.0.1",
+  "description": "TensorFleet CLI tool",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "tensorfleet": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc && tsup",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js"
+  },
+  "keywords": [
+    "cli",
+    "tensorfleet"
+  ],
+  "author": "TensorFleet",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "commander": "^11.0.0"
+  }
+}
