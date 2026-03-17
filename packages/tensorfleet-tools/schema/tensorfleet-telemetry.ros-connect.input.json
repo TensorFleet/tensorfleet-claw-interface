@@ -1,0 +1,11 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "config-file": {
+            "type": "string",
+            "description": ".tensorfleet file absolute path. Found in the root of a tensorfleet project folder"
+        }
+    },
+    "required": ["config-file"]
+}
