@@ -17,10 +17,10 @@ program
   .argument('<file>', 'Path to the .tensorfleet file')
   .action(async (file) => {
     try {
-      await executeRosConnect(file);
+      await executeRosConnect({ 'config-file': file });
       console.log('ROS connection test completed successfully');
     } catch (error) {
-      console.error('ROS connection test failed:', error);
+      console.error('ROS connection test failed:', error instanceof Error ? error.message : String(error));
       process.exit(1);
     }
   });
