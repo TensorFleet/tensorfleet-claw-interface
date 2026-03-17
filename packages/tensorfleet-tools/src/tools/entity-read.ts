@@ -5,15 +5,7 @@ import { TensorfleetTelemetryEntityRead } from "../schema-types/tensorfleet-tele
 import { loadTensorfleetConfig } from "../config-loader";
 import { setupWindowMock, validateProxyConfig } from "../window-mock";
 import { logger } from "../logger";
-
-interface ToolAPI {
-  registerTool(tool: {
-    name: string;
-    description: string;
-    parameters: any;
-    execute(id: string, params: any): Promise<{ content: Array<{ type: string; text: string }> }>;
-  }): void;
-}
+import { ToolAPI } from "../tool-api";
 
 // Helper function to load schema from file
 function loadSchema(filename: string) {
@@ -43,7 +35,7 @@ export function registerEntityReadTool(api: ToolAPI) {
       return { 
         content: [{ 
           type: "text", 
-          text: JSON.stringify(params, null, 2)
+          text: JSON.stringify(params, null, 2) || ""
         }] 
       };
     },
