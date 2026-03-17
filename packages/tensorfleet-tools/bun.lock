@@ -64,6 +64,8 @@
         "react-i18next": "^16.3.5",
         "react-json-tree": "^0.20.0",
         "react-use": "^17.6.0",
+        "tensorfleet-ros": "workspace:*",
+        "tensorfleet-util": "workspace:*",
         "three": "^0.181.2",
         "three-nebula": "^10.0.3",
         "tinycolor2": "^1.6.0",
@@ -379,6 +381,26 @@
         "vm-browserify": "1.1.2",
         "webpack": "5.101.3",
         "zustand": "4.5.7",
+      },
+    },
+    "packages/tensorfleet-ros": {
+      "name": "tensorfleet-ros",
+      "version": "1.0.0",
+      "dependencies": {
+        "tensorfleet-util": "workspace:*",
+      },
+      "devDependencies": {
+        "@lichtblick/tsconfig": "^1.0.2",
+        "typescript": "^5.5.3",
+      },
+      "peerDependencies": {
+        "@foxglove/ws-protocol": "^0.8.0",
+        "@lichtblick/ros2idl-parser": "^1.0.0",
+        "@lichtblick/rosmsg": "^1.0.0",
+        "@lichtblick/rosmsg-msgs-common": "^1.0.1",
+        "@lichtblick/rosmsg-serialization": "^1.0.0",
+        "@lichtblick/rosmsg2-serialization": "^1.0.0",
+        "@lichtblick/suite-base": "workspace:*",
       },
     },
     "packages/tensorfleet-util": {
@@ -2790,6 +2812,8 @@
     "svgo": ["svgo@3.3.3", "", { "dependencies": { "commander": "^7.2.0", "css-select": "^5.1.0", "css-tree": "^2.3.1", "css-what": "^6.1.0", "csso": "^5.0.5", "picocolors": "^1.0.0", "sax": "^1.5.0" }, "bin": "./bin/svgo" }, "sha512-+wn7I4p7YgJhHs38k2TNjy1vCfPIfLIJWR5MnCStsN8WuuTcBnRKcMHQLMM2ijxGZmDoZwNv8ipl5aTTen62ng=="],
 
     "tapable": ["tapable@2.3.0", "", {}, "sha512-g9ljZiwki/LfxmQADO3dEY1CbpmXT5Hm2fJ+QaGKwSXUylMybePR7/67YW7jOrrvjEgL1Fmz5kzyAjWVWLlucg=="],
+
+    "tensorfleet-ros": ["tensorfleet-ros@workspace:packages/tensorfleet-ros"],
 
     "tensorfleet-util": ["tensorfleet-util@workspace:packages/tensorfleet-util"],
 

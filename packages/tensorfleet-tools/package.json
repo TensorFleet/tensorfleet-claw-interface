@@ -86,7 +86,9 @@
     "three": "^0.181.2",
     "three-nebula": "^10.0.3",
     "tinycolor2": "^1.6.0",
-    "tss-react": "^4.9.19"
+    "tss-react": "^4.9.19",
+    "tensorfleet-ros": "workspace:*",
+    "tensorfleet-util": "workspace:*"
   },
   "openclaw": {
     "extensions": [
