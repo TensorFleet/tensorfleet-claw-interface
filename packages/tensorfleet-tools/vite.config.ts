@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import { resolve } from "path";
+import dts from "vite-plugin-dts";
 
 const rootDir = __dirname;
 const packagesDir = resolve(rootDir, "./packages");
@@ -9,7 +10,16 @@ const typesDir = resolve(rootDir, "./packages/@types");
 const tensorfleetUtilDir = resolve(rootDir, "./packages/tensorfleet-util/src");
 
 export default defineConfig({
-  plugins: [],
+  plugins: [
+    dts({
+      insertTypesEntry: true,
+      cleanVueFileName: true,
+      include: ["src/**/*.ts"],
+      exclude: ["src/**/*.stories.tsx", "src/**/*.test.ts", "src/**/*.spec.ts"],
+      outDir: "dist",
+      entryRoot: "src",
+    }),
+  ],
 
   worker: {
     plugins: () => [],

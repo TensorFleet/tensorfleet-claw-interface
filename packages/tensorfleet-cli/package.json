@@ -7,6 +7,11 @@
   "bin": {
     "tensorfleet": "dist/cli.js"
   },
+  "workspaces": [
+    "../*",
+    "../tensorfleet-tools/packages/*",
+    "../tensorfleet-tools/packages/@types/*"
+  ],
   "scripts": {
     "build": "tsc && tsup",
     "dev": "tsc --watch",
@@ -23,6 +28,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "commander": "^11.0.0"
+    "commander": "^11.0.0",
+    "tensorfleet-tools": "workspace:*"
   }
 }

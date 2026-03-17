@@ -2,6 +2,7 @@
 
 import { Command } from 'commander';
 import { version } from '../package.json';
+import { executeRosConnect } from 'tensorfleet-tools';
 
 const program = new Command();
 
@@ -9,5 +10,19 @@ program
   .name('tensorfleet')
   .description('TensorFleet CLI tool')
   .version(version);
+
+program
+  .command('ros-connect')
+  .description('Test ROS connection for a specific .tensorfleet file')
+  .argument('<file>', 'Path to the .tensorfleet file')
+  .action(async (file) => {
+    try {
+      await executeRosConnect(file);
+      console.log('ROS connection test completed successfully');
+    } catch (error) {
+      console.error('ROS connection test failed:', error);
+      process.exit(1);
+    }
+  });
 
 program.parse();
