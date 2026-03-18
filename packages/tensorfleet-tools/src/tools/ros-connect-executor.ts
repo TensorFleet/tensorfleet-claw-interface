@@ -6,7 +6,7 @@ import { logger } from "../logger";
 export async function executeRosConnect(params: TensorfleetTelemetryRosConnect) {
   try {
     // Load and validate .tensorfleet configuration
-    const config = await loadTensorfleetConfig(params['config-file']);
+    const config = await loadTensorfleetConfig(params['tensorfleet-project-path']);
 
     // Set up window mock with proxy configuration for ROS2Bridge
     // The config loader now returns either:

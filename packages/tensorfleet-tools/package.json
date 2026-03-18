@@ -89,7 +89,8 @@
     "three-nebula": "^10.0.3",
     "tinycolor2": "^1.6.0",
     "tss-react": "^4.9.19",
-    "vite-plugin-dts": "^4.5.4"
+    "vite-plugin-dts": "^4.5.4",
+    "dotenv": "^16.5.0"
   },
   "openclaw": {
     "extensions": [

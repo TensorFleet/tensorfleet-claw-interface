@@ -12,7 +12,7 @@ export interface TensorfleetTelemetryEntityRead {
    */
   return_type?: string;
   /**
-   * .tensorfleet file absolute path. found in the root of a tensorfleet project folder
+   * Tensorfleet project directory path. The directory should contain both .tensorfleet and .env files at its root
    */
-  "config-file": string;
+  "tensorfleet-project-path": string;
 }

@@ -13,11 +13,11 @@ program
 
 program
   .command('ros-connect')
-  .description('Test ROS connection for a specific .tensorfleet file')
-  .argument('<file>', 'Path to the .tensorfleet file')
-  .action(async (file) => {
+  .description('Test ROS connection for a specific tensorfleet project directory')
+  .argument('<path>', 'Path to the tensorfleet project directory containing .tensorfleet and .env files')
+  .action(async (path) => {
     try {
-      await executeRosConnect({ 'config-file': file });
+      await executeRosConnect({ 'tensorfleet-project-path': path });
       console.log('ROS connection test completed successfully');
     } catch (error) {
       console.error('ROS connection test failed:', error instanceof Error ? error.message : String(error));

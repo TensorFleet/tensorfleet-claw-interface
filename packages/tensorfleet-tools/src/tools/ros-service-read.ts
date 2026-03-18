@@ -13,7 +13,7 @@ export function registerRosServiceReadTool(api: ToolAPI) {
     parameters: loadSchema("tensorfleet-telemetry.ros-service.read.input.json"),
     async execute(_id: string, params: TensorfleetTelemetryRosServiceRead) {
       // Load and validate .tensorfleet configuration
-      const config = await loadTensorfleetConfig(params['config-file']);
+      const config = await loadTensorfleetConfig(params['tensorfleet-project-path']);
 
       // Set up window mock with proxy configuration for ROS2Bridge
       setupWindowMock(config);

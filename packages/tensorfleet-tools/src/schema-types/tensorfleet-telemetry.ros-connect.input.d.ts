@@ -1,6 +1,6 @@
 export interface TensorfleetTelemetryRosConnect {
   /**
-   * .tensorfleet file absolute path. Found in the root of a tensorfleet project folder
+   * Tensorfleet project directory path. The directory should contain both .tensorfleet and .env files at its root
    */
-  "config-file": string;
+  "tensorfleet-project-path": string;
 }

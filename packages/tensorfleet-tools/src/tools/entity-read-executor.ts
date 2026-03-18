@@ -5,7 +5,7 @@ import { logger } from "../logger";
 
 export async function executeEntityRead(params: TensorfleetTelemetryEntityRead) {
   // Load and validate .tensorfleet configuration
-  const config = await loadTensorfleetConfig(params['config-file']);
+  const config = await loadTensorfleetConfig(params['tensorfleet-project-path']);
 
   // Set up window mock with proxy configuration for ROS2Bridge
   setupWindowMock(config);

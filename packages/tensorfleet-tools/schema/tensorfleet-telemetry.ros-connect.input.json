@@ -2,10 +2,10 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
-        "config-file": {
+        "tensorfleet-project-path": {
             "type": "string",
-            "description": ".tensorfleet file absolute path. Found in the root of a tensorfleet project folder"
+            "description": "Tensorfleet project directory path. The directory should contain both .tensorfleet and .env files at its root"
         }
     },
-    "required": ["config-file"]
+    "required": ["tensorfleet-project-path"]
 }

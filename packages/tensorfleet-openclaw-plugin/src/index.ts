@@ -1,8 +1,7 @@
-import { executeEntityRead } from "tensorfleet-tools/src/tools/entity-read-executor";
-import { executeRosNodeRead } from "tensorfleet-tools/src/tools/ros-node-read-executor";
-import { executeRosTopicRead } from "tensorfleet-tools/src/tools/ros-topic-read-executor";
-import { executeRosServiceRead } from "tensorfleet-tools/src/tools/ros-service-read-executor";
-import { logger } from "tensorfleet-tools/src/logger";
+import { executeEntityRead, executeRosNodeRead, executeRosTopicRead, executeRosServiceRead, logger } from "tensorfleet-tools";
+
+// Import schema definitions from tensorfleet-tools
+import { entityReadSchema, rosNodeReadSchema, rosTopicReadSchema, rosServiceReadSchema } from "tensorfleet-tools";
 
 interface ToolAPI {
   registerTool(tool: {
@@ -17,16 +16,7 @@ export default function (api: ToolAPI) {
   api.registerTool({
     name: "tensorfleet-telemetry-entity-read",
     description: "Read from the parameters of a tensorfleet entity",
-    parameters: {
-      type: "object",
-      properties: {
-        "config-file": {
-          type: "string",
-          description: "Path to the .tensorfleet configuration file"
-        }
-      },
-      required: ["config-file"]
-    },
+    parameters: entityReadSchema,
     async execute(_id: string, params: any) {
       return executeEntityRead(params);
     },
@@ -35,16 +25,7 @@ export default function (api: ToolAPI) {
   api.registerTool({
     name: "tensorfleet-telemetry-ros-node-read",
     description: "Read from the parameters of an ros node",
-    parameters: {
-      type: "object",
-      properties: {
-        "config-file": {
-          type: "string",
-          description: "Path to the .tensorfleet configuration file"
-        }
-      },
-      required: ["config-file"]
-    },
+    parameters: rosNodeReadSchema,
     async execute(_id: string, params: any) {
       return executeRosNodeRead(params);
     },
@@ -53,16 +34,7 @@ export default function (api: ToolAPI) {
   api.registerTool({
     name: "tensorfleet-telemetry-ros-topic-read",
     description: "Subscribe to an ros topic and wait for a publication on the topic",
-    parameters: {
-      type: "object",
-      properties: {
-        "config-file": {
-          type: "string",
-          description: "Path to the .tensorfleet configuration file"
-        }
-      },
-      required: ["config-file"]
-    },
+    parameters: rosTopicReadSchema,
     async execute(_id: string, params: any) {
       return executeRosTopicRead(params);
     },
@@ -71,16 +43,7 @@ export default function (api: ToolAPI) {
   api.registerTool({
     name: "tensorfleet-telemetry-ros-service-read",
     description: "Send a request and receive a response",
-    parameters: {
-      type: "object",
-      properties: {
-        "config-file": {
-          type: "string",
-          description: "Path to the .tensorfleet configuration file"
-        }
-      },
-      required: ["config-file"]
-    },
+    parameters: rosServiceReadSchema,
     async execute(_id: string, params: any) {
       return executeRosServiceRead(params);
     },

@@ -16,9 +16,9 @@
             "default": "JSON",
             "description": "The return type for the response, defaults to JSON"
         },
-        "config-file": {
+        "tensorfleet-project-path": {
             "type": "string",
-            "description": ".tensorfleet file absolute path. found in the root of a tensorfleet project folder"
+            "description": "Tensorfleet project directory path. The directory should contain both .tensorfleet and .env files at its root"
         }
     },
     "top_filter": {
@@ -42,5 +42,5 @@
         "required": ["field", "operator", "value"],
         "additionalProperties": false
     },
-    "required": ["node_id", "parameters", "config-file"]
+    "required": ["node_id", "parameters", "tensorfleet-project-path"]
 }

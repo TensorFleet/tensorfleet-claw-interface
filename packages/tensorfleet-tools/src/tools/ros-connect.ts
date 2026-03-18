@@ -16,7 +16,7 @@ export function registerRosConnectTool(api: ToolAPI) {
         logger.info('Starting ROS connection process...');
         
         // Load and validate .tensorfleet configuration
-        const config = await loadTensorfleetConfig(params['config-file']);
+        const config = await loadTensorfleetConfig(params['tensorfleet-project-path']);
         logger.info('Configuration loaded successfully');
 
         // Set up window mock with proxy configuration for ROS2Bridge
