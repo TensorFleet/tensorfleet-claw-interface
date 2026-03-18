@@ -59,7 +59,34 @@ export function setupWindowMock(config: any): void {
 }
 
 /**
+ * Sets up window mock with validation for ROS2Bridge usage
+ * This function is specifically designed to be called before ROS2Bridge initialization
+ * @param config - The loaded .tensorfleet configuration
+ * @returns True if setup was successful, false otherwise
+ */
+export function setupWindowMockForROS2Bridge(config: any): boolean {
+  try {
+    setupWindowMock(config);
+    
+    // Validate the configuration
+    const isValid = validateProxyConfig();
+    
+    if (!isValid) {
+      console.warn('[WindowMock] ROS2Bridge setup failed: Missing required proxy configuration');
+      return false;
+    }
+    
+    console.log('[WindowMock] ROS2Bridge setup successful');
+    return true;
+  } catch (error) {
+    console.error('[WindowMock] ROS2Bridge setup failed:', error);
+    return false;
+  }
+}
+
+/**
  * Extracts proxy configuration from the loaded .tensorfleet config
+ * Supports both legacy sim_config format and new env format
  * @param config - The loaded .tensorfleet configuration
  * @returns Proxy configuration object
  */
@@ -70,34 +97,72 @@ function extractProxyConfig(config: any): TensorfleetWindowGlobals {
     TENSORFLEET_TARGET_PORT: 8765
   };
   
-  // Extract proxy URL from config
-  if (config.sim_config?.proxy_url) {
-    proxyConfig.TENSORFLEET_PROXY_URL = config.sim_config.proxy_url;
+  // Try new env format first (your JSON structure)
+  if (config.env) {
+    // Extract proxy URL from env
+    if (config.env.proxyUrl) {
+      proxyConfig.TENSORFLEET_PROXY_URL = config.env.proxyUrl;
+    }
+    
+    // Extract VM manager URL from env
+    if (config.env.vmManagerUrl) {
+      proxyConfig.TENSORFLEET_VM_MANAGER_URL = config.env.vmManagerUrl;
+    }
+    
+    // Extract node ID from env
+    if (config.env.nodeId) {
+      proxyConfig.TENSORFLEET_NODE_ID = config.env.nodeId;
+    }
+    
+    // Extract JWT token from env (look for common patterns)
+    if (config.env.jwtToken) {
+      proxyConfig.TENSORFLEET_JWT = config.env.jwtToken;
+    } else if (config.env.token) {
+      proxyConfig.TENSORFLEET_JWT = config.env.token;
+    }
+    
+    // Allow override of use_proxy flag
+    if (typeof config.env.useProxy === 'boolean') {
+      proxyConfig.TENSORFLEET_USE_PROXY = config.env.useProxy;
+    }
+    
+    // Allow override of target port
+    if (typeof config.env.targetPort === 'number') {
+      proxyConfig.TENSORFLEET_TARGET_PORT = config.env.targetPort;
+    }
   }
   
-  // Extract VM manager URL from config
-  if (config.sim_config?.vm_manager_url) {
-    proxyConfig.TENSORFLEET_VM_MANAGER_URL = config.sim_config.vm_manager_url;
-  }
-  
-  // Extract node ID from config
-  if (config.sim_config?.node_id) {
-    proxyConfig.TENSORFLEET_NODE_ID = config.sim_config.node_id;
-  }
-  
-  // Extract JWT token from config
-  if (config.sim_config?.jwt_token) {
-    proxyConfig.TENSORFLEET_JWT = config.sim_config.jwt_token;
-  }
-  
-  // Allow override of use_proxy flag
-  if (typeof config.sim_config?.use_proxy === 'boolean') {
-    proxyConfig.TENSORFLEET_USE_PROXY = config.sim_config.use_proxy;
-  }
-  
-  // Allow override of target port
-  if (typeof config.sim_config?.target_port === 'number') {
-    proxyConfig.TENSORFLEET_TARGET_PORT = config.sim_config.target_port;
+  // Fallback to legacy sim_config format
+  if (config.sim_config) {
+    // Extract proxy URL from config
+    if (config.sim_config.proxy_url) {
+      proxyConfig.TENSORFLEET_PROXY_URL = config.sim_config.proxy_url;
+    }
+    
+    // Extract VM manager URL from config
+    if (config.sim_config.vm_manager_url) {
+      proxyConfig.TENSORFLEET_VM_MANAGER_URL = config.sim_config.vm_manager_url;
+    }
+    
+    // Extract node ID from config
+    if (config.sim_config.node_id) {
+      proxyConfig.TENSORFLEET_NODE_ID = config.sim_config.node_id;
+    }
+    
+    // Extract JWT token from config
+    if (config.sim_config.jwt_token) {
+      proxyConfig.TENSORFLEET_JWT = config.sim_config.jwt_token;
+    }
+    
+    // Allow override of use_proxy flag
+    if (typeof config.sim_config.use_proxy === 'boolean') {
+      proxyConfig.TENSORFLEET_USE_PROXY = config.sim_config.use_proxy;
+    }
+    
+    // Allow override of target port
+    if (typeof config.sim_config.target_port === 'number') {
+      proxyConfig.TENSORFLEET_TARGET_PORT = config.sim_config.target_port;
+    }
   }
   
   return proxyConfig;
@@ -245,15 +310,23 @@ export function validateProxyConfig(): boolean {
   const requiredFields = [
     'TENSORFLEET_PROXY_URL',
     'TENSORFLEET_VM_MANAGER_URL', 
-    'TENSORFLEET_NODE_ID',
-    'TENSORFLEET_JWT'
+    'TENSORFLEET_NODE_ID'
   ];
   
-  const missingFields = requiredFields.filter(field => !config[field as keyof TensorfleetWindowGlobals]);
+  // JWT is required for authentication but we'll warn instead of failing
+  // since some environments might not need it
+  const optionalFields = ['TENSORFLEET_JWT'];
   
-  if (missingFields.length > 0) {
-    console.warn('[WindowMock] Missing required proxy configuration fields:', missingFields);
+  const missingRequiredFields = requiredFields.filter(field => !config[field as keyof TensorfleetWindowGlobals]);
+  
+  if (missingRequiredFields.length > 0) {
+    console.warn('[WindowMock] Missing required proxy configuration fields:', missingRequiredFields);
     return false;
+  }
+  
+  const missingOptionalFields = optionalFields.filter(field => !config[field as keyof TensorfleetWindowGlobals]);
+  if (missingOptionalFields.length > 0) {
+    console.warn('[WindowMock] Missing optional proxy configuration fields (may cause connection failures):', missingOptionalFields);
   }
   
   return true;

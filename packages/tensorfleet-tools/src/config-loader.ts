@@ -5,7 +5,7 @@ import { logger } from "./logger";
 /**
  * Load and validate .tensorfleet configuration from a file path
  * @param configPath - Absolute path to the .tensorfleet file
- * @returns Promise resolving to the validated VM configuration
+ * @returns Promise resolving to the validated configuration
  * @throws Error if config file is invalid or missing required fields
  */
 export async function loadTensorfleetConfig(configPath: string): Promise<any> {
@@ -30,6 +30,14 @@ export async function loadTensorfleetConfig(configPath: string): Promise<any> {
     throw new Error(`Invalid JSON in config file at ${configPath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 
+  // Check if this is a full configuration file (has env field)
+  // This is the new format that contains proxy settings directly
+  if (configData.env && typeof configData.env === 'object') {
+    logger.info(`Loaded full configuration file with env settings from ${configPath}`);
+    return configData;
+  }
+
+  // Fallback to legacy VM configuration format
   // Validate required template field
   if (!configData.template) {
     throw new Error(`Config file at ${configPath} is missing required 'template' field`);

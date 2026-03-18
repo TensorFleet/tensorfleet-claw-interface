@@ -1,6 +1,6 @@
 import { TensorfleetTelemetryRosConnect } from "../schema-types/tensorfleet-telemetry.ros-connect.input";
 import { loadTensorfleetConfig } from "../config-loader";
-import { setupWindowMock, validateProxyConfig } from "../window-mock";
+import { setupWindowMockForROS2Bridge, validateProxyConfig } from "../window-mock";
 import { logger } from "../logger";
 
 export async function executeRosConnect(params: TensorfleetTelemetryRosConnect) {
@@ -9,7 +9,10 @@ export async function executeRosConnect(params: TensorfleetTelemetryRosConnect) 
     const config = await loadTensorfleetConfig(params['config-file']);
 
     // Set up window mock with proxy configuration for ROS2Bridge
-    setupWindowMock(config);
+    // The config loader now returns either:
+    // 1. A full configuration object with env field (new format)
+    // 2. A VM configuration object (legacy format)
+    setupWindowMockForROS2Bridge(config);
 
     // Validate that proxy configuration is properly set
     if (!validateProxyConfig()) {
