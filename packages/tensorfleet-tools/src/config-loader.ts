@@ -72,7 +72,7 @@ export async function loadTensorfleetConfig(projectPath: string): Promise<any> {
     return mergedConfig;
   }
 
-  // Fallback to legacy VM configuration format
+  // Handle template-based configuration
   // Validate required template field
   if (!tensorfleetConfig.template) {
     throw new Error(`Config file at ${tensorfleetPath} is missing required 'template' field`);

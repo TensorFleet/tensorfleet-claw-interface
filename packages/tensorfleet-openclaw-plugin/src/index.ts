@@ -18,7 +18,7 @@ export default function (api: ToolAPI) {
     description: "Read from the parameters of a tensorfleet entity",
     parameters: entityReadSchema,
     async execute(_id: string, params: any) {
-      return executeEntityRead(params);
+      return await executeEntityRead(_id, params);
     },
   });
 
@@ -27,7 +27,7 @@ export default function (api: ToolAPI) {
     description: "Read from the parameters of an ros node",
     parameters: rosNodeReadSchema,
     async execute(_id: string, params: any) {
-      return executeRosNodeRead(params);
+      return await executeRosNodeRead(_id, params);
     },
   });
 
@@ -36,7 +36,7 @@ export default function (api: ToolAPI) {
     description: "Subscribe to an ros topic and wait for a publication on the topic",
     parameters: rosTopicReadSchema,
     async execute(_id: string, params: any) {
-      return executeRosTopicRead(params);
+      return await executeRosTopicRead(_id, params);
     },
   });
 
@@ -45,7 +45,7 @@ export default function (api: ToolAPI) {
     description: "Send a request and receive a response",
     parameters: rosServiceReadSchema,
     async execute(_id: string, params: any) {
-      return executeRosServiceRead(params);
+      return await executeRosServiceRead(_id, params);
     },
   });
 }

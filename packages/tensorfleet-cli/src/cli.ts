@@ -17,7 +17,7 @@ program
   .argument('<path>', 'Path to the tensorfleet project directory containing .tensorfleet and .env files')
   .action(async (path) => {
     try {
-      await executeRosConnect({ 'tensorfleet-project-path': path });
+      await executeRosConnect("ros-connect", { 'tensorfleet-project-path': path });
       console.log('ROS connection test completed successfully');
     } catch (error) {
       console.error('ROS connection test failed:', error instanceof Error ? error.message : String(error));
