@@ -5,14 +5,6 @@ let dom: JSDOM | null = null;
 const previousGlobals = new Map<string, unknown>();
 const ABSENT = Symbol("absent");
 
-const NODE_TIMER_KEYS = [
-  "setTimeout",
-  "clearTimeout",
-  "setInterval",
-  "clearInterval",
-  "queueMicrotask",
-] as const;
-
 const WINDOW_GLOBAL_KEYS = [
   "window",
   "self",
@@ -141,36 +133,6 @@ function restoreGlobals(): void {
   previousGlobals.clear();
 }
 
-function pickBaseUrl(config: any): string {
-  const env = config?.env ?? {};
-  const candidates = [
-    env.TENSORFLEET_BASE_URL,
-    env.BASE_URL,
-    env.APP_URL,
-    env.PUBLIC_URL,
-    env.VITE_APP_URL,
-    env.VITE_BASE_URL,
-    env.NEXT_PUBLIC_APP_URL,
-  ];
-
-  for (const candidate of candidates) {
-    if (typeof candidate !== "string" || candidate.trim() === "") continue;
-    try {
-      return new URL(candidate).toString();
-    } catch {}
-  }
-
-  return "http://localhost/";
-}
-
-function extractProxyConfig(config: any): Record<string, unknown> {
-  const proxyConfig: Record<string, unknown> = {};
-  if (config?.env && typeof config.env === "object") {
-    Object.assign(proxyConfig, config.env);
-  }
-  return proxyConfig;
-}
-
 function installNodeWebApis(window: DOMWindow): void {
   const nodeGlobals = globalThis as any;
   const target = window as any;
@@ -290,15 +252,13 @@ function installWindowGlobals(window: DOMWindow): void {
 }
 
 function applyProxyConfig(window: DOMWindow, config: any): void {
-  const proxyConfig = extractProxyConfig(config);
-  Object.assign(window as any, proxyConfig);
+  Object.assign(window as any, config.env);
   (window as any).__TENSORFLEET_CONFIG__ = config;
-  (window as any).__TENSORFLEET_ENV__ = proxyConfig;
+  (window as any).__TENSORFLEET_ENV__ = config.env;
 }
 
-function createDom(config: any): JSDOM {
+function createDom(): JSDOM {
   return new JSDOM("<!doctype html><html><head></head><body></body></html>", {
-    url: pickBaseUrl(config),
     pretendToBeVisual: true,
     runScripts: "outside-only",
     resources: "usable",
@@ -309,7 +269,7 @@ function createDom(config: any): JSDOM {
 export function setupWindowMock(config: any): void {
   clearWindowMock();
 
-  dom = createDom(config);
+  dom = createDom();
 
   const window = dom.window;
   installNodeWebApis(window);
