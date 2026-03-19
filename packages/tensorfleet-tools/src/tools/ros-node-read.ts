@@ -1,16 +1,21 @@
 import { Type } from "@sinclair/typebox";
 import { TensorfleetTelemetryRosNodeRead } from "../schema-types/tensorfleet-telemetry.ros-node.read.input";
-import { rosConnectTool } from "./ros-connect";
+import { rosConnect } from "./ros-connect";
 
-export function rosNodeReadTool(_id: string, params: TensorfleetTelemetryRosNodeRead) {
+export async function rosNodeReadTool(_id: string, params: TensorfleetTelemetryRosNodeRead) {
   // First, establish ROS connection using ros-connect tool
-  rosConnectTool(_id, params);
+  const releaseLock = await rosConnect(_id, params);
   
-  // For now, just return the input back to the user
-  return { 
-    content: [{ 
-      type: "text", 
-      text: JSON.stringify(params, null, 2) || ""
-    }] 
-  };
+  try {
+    // For now, just return the input back to the user
+    return { 
+      content: [{ 
+        type: "text", 
+        text: JSON.stringify(params, null, 2) || ""
+      }] 
+    };
+  } finally {
+    // Release the lock when we're done
+    releaseLock();
+  }
 }

@@ -335,6 +335,18 @@ export function clearWindowMock(): void {
   }
 }
 
+export function clearROS2BridgeConnection(): void {
+  try {
+    const { ros2Bridge } = require("tensorfleet-ros");
+    if (ros2Bridge && typeof ros2Bridge.disconnect === "function") {
+      ros2Bridge.disconnect();
+      console.log("[WindowMock] ROS2Bridge connection cleared");
+    }
+  } catch (error) {
+    console.warn("[WindowMock] Failed to clear ROS2Bridge connection:", error);
+  }
+}
+
 export function getCurrentProxyConfig(): any {
   return (globalThis as any).window ?? null;
 }
