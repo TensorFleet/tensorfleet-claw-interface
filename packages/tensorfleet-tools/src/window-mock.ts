@@ -112,8 +112,18 @@ function savePreviousGlobal(name: string, target: any): void {
 
 function setGlobal(name: string, value: unknown): void {
   const target = globalThis as any;
+
   savePreviousGlobal(name, target);
-  target[name] = value;
+
+  try {
+    target[name] = value;
+  } catch {
+    Object.defineProperty(target, name, {
+      value,
+      configurable: true,
+      writable: true,
+    });
+  }
 }
 
 function deleteOrRestoreGlobals(): void {

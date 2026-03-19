@@ -1,13 +1,130 @@
 import { defineConfig } from "tsup";
-import path from "path";
+import fs from "node:fs";
+import path from "node:path";
+import { builtinModules } from "node:module";
 
 const rootDir = __dirname;
 const packagesDir = path.resolve(rootDir, "./packages");
 const typesDir = path.resolve(rootDir, "./packages/@types");
-const tensorfleetUtilDir = path.resolve(
-  rootDir,
-  "./packages/tensorfleet-util/src"
-);
+const tensorfleetUtilDir = path.resolve(rootDir, "./packages/tensorfleet-util/src");
+
+const nodeBuiltins = [
+  ...builtinModules,
+  ...builtinModules.map((mod) => `node:${mod}`),
+];
+
+function resolveExisting(basePath: string): string {
+  const candidates = [
+    basePath,
+    `${basePath}.ts`,
+    `${basePath}.tsx`,
+    `${basePath}.mts`,
+    `${basePath}.cts`,
+    `${basePath}.js`,
+    `${basePath}.jsx`,
+    `${basePath}.mjs`,
+    `${basePath}.cjs`,
+    path.join(basePath, "index.ts"),
+    path.join(basePath, "index.tsx"),
+    path.join(basePath, "index.mts"),
+    path.join(basePath, "index.cts"),
+    path.join(basePath, "index.js"),
+    path.join(basePath, "index.jsx"),
+    path.join(basePath, "index.mjs"),
+    path.join(basePath, "index.cjs"),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return basePath;
+}
+
+function resolvePackageEntry(baseDir: string, subpath?: string): string {
+  if (!subpath || subpath === "") {
+    return resolveExisting(path.join(baseDir, "index"));
+  }
+
+  return resolveExisting(path.resolve(baseDir, `.${subpath}`));
+}
+
+function viteLikeAliasPlugin() {
+  return {
+    name: "vite-like-alias",
+    setup(build: any) {
+      build.onResolve({ filter: /^@\// }, (args: any) => {
+        return {
+          path: resolveExisting(path.resolve(rootDir, "src", args.path.slice(2))),
+        };
+      });
+
+      build.onResolve({ filter: /^tensorfleet-util(\/.*)?$/ }, (args: any) => {
+        const match = args.path.match(/^tensorfleet-util(\/.*)?$/);
+        const subpath = match?.[1] ?? "";
+        return {
+          path: resolvePackageEntry(tensorfleetUtilDir, subpath),
+        };
+      });
+
+      build.onResolve(
+        {
+          filter:
+            /^@lichtblick\/(suite-base|log|suite|hooks|mcap-support|theme|message-path|typescript-transformers|comlink-transfer-handlers)(\/.*)?$/,
+        },
+        (args: any) => {
+          const match = args.path.match(
+            /^@lichtblick\/(suite-base|log|suite|hooks|mcap-support|theme|message-path|typescript-transformers|comlink-transfer-handlers)(\/.*)?$/,
+          );
+
+          if (!match) {
+            return null;
+          }
+
+          const [, pkg, subpath = ""] = match;
+
+          return {
+            path: resolvePackageEntry(path.resolve(packagesDir, pkg, "src"), subpath),
+          };
+        },
+      );
+
+      build.onResolve({ filter: /^@lichtblick\/den(\/.*)?$/ }, (args: any) => {
+        const match = args.path.match(/^@lichtblick\/den(\/.*)?$/);
+        const subpath = match?.[1] ?? "";
+
+        return {
+          path: resolvePackageEntry(path.resolve(packagesDir, "den"), subpath),
+        };
+      });
+
+      build.onResolve({ filter: /^@types\/([^/]+)(\/.*)?$/ }, (args: any) => {
+        const match = args.path.match(/^@types\/([^/]+)(\/.*)?$/);
+
+        if (!match) {
+          return null;
+        }
+
+        const [, pkg, subpath = ""] = match;
+
+        return {
+          path: resolvePackageEntry(path.resolve(typesDir, pkg), subpath),
+        };
+      });
+
+      build.onResolve({ filter: /^gzweb(\/.*)?$/ }, (args: any) => {
+        const match = args.path.match(/^gzweb(\/.*)?$/);
+        const subpath = match?.[1] ?? "";
+
+        return {
+          path: resolvePackageEntry(path.resolve(packagesDir, "gzweb", "src"), subpath),
+        };
+      });
+    },
+  };
+}
 
 export default defineConfig({
   entry: ["src/index.ts"],
@@ -19,116 +136,40 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   target: "esnext",
-  splitting: false,
-  bundle: true,
   platform: "node",
+  bundle: true,
+  splitting: false,
 
   define: {
     global: "globalThis",
-    __filename: `"node"`,
-    __dirname: `"/"`,
+    __filename: JSON.stringify("browser"),
+    __dirname: JSON.stringify("/"),
     ReactNull: "null",
   },
 
-  external: [
-    // node builtins
-    "fs",
-    "path",
-    "os",
-    "util",
-    "events",
-    "stream",
-    "buffer",
-    "crypto",
-    "url",
-    "querystring",
-    "assert",
-    "child_process",
-    "cluster",
-    "dgram",
-    "dns",
-    "domain",
-    "http",
-    "https",
-    "net",
-    "punycode",
-    "readline",
-    "repl",
-    "string_decoder",
-    "sys",
-    "timers",
-    "tls",
-    "tty",
-    "vm",
-    "zlib",
-    "worker_threads",
-    "inspector",
-    "v8",
-    "perf_hooks",
-    "async_hooks",
-    "http2",
+  loader: {
+    ".wasm": "file",
+  },
 
-    // IMPORTANT: keep these external
-    "jsdom",
-    "ws",
+  external: [
+    ...nodeBuiltins,
     "canvas",
     "bufferutil",
     "utf-8-validate",
+    "jsdom",
+    "ws",
   ],
 
-  esbuildPlugins: [
-    {
-      name: "alias",
-      setup(build) {
-        // tensorfleet-util alias
-        build.onResolve({ filter: /^tensorfleet-util(\/.*)?$/ }, (args) => ({
-          path: path.resolve(
-            tensorfleetUtilDir,
-            args.path.replace(/^tensorfleet-util/, "")
-          ),
-        }));
-
-        // lichtblick packages
-        build.onResolve(
-          {
-            filter:
-              /^@lichtblick\/(suite-base|log|suite|hooks|mcap-support|theme|message-path|typescript-transformers|comlink-transfer-handlers)(\/.*)?$/,
-          },
-          (args) => ({
-            path: path.resolve(
-              packagesDir,
-              args.path
-                .replace(/^@lichtblick\//, "")
-                .replace(/(\/.*)?$/, "/src$1")
-            ),
-          })
-        );
-
-        // den special case
-        build.onResolve({ filter: /^@lichtblick\/den(\/.*)?$/ }, (args) => ({
-          path: path.resolve(
-            packagesDir,
-            args.path.replace(/^@lichtblick\/den/, "den")
-          ),
-        }));
-
-        // @types alias
-        build.onResolve({ filter: /^@types\/([^/]+)/ }, (args) => ({
-          path: path.resolve(
-            typesDir,
-            args.path.replace(/^@types\//, "")
-          ),
-        }));
-
-        // gzweb alias
-        build.onResolve({ filter: /^gzweb(\/.*)?$/ }, (args) => ({
-          path: path.resolve(
-            packagesDir,
-            "gzweb/src",
-            args.path.replace(/^gzweb/, "")
-          ),
-        }));
-      },
-    },
+  noExternal: [
+    /^tensorfleet-/,
+    /^@lichtblick\//,
   ],
+
+  outExtension({ format }) {
+    return {
+      js: format === "esm" ? ".mjs" : ".js",
+    };
+  },
+
+  esbuildPlugins: [viteLikeAliasPlugin()],
 });

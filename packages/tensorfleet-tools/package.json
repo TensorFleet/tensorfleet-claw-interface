@@ -11,9 +11,10 @@
   ],
   "scripts": {
     "dev": "tsup --watch",
+    "watch": "tsup --watch",
     "build": "bun run generate:schema-types && tsup",
-    "start": "node dist/index.js",
     "generate:schema-types": "node scripts/generate-schema-types.cjs",
+    "start": "node dist/index.js",
     "build:workspace": "bun run build --filter=packages/*",
     "build:packages": "bun run build:workspace",
     "build:all": "bun run build && bun run build:packages"
