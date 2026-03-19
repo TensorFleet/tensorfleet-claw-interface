@@ -133,6 +133,10 @@ function restoreGlobals(): void {
   previousGlobals.clear();
 }
 
+function extractProxyConfig(config: any): Record<string, unknown> {
+  return (config?.env ?? {}) as Record<string, unknown>;
+}
+
 function installNodeWebApis(window: DOMWindow): void {
   const nodeGlobals = globalThis as any;
   const target = window as any;
@@ -240,7 +244,13 @@ function installWindowGlobals(window: DOMWindow): void {
   for (const key of WINDOW_GLOBAL_KEYS) {
     if (!(key in source)) continue;
 
-    const value = source[key];
+    let value: any;
+    try {
+      value = source[key];
+    } catch {
+      continue;
+    }
+
     if (typeof value === "undefined") continue;
 
     if (BOUND_FUNCTION_KEYS.has(key) && typeof value === "function") {
@@ -252,13 +262,34 @@ function installWindowGlobals(window: DOMWindow): void {
 }
 
 function applyProxyConfig(window: DOMWindow, config: any): void {
-  Object.assign(window as any, config.env);
-  (window as any).__TENSORFLEET_CONFIG__ = config;
-  (window as any).__TENSORFLEET_ENV__ = config.env;
+  const env = extractProxyConfig(config);
+  const target = window as any;
+
+  Object.assign(target, env);
+
+  if (env.proxyUrl != null) {
+    target.TENSORFLEET_PROXY_URL = env.proxyUrl;
+  }
+
+  if (env.vmManagerUrl != null) {
+    target.TENSORFLEET_VM_MANAGER_URL = env.vmManagerUrl;
+  }
+
+  if (env.nodeId != null) {
+    target.TENSORFLEET_NODE_ID = env.nodeId;
+  }
+
+  if (env.token != null) {
+    target.TENSORFLEET_JWT = env.token;
+  }
+
+  target.__TENSORFLEET_CONFIG__ = config;
+  target.__TENSORFLEET_ENV__ = env;
 }
 
 function createDom(): JSDOM {
   return new JSDOM("<!doctype html><html><head></head><body></body></html>", {
+    url: "http://localhost/",
     pretendToBeVisual: true,
     runScripts: "outside-only",
     resources: "usable",
@@ -281,8 +312,16 @@ export function setupWindowMockForROS2Bridge(config: any): boolean {
   try {
     setupWindowMock(config);
     return true;
-  } catch (error) {
-    console.error("[WindowMock] ROS2Bridge setup failed:", error);
+  } catch (error: any) {
+    if (error instanceof DOMException) {
+      console.error("[WindowMock] ROS2Bridge setup failed:", {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      });
+    } else {
+      console.error("[WindowMock] ROS2Bridge setup failed:", error);
+    }
     return false;
   }
 }
