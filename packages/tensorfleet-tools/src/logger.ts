@@ -17,7 +17,9 @@ class Logger {
 
   setLevel(level: LogLevel): void {
     this.level = level;
+    console.log("asd");
   }
+
 
   private formatMessage(level: string, message: string, ...args: any[]): string {
     const timestamp = new Date().toISOString();

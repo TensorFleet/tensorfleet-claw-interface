@@ -1,30 +1,27 @@
 import { defineConfig } from "tsup";
-import { resolve } from "path";
-
-const rootDir = __dirname;
-const packagesDir = resolve(rootDir, "./packages");
-const typesDir = resolve(rootDir, "./packages/@types");
 
 export default defineConfig({
-  entry: ["src/index.ts"],
+  entry: ["src/extension.ts"],
   format: ["esm", "cjs"],
-  dts: true,
+  dts: false,
+  sourcemap: true,
   clean: true,
+  splitting: false,
+  treeshake: true,
   target: "esnext",
-  outDir: "dist",
-
+  platform: "browser",
   external: [
-    "fs","path","os","util","events","stream","buffer","crypto","url",
-    "querystring","assert","child_process","cluster","dgram","dns","domain",
-    "http","https","net","punycode","readline","repl","string_decoder","sys",
-    "timers","tls","tty","vm","zlib","worker_threads","inspector","v8",
-    "perf_hooks","async_hooks","http2",
-  ],
-
-  esbuildOptions(options) {
-    options.alias = {
-      "@": resolve(rootDir, "./src"),
-      "@types": typesDir,
-    };
-  },
+    "tensorfleet-tools",
+    "jsdom",
+    "undici",
+    "ws",
+    "node:fs",
+    "node:path",
+    "node:zlib",
+    "node:worker_threads",
+    "node:stream",
+    "node:http",
+    "node:https",
+    "node:crypto"
+  ]
 });

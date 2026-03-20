@@ -3,21 +3,12 @@
   "version": "1.0.0",
   "description": "Empty TypeScript Node.js project",
   "main": "dist/index.js",
-  "workspaces": [
-    "packages/*",
-    "../packages/*",
-    "../tensorfleet-tools/packages/*",
-    "../tensorfleet-tools/packages/@types/*"
-  ],
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "dev": "vite",
-    "watch": "vite build --watch",
-    "build": "vite build",
-    "preview": "vite preview",
-    "start": "node dist/index.js",
-    "build:workspace": "bun run build --filter=packages/*",
-    "build:packages": "bun run build:workspace",
-    "build:all": "bun run build && bun run build:packages"
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "watch": "tsup src/index.ts --format esm,cjs --dts --watch --clean",
+    "start": "bun dist/index.js"
   },
   "keywords": [
     "typescript",

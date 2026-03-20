@@ -7,15 +7,11 @@
   "bin": {
     "tensorfleet": "dist/cli.js"
   },
-  "workspaces": [
-    "../*",
-    "../tensorfleet-tools/packages/*",
-    "../tensorfleet-tools/packages/@types/*"
-  ],
   "scripts": {
-    "build": "tsc && tsup",
-    "dev": "tsc --watch",
-    "start": "node dist/cli.js"
+    "build": "tsup src/cli.ts src/index.ts --format esm,cjs --dts --clean",
+    "watch": "tsup src/cli.ts src/index.ts --format esm,cjs --dts --watch --clean",
+    "start": "bun dist/cli.js",
+    "run": "bun dist/cli.js"
   },
   "keywords": [
     "cli",
@@ -25,7 +21,8 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "tsup": "^8.5.1"
   },
   "dependencies": {
     "commander": "^11.0.0",
