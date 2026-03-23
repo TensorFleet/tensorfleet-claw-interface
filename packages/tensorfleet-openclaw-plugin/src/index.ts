@@ -41,6 +41,7 @@ export default function (api: ToolAPI) {
     },
   });
 
+  
   api.registerTool({
     name: "tensorfleet-telemetry-ros-service-read",
     description: "Send a request and receive a response",
