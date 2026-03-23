@@ -22,7 +22,9 @@
     "nodejs"
   ],
   "author": "",
-  "dependencies": {},
+  "dependencies": {
+    "@types/bun": "^1.3.11"
+  },
   "openclaw": {
     "extensions": [
       "./dist/index.js"
