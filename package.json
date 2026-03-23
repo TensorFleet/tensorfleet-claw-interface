@@ -1,7 +1,7 @@
 {
   "name": "tensorfleet-claw-interface",
   "version": "1.0.0",
-  "description": "Empty TypeScript Node.js project",
+  "description": "Tensorfleet tools and openclaw packages",
   "main": "dist/index.js",
   "private": true,
   "workspaces": [
