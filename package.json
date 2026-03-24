@@ -12,7 +12,7 @@
   ],
   "scripts": {
     "build": "turbo run tensorfleet-tools#build tensorfleet-cli#build tensorfleet-openclaw-plugin#build --concurrency=1 --no-cache",
-    "watch": "turbo watch tensorfleet-util#build tensorfleet-ros#build tensorfleet-tools#build tensorfleet-cli#build tensorfleet-openclaw-plugin#build --concurrency=1",
+    "watch": "turbo watch tensorfleet-util#build tensorfleet-tools#build tensorfleet-cli#build tensorfleet-openclaw-plugin#build --concurrency=1",
     "cli": "cd packages/tensorfleet-cli && bun dist/cli.js"
   },
   "keywords": [

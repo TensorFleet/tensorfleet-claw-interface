@@ -10,7 +10,9 @@
         "dist/**"
       ],
       "inputs": [
-        "src/**"
+        "src/**",
+        "packages/tensorfleet-tools/packages/**",
+        "packages/tensorfleet-tools/packages/@types/**"
       ]
     },
     "tensorfleet-cli#build": {
