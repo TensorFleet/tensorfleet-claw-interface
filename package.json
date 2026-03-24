@@ -2,7 +2,7 @@
   "name": "tensorfleet-claw-interface",
   "version": "1.0.0",
   "description": "Tensorfleet tools and openclaw packages",
-  "main": "dist/index.js",
+  "main": "packages/tensorfleet-openclaw-plugin/dist/index.js",
   "private": true,
   "packageManager": "bun@1.1.0",
   "workspaces": [
@@ -11,8 +11,8 @@
     "packages/tensorfleet-tools/packages/@types/*"
   ],
   "scripts": {
-    "build": "turbo run --concurrency=1 --no-cache tensorfleet-tools#build tensorfleet-cli#build tensorfleet-openclaw-plugin#build",
-    "watch": "turbo watch --concurrency=1 tensorfleet-tools#build tensorfleet-cli#build tensorfleet-openclaw-plugin#build",
+    "build": "turbo run tensorfleet-tools#build tensorfleet-cli#build tensorfleet-openclaw-plugin#build --concurrency=1 --no-cache",
+    "watch": "turbo watch tensorfleet-util#build tensorfleet-ros#build tensorfleet-tools#build tensorfleet-cli#build tensorfleet-openclaw-plugin#build --concurrency=1",
     "cli": "cd packages/tensorfleet-cli && bun dist/cli.js"
   },
   "keywords": [
@@ -25,7 +25,7 @@
   },
   "openclaw": {
     "extensions": [
-      "./dist/index.js"
+      "./packages/tensorfleet-openclaw-plugin/dist/index.js"
     ]
   },
   "devDependencies": {
@@ -33,6 +33,7 @@
     "@foxglove/wasm-lz4": "^1.0.2",
     "@foxglove/wasm-zstd": "^1.0.1",
     "@rollup/plugin-url": "^8.0.2",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.0.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
