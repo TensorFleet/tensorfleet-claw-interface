@@ -4,6 +4,7 @@
   "description": "Tensorfleet tools and openclaw packages",
   "main": "dist/index.js",
   "private": true,
+  "packageManager": "bun@1.1.0",
   "workspaces": [
     "packages/*",
     "packages/tensorfleet-tools/packages/*",
@@ -11,7 +12,7 @@
   ],
   "scripts": {
     "build": "turbo run tensorfleet-tools#build tensorfleet-cli#build tensorfleet-openclaw-plugin#build --concurrency=1 --no-cache",
-    "watch": "turbo watch tensorfleet-tools#build tensorfleet-cli#build tensorfleet-openclaw-plugin#build --concurrency=1 --no-cache",
+    "watch": "turbo watch tensorfleet-tools#build tensorfleet-cli#build tensorfleet-openclaw-plugin#build --concurrency=1 -- --no-cache",
     "cli": "cd packages/tensorfleet-cli && bun dist/cli.js"
   },
   "keywords": [

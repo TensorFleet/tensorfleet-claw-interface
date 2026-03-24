@@ -1,19 +1,145 @@
 import { Type } from "@sinclair/typebox";
 import { TensorfleetTelemetryRosTopicRead } from "../schema-types/tensorfleet-telemetry.ros-topic.read.input";
 import { rosConnect } from "./ros-connect";
+import { logger } from "../logger";
+import { ros2Bridge } from "tensorfleet-ros";
+
+interface TopicInfo {
+  topic: string;
+  type: string;
+}
 
 export async function rosTopicReadTool(_id: string, params: TensorfleetTelemetryRosTopicRead) {
   // First, establish ROS connection using ros-connect tool
   const releaseLock = await rosConnect(_id, params);
   
   try {
-    // For now, just return the input back to the user
-    return { 
-      content: [{ 
-        type: "text", 
-        text: JSON.stringify(params, null, 2) || ""
-      }] 
+    const { topic_id, parameters, return_type = "JSON" } = params;
+    
+    // Validate required parameters
+    if (!topic_id) {
+      throw new Error("topic_id is required");
+    }
+    
+    if (!parameters || parameters.length === 0) {
+      throw new Error("parameters array is required and cannot be empty");
+    }
+
+    // Handle the --list case to list available topics
+    if (topic_id === "--list") {
+      logger.info('ROS topic read: listing available topics');
+      
+      const availableTopics = ros2Bridge.getAvailableTopics();
+      const topicList = availableTopics.map((t: TopicInfo) => ({
+        topic: t.topic,
+        type: t.type
+      }));
+      
+      const responseText = JSON.stringify({
+        available_topics: topicList,
+        total_count: topicList.length
+      }, null, 2);
+      
+      logger.info(`ROS topic list completed: ${topicList.length} topics found`);
+      
+    return {
+      content: [{
+        type: "text",
+        text: responseText || ""
+      }]
     };
+    }
+
+    logger.info(`ROS topic read: subscribing to topic ${topic_id} with parameters: ${parameters.join(', ')}`);
+
+    // Check if topic is available
+    const availableTopics = ros2Bridge.getAvailableTopics();
+    const topicExists = availableTopics.some((t: TopicInfo) => t.topic === topic_id);
+    
+    if (!topicExists) {
+      // List available topics for debugging
+      const topicList = availableTopics.map((t: TopicInfo) => t.topic).join(', ');
+      throw new Error(`Topic "${topic_id}" not found. Available topics: ${topicList}`);
+    }
+
+    // Wait for one message from the topic
+    const messagePromise = new Promise<any>((resolve, reject) => {
+      let timeoutId: number;
+      
+      const cleanup = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        unsubscribe();
+      };
+
+      const unsubscribe = ros2Bridge.subscribe(
+        { topic: topic_id, type: ros2Bridge.getTopicType(topic_id) ?? "unknown" },
+        (message: any) => {
+          cleanup();
+          resolve(message);
+        }
+      );
+
+      // Set timeout for waiting for message (30 seconds)
+      timeoutId = window.setTimeout(() => {
+        cleanup();
+        reject(new Error(`Timeout waiting for message on topic "${topic_id}" after 30 seconds`));
+      }, 30000);
+    });
+
+    const message = await messagePromise;
+    
+    logger.info(`Received message from topic ${topic_id}:`, message);
+
+    // Extract requested parameters from the message
+    let result: any = {};
+    
+    for (const param of parameters) {
+      if (param === "--list") {
+        // Return all available parameters in the message
+        result = message;
+        break;
+      }
+      
+      // Navigate through nested properties using dot notation
+      let value = message;
+      const path = param.split('.');
+      
+      for (const key of path) {
+        if (value && typeof value === 'object' && key in value) {
+          value = value[key];
+        } else {
+          value = null;
+          break;
+        }
+      }
+      
+      result[param] = value;
+    }
+
+    // Format the response based on return_type
+    let responseText: string;
+    
+    if (return_type === "JSON") {
+      responseText = JSON.stringify(result, null, 2);
+    } else {
+      // For other return types, convert to string representation
+      responseText = String(result);
+    }
+
+    logger.info(`ROS topic read completed for topic ${topic_id}`);
+    
+    return {
+      content: [{
+        type: "text",
+        text: responseText || ""
+      }]
+    };
+
+  } catch (error) {
+    logger.error('ROS topic read failed:', error);
+    throw error;
   } finally {
     // Release the lock when we're done
     releaseLock();
