@@ -11,8 +11,8 @@
     "packages/tensorfleet-tools/packages/@types/*"
   ],
   "scripts": {
-    "build": "turbo run tensorfleet-tools#build tensorfleet-cli#build tensorfleet-openclaw-plugin#build --concurrency=1 --no-cache",
-    "watch": "turbo watch tensorfleet-tools#build tensorfleet-cli#build tensorfleet-openclaw-plugin#build --concurrency=1 -- --no-cache",
+    "build": "turbo run --concurrency=1 --no-cache tensorfleet-tools#build tensorfleet-cli#build tensorfleet-openclaw-plugin#build",
+    "watch": "turbo watch --concurrency=1 tensorfleet-tools#build tensorfleet-cli#build tensorfleet-openclaw-plugin#build",
     "cli": "cd packages/tensorfleet-cli && bun dist/cli.js"
   },
   "keywords": [
