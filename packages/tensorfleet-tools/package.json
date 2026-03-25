@@ -9,6 +9,7 @@
     "watch": "sh -c 'cd ../..; bun run --filter tensorfleet-util build || true; bun run --filter tensorfleet-ros build || true; cd packages/tensorfleet-tools; bun run generate:schema-types || true; tsup --watch || true; exit 0'",
     "build": "sh -c 'cd ../..; bun run --filter tensorfleet-util build || true; bun run --filter tensorfleet-ros build || true; cd packages/tensorfleet-tools; bun run generate:schema-types || true; tsup || true; exit 0'",
     "generate:schema-types": "node scripts/generate-schema-types.cjs",
+    "codegen": "bun run generate:schema-types",
     "start": "bun dist/index.js"
   },
   "keywords": [
