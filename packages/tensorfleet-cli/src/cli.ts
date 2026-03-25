@@ -12,7 +12,6 @@ program
   .description("TensorFleet CLI tool")
   .version(version);
 
-// Global option that applies to all commands
 program.option(
   "-p, --project-path <path>",
   "Tensorfleet project directory path (required for all commands)"
@@ -53,12 +52,10 @@ program
     "<topic-id>",
     'ROS global topic path to read from. Use "--list" to list available topics'
   )
-  .argument("<parameters...>", "List of parameters to read from the topic")
+  .argument("[parameters...]", "List of parameters to read from the topic")
   .option("-r, --return-type <type>", "Return type for the response (JSON)", "JSON")
-  .action(async (topicId, parameters, command) => {
+  .action(async (topicId: string, parameters: string[] = [], options: any) => {
     const globalOptions = program.opts();
-    const options = command.opts();
-
     const projectPath = globalOptions.projectPath;
 
     if (!projectPath) {

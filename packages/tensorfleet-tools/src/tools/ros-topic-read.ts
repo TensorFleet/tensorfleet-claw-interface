@@ -20,13 +20,10 @@ export async function rosTopicReadTool(_id: string, params: TensorfleetTelemetry
     if (!topic_id) {
       throw new Error("topic_id is required");
     }
-    
-    if (!parameters || parameters.length === 0) {
-      throw new Error("parameters array is required and cannot be empty");
-    }
 
     // Handle the --list case to list available topics
     if (topic_id === "--list") {
+      // For --list, parameters are not required
       logger.info('ROS topic read: listing available topics');
       
       const availableTopics = ros2Bridge.getAvailableTopics();
@@ -42,12 +39,17 @@ export async function rosTopicReadTool(_id: string, params: TensorfleetTelemetry
       
       logger.info(`ROS topic list completed: ${topicList.length} topics found`);
       
-    return {
-      content: [{
-        type: "text",
-        text: responseText || ""
-      }]
-    };
+      return {
+        content: [{
+          type: "text",
+          text: responseText || ""
+        }]
+      };
+    }
+
+    // For non --list cases, validate that parameters are provided
+    if (!parameters || parameters.length === 0) {
+      throw new Error("parameters array is required and cannot be empty");
     }
 
     logger.info(`ROS topic read: subscribing to topic ${topic_id} with parameters: ${parameters.join(', ')}`);
