@@ -1,4 +1,4 @@
-import { executeEntityRead, executeRosNodeRead, executeRosTopicRead, executeRosServiceRead, logger } from "tensorfleet-tools";
+import { executeEntityRead, executeRosNodeRead, executeRosTopicRead, executeRosServiceRead } from "tensorfleet-tools";
 
 // Import schema definitions from tensorfleet-tools
 import { entityReadSchema, rosNodeReadSchema, rosTopicReadSchema, rosServiceReadSchema } from "tensorfleet-tools";

@@ -1,10 +1,6 @@
-import { Type } from "@sinclair/typebox";
 import { loadTensorfleetConfig } from "../config-loader";
 import { setupWindowMock, clearROS2BridgeConnection } from "../window-mock";
 import { logger } from "../logger";
-import { ToolAPI } from "../tool-api";
-import { loadSchema } from "../schema-loader";
-import { ROS2Bridge } from "tensorfleet-ros";
 // Simple mutex implementation to prevent parallel ROS connections
 class SimpleMutex {
   private locked = false;
