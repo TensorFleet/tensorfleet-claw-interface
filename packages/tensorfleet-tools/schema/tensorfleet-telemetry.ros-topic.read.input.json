@@ -1,0 +1,46 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "topic_id": { 
+            "type": "string",
+            "description": "ROS global topic path to read from. Use `\"--list\"` to list the available ROS topics"
+        },
+        "parameters": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "A list of parameters to read from the ROS node"
+        },
+        "return_type": {
+            "type": "string",
+            "default": "JSON",
+            "description": "The return type for the response, defaults to JSON"
+        },
+        "tensorfleet-project-path": {
+            "type": "string",
+            "description": "Tensorfleet project directory path. The directory should contain both .tensorfleet and .env files at its root"
+        }
+    },
+    "top_filter": {
+        "type": "object",
+        "description": "Top-level filter to apply to the query",
+        "properties": {
+            "field": {
+                "type": "string",
+                "description": "Field to filter on"
+            },
+            "operator": {
+                "type": "string",
+                "enum": ["eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "like", "regex"],
+                "description": "Operator to use for filtering"
+            },
+            "value": {
+                "type": "string",
+                "description": "Value to filter by"
+            }
+        },
+        "required": ["field", "operator", "value"],
+        "additionalProperties": false
+    },
+    "required": ["topic_id", "parameters", "tensorfleet-project-path"]
+}

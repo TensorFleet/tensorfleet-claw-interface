@@ -1,0 +1,42 @@
+{
+  "name": "tensorfleet-openclaw-plugin",
+  "version": "1.0.0",
+  "description": "Empty TypeScript Node.js project",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "watch": "tsup src/index.ts --format esm,cjs --dts --watch --clean",
+    "start": "bun dist/index.js"
+  },
+  "keywords": [
+    "typescript",
+    "nodejs"
+  ],
+  "author": "",
+  "dependencies": {
+    "tensorfleet-tools": "workspace:*"
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  },
+  "devDependencies": {
+    "@foxglove/wasm-bz2": "^0.1.1",
+    "@foxglove/wasm-lz4": "^1.0.2",
+    "@foxglove/wasm-zstd": "^1.0.1",
+    "@rollup/plugin-url": "^8.0.2",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/three": "^0.181.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "json-schema-to-typescript": "^15.0.4",
+    "ts-node": "^10.9.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.8.0",
+    "vite": "^5.4.2"
+  }
+}

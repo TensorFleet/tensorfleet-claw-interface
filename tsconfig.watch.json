@@ -1,0 +1,14 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "./packages/tensorfleet-tools/tsconfig.watch.json"
+    },
+    {
+      "path": "./packages/tensorfleet-openclaw-plugin/tsconfig.watch.json"
+    },
+    {
+      "path": "./packages/tensorfleet-cli/tsconfig.watch.json"
+    }
+  ]
+}

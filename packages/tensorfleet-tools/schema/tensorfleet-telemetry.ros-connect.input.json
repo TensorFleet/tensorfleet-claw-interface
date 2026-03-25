@@ -1,0 +1,11 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "tensorfleet-project-path": {
+            "type": "string",
+            "description": "Tensorfleet project directory path. The directory should contain both .tensorfleet and .env files at its root"
+        }
+    },
+    "required": ["tensorfleet-project-path"]
+}

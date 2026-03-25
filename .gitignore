@@ -50,6 +50,9 @@ web_modules/
 # Optional npm cache directory
 .npm
 
+# Optional bun cache directory
+.bun
+
 # Optional eslint cache
 .eslintcache
 
@@ -137,3 +140,7 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+
+
+.turbo/

@@ -1,0 +1,10 @@
+{
+  "extends": "@lichtblick/tsconfig/base",
+  "include": ["./src/**/*"],
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "sourceMap": true,
+    "lib": ["dom", "es2022"]
+  }
+}

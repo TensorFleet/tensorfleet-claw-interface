@@ -1,0 +1,29 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "futureFlags": {
+    "watchUsingTaskInputs": true
+  },
+  "tasks": {
+    "build": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "inputs": [
+        "src/**",
+        "packages/tensorfleet-tools/packages/**",
+        "packages/tensorfleet-tools/packages/@types/**"
+      ]
+    },
+    "tensorfleet-cli#build": {
+      "dependsOn": [
+        "tensorfleet-tools#build"
+      ]
+    },
+    "tensorfleet-openclaw-plugin#build": {
+      "dependsOn": [
+        "tensorfleet-tools#build"
+      ]
+    }
+  }
+}
