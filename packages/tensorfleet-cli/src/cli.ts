@@ -7,6 +7,16 @@ import { executeRosTopicRead } from "tensorfleet-tools";
 
 const program = new Command();
 
+function exitCli(code: number): never {
+  try {
+    process.stdin.pause();
+    process.stdin.unref?.();
+    process.stdout.end?.();
+    process.stderr.end?.();
+  } catch {}
+  process.exit(code);
+}
+
 program
   .name("tensorfleet")
   .description("TensorFleet CLI tool")
@@ -28,7 +38,7 @@ program
 
     if (!projectPath) {
       console.error("Error: --project-path option is required");
-      process.exit(1);
+      exitCli(1);
     }
 
     try {
@@ -36,12 +46,13 @@ program
         "tensorfleet-project-path": projectPath,
       });
       console.log("ROS connection test completed successfully");
+      exitCli(0);
     } catch (error) {
       console.error(
         "ROS connection test failed:",
         error instanceof Error ? error.message : String(error)
       );
-      process.exit(1);
+      exitCli(1);
     }
   });
 
@@ -60,13 +71,13 @@ program
 
     if (!projectPath) {
       console.error("Error: --project-path option is required");
-      process.exit(1);
+      exitCli(1);
     }
 
     try {
       const params = {
         topic_id: topicId,
-        parameters: parameters,
+        parameters,
         return_type: options.returnType,
         "tensorfleet-project-path": projectPath,
       };
@@ -78,13 +89,18 @@ program
       } else {
         console.log("No data received");
       }
+
+      exitCli(0);
     } catch (error) {
       console.error(
         "ROS topic read failed:",
         error instanceof Error ? error.message : String(error)
       );
-      process.exit(1);
+      exitCli(1);
     }
   });
 
-program.parse(process.argv);
+program.parseAsync(process.argv).catch((error) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  exitCli(1);
+});

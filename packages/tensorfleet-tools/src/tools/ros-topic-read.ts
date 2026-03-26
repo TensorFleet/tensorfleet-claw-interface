@@ -24,20 +24,21 @@ export async function rosTopicReadTool(_id: string, params: TensorfleetTelemetry
     // Handle the --list case to list available topics
     if (topic_id === "--list") {
       // For --list, parameters are not required
-      logger.info('ROS topic read: listing available topics');
+      logger.debug('ROS topic read: listing available topics');
       
       const availableTopics = ros2Bridge.getAvailableTopics();
-      const topicList = availableTopics.map((t: TopicInfo) => ({
-        topic: t.topic,
-        type: t.type
-      }));
+      const topicTypeMap: Record<string, string> = {};
+      
+      for (const topic of availableTopics) {
+        topicTypeMap[topic.topic] = topic.type;
+      }
       
       const responseText = JSON.stringify({
-        available_topics: topicList,
-        total_count: topicList.length
+        topic_type_map: topicTypeMap,
+        total_count: Object.keys(topicTypeMap).length
       }, null, 2);
       
-      logger.info(`ROS topic list completed: ${topicList.length} topics found`);
+      logger.debug(`ROS topic list completed: ${Object.keys(topicTypeMap).length} topics found`);
       
       return {
         content: [{
@@ -52,7 +53,7 @@ export async function rosTopicReadTool(_id: string, params: TensorfleetTelemetry
       throw new Error("parameters array is required and cannot be empty");
     }
 
-    logger.info(`ROS topic read: subscribing to topic ${topic_id} with parameters: ${parameters.join(', ')}`);
+    logger.debug(`ROS topic read: subscribing to topic ${topic_id} with parameters: ${parameters.join(', ')}`);
 
     // Check if topic is available
     const availableTopics = ros2Bridge.getAvailableTopics();
@@ -92,7 +93,7 @@ export async function rosTopicReadTool(_id: string, params: TensorfleetTelemetry
 
     const message = await messagePromise;
     
-    logger.info(`Received message from topic ${topic_id}:`, message);
+    logger.debug(`Received message from topic ${topic_id}:`, message);
 
     // Extract requested parameters from the message
     let result: any = {};
@@ -130,7 +131,7 @@ export async function rosTopicReadTool(_id: string, params: TensorfleetTelemetry
       responseText = String(result);
     }
 
-    logger.info(`ROS topic read completed for topic ${topic_id}`);
+    logger.debug(`ROS topic read completed for topic ${topic_id}`);
     
     return {
       content: [{

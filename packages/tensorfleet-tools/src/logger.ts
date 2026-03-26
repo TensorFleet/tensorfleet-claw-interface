@@ -17,7 +17,7 @@ const logger = pino({
     log: (object) => {
       // Add custom prefix to the message
       if (object.msg) {
-        object.msg = `[Tensorfleet][Openclaw] ${object.msg}`;
+        object.msg = `[Tensorfleet][Tools] ${object.msg}`;
       }
       return object;
     }

@@ -46,7 +46,7 @@ function startAutoReconnectTimer(): void {
 
   // Set new timer to disconnect after 2 minutes
   autoReconnectTimer = window.setTimeout(() => {
-    logger.info('Auto-reconnect timer expired, clearing ROS2Bridge connection');
+    logger.debug('Auto-reconnect timer expired, clearing ROS2Bridge connection');
     clearROS2BridgeConnection();
   }, AUTO_RECONNECT_DELAY);
 }
@@ -76,21 +76,21 @@ export async function rosConnect(_id: string, params: any): Promise<() => void> 
   
   const releaseLock = await rosConnectionMutex.acquire();
   try {
-    logger.info('Starting ROS connection process...');
+    logger.debug('Starting ROS connection process...');
     
     // Load and validate .tensorfleet configuration
     const config = await loadTensorfleetConfig(params['tensorfleet-project-path']);
-    logger.info('Configuration loaded successfully');
+    logger.debug('Configuration loaded successfully');
 
     // Set up window mock with proxy configuration for ROS2Bridge
     setupWindowMock(config);
-    logger.info('Window mock setup complete');
+    logger.debug('Window mock setup complete');
 
     // Import and initialize ROS2Bridge
     const { ros2Bridge } = await import("tensorfleet-ros");
     
     // Wait for connection to be established
-    logger.info('Waiting for ROS connection to be established...');
+    logger.debug('Waiting for ROS connection to be established...');
     
     const connectionTimeout = 10000; // 30 seconds timeout
     const startTime = Date.now();
@@ -105,7 +105,7 @@ export async function rosConnect(_id: string, params: any): Promise<() => void> 
         }
         
         if (ros2Bridge.isConnected()) {
-          logger.info('ROS connection established successfully');
+          logger.debug('ROS connection established successfully');
           // Update last connection time and reset auto-reconnect timer
           lastRosConnectTime = Date.now();
           resetAutoReconnectTimer();
