@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { parse } from "dotenv";
 import { TEMPLATE_TO_CONFIG_ID, getConfigById } from "../packages/tensorfleet-util/src/config/vm-config";
-import { logger } from "./logger";
+import { logger } from "tensorfleet-util";
 
 /**
  * Load and validate .tensorfleet configuration from a directory path

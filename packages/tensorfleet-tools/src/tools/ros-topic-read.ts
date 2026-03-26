@@ -1,7 +1,8 @@
 import { Type } from "@sinclair/typebox";
 import { TensorfleetTelemetryRosTopicRead } from "../schema-types/tensorfleet-telemetry.ros-topic.read.input";
 import { rosConnect } from "./ros-connect";
-import { logger } from "../logger";
+import { TensorfleetLogger } from "tensorfleet-util";
+const logger = new TensorfleetLogger('Tools');
 import { ros2Bridge } from "tensorfleet-ros";
 
 interface TopicInfo {

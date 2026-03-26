@@ -1,6 +1,6 @@
 import { loadTensorfleetConfig } from "../config-loader";
 import { setupWindowMock, clearROS2BridgeConnection } from "../window-mock";
-import { logger } from "../logger";
+import { TensorfleetLogger } from "tensorfleet-util";
 // Simple mutex implementation to prevent parallel ROS connections
 class SimpleMutex {
   private locked = false;
@@ -31,6 +31,7 @@ class SimpleMutex {
 }
 
 const rosConnectionMutex = new SimpleMutex();
+const logger = new TensorfleetLogger('Tools');
 
 // Global timer for auto-disconnect/reconnect
 let autoReconnectTimer: number | null = null;

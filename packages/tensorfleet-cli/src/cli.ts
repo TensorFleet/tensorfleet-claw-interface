@@ -2,8 +2,7 @@
 
 import { Command } from "commander";
 import { version } from "../package.json";
-import { executeRosConnect } from "tensorfleet-tools";
-import { executeRosTopicRead } from "tensorfleet-tools";
+import { executeRosConnect, executeRosTopicRead } from "tensorfleet-tools";
 
 const program = new Command();
 
@@ -22,28 +21,17 @@ program
   .description("TensorFleet CLI tool")
   .version(version);
 
-program.option(
-  "-p, --project-path <path>",
-  "Tensorfleet project directory path (required for all commands)"
-);
-
 program
   .command("ros-connect")
-  .description(
-    "Test ROS connection for a specific tensorfleet project directory"
+  .description("Test ROS connection for a specific tensorfleet project directory")
+  .requiredOption(
+    "-p, --project-path <path>",
+    "Tensorfleet project directory path"
   )
-  .action(async () => {
-    const options = program.opts();
-    const projectPath = options.projectPath;
-
-    if (!projectPath) {
-      console.error("Error: --project-path option is required");
-      exitCli(1);
-    }
-
+  .action(async (options: { projectPath: string }) => {
     try {
       await executeRosConnect("ros-connect", {
-        "tensorfleet-project-path": projectPath,
+        "tensorfleet-project-path": options.projectPath,
       });
       console.log("ROS connection test completed successfully");
       exitCli(0);
@@ -59,46 +47,63 @@ program
 program
   .command("ros-topic-read")
   .description("Read from a ROS topic and wait for one publication")
-  .argument(
-    "<topic-id>",
-    'ROS global topic path to read from. Use "--list" to list available topics'
+  .requiredOption(
+    "-p, --project-path <path>",
+    "Tensorfleet project directory path"
   )
-  .argument("[parameters...]", "List of parameters to read from the topic")
-  .option("-r, --return-type <type>", "Return type for the response (JSON)", "JSON")
-  .action(async (topicId: string, parameters: string[] = [], options: any) => {
-    const globalOptions = program.opts();
-    const projectPath = globalOptions.projectPath;
-
-    if (!projectPath) {
-      console.error("Error: --project-path option is required");
-      exitCli(1);
-    }
-
-    try {
-      const params = {
-        topic_id: topicId,
-        parameters,
-        return_type: options.returnType,
-        "tensorfleet-project-path": projectPath,
-      };
-
-      const result = await executeRosTopicRead("ros-topic-read", params);
-
-      if (result?.content?.[0]?.text) {
-        console.log(result.content[0].text);
-      } else {
-        console.log("No data received");
+  .option(
+    "--topic-id <topic>",
+    "ROS global topic path to read from"
+  )
+  .option(
+    "-r, --return-type <type>",
+    "Return type for the response",
+    "JSON"
+  )
+  .argument(
+    "[parameters...]",
+    'List of parameters to read from the topic. Use "--list" to return the full message'
+  )
+  .action(
+    async (
+      parameters: string[] = [],
+      options: {
+        projectPath: string;
+        topicId?: string;
+        returnType: string;
+      }
+    ) => {
+      if (!options.topicId) {
+        console.error("Error: --topic-id option is required");
+        exitCli(1);
       }
 
-      exitCli(0);
-    } catch (error) {
-      console.error(
-        "ROS topic read failed:",
-        error instanceof Error ? error.message : String(error)
-      );
-      exitCli(1);
+      const finalParameters = parameters.length > 0 ? parameters : ["--list"];
+
+      try {
+        const result = await executeRosTopicRead("ros-topic-read", {
+          topic_id: options.topicId,
+          parameters: finalParameters,
+          return_type: options.returnType,
+          "tensorfleet-project-path": options.projectPath,
+        });
+
+        if (result?.content?.[0]?.text) {
+          console.log(result.content[0].text);
+        } else {
+          console.log("No data received");
+        }
+
+        exitCli(0);
+      } catch (error) {
+        console.error(
+          "ROS topic read failed:",
+          error instanceof Error ? error.message : String(error)
+        );
+        exitCli(1);
+      }
     }
-  });
+  );
 
 program.parseAsync(process.argv).catch((error) => {
   console.error(error instanceof Error ? error.message : String(error));
