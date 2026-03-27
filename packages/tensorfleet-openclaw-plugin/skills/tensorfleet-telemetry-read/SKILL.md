@@ -30,7 +30,14 @@ We have a couple of tools we can use to perform a read operation.
 
 
 ## Tensorfleet config file
-All the tools mentioned here need an additional param passed called `config-file` which is the absolute path to a config file for the connection.
+All the tools mentioned here need an additional param passed called `tensorfleet-project-path` which is the absolute path to a tensorfleet project. The project will require a vscode instance running with the tensorfleet account logged in and the VM started. So it can configure the connection with the VM. So the user must provide the proper path and ensure the requirements are met.
+
+### ROS connection test tool
+- **name**: `tensorfleet-telemetry-ros-connect`
+- **When to use** : Use to check connection once before using any other tools
+- **Purpose** : Checks the connection for the `tensorfleet-project-path`
+- **returns** : A short text indicating the test result.
+- **Additional notes** : This tool is internally used in other tools to establish a connection.
 
 ### ROS featured entities read tool (Recommended when available)
 
@@ -46,7 +53,7 @@ All the tools mentioned here need an additional param passed called `config-file
 - **name**: `tensorfleet-telemetry-ros-node-read`
 - **purpose**: Read from the parameters of an ros node
 - **can use when**: The ros node's path and the required parameters are known. Use `"--list"` for `node_id` to get a list of available ros nodes at the time.  Use `["--list"]` for `parameters` to list available parameters to read.
-- **returns**: An array of requested parameters. Returns "null" for each member if the parameter is unavailable.
+- **returns**: An array of requested parameters. Returns "null" for each member if the parameter is unavailable. If `--list` is used, it will return an object with an internal `node_type_map` field that maps node paths to node types. for now, only node path matters.
 - **additional notes**: An ROS node can have parameters to set/read. Set and reads are performed via ROS service calls under the hood.
 
 ### ROS topic subscription tool
@@ -54,7 +61,7 @@ All the tools mentioned here need an additional param passed called `config-file
 - **name**: `tensorfleet-telemetry-ros-topic-read`
 - **purpose**: Subscribe to an ros topic and wait for a publication on the topic.
 - **can use when**: The topic's global path is known. Use `"--list"` for `topic_id` to get a list of available topics.
-- **additional notes**: We can subscribe to a topic before it's published. Subscription happens when it becomes available if timeout hasn't occurred yet.
+- **additional notes**: We can subscribe to a topic before it's published. Subscription happens when it becomes available if timeout hasn't occurred yet. If `--list` is used, it will return an object with an internal `topic_type_map` field that maps topic paths to topic types. for now, only topic path matters.
 - **returns**: Normally just the last published value. Depends on additional parameters passed to the request.
 
 ### ROS service call tool
@@ -72,4 +79,4 @@ Each tool can have additional parameters passed to the input.
 ### Filtering params
 If the response is suspected to be too big, Try filter params to prevent the Agent context from filling with useless information.
 
-- **top-filter**: The most used filter. If return type is a json object with keys, the filter will apply to the top level keys. If the return type is an array of strings, it will apply to each value. If the return type is an array of objects, It will apply to each object individually.
+- **top-filter**: The most used filter that applies to the top level objects. If return type is a json object with keys. If the return type is an array of strings, it will apply to each value. If the return type is a map, it will apply to the keys. If the return type is an array of objects, It will apply to each object individually. An exception is when `--list` is used, the filter will apply to the keys and values of whatever the result focuces on.
