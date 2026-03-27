@@ -2,7 +2,7 @@
 
 import { Command } from "commander";
 import { version } from "../package.json";
-import { executeRosConnect, executeRosTopicRead } from "tensorfleet-tools";
+import { executeRosConnect, executeRosTopicRead, executeEntityRead } from "tensorfleet-tools";
 
 const program = new Command();
 
@@ -98,6 +98,62 @@ program
       } catch (error) {
         console.error(
           "ROS topic read failed:",
+          error instanceof Error ? error.message : String(error)
+        );
+        exitCli(1);
+      }
+    }
+  );
+
+program
+  .command("entity-read")
+  .description("Read from a featured entity in the ROS environment")
+  .requiredOption(
+    "-p, --project-path <path>",
+    "Tensorfleet project directory path"
+  )
+  .requiredOption(
+    "--entity-id <entity>",
+    "Entity ID to read from. Use --list to get available entities"
+  )
+  .option(
+    "-r, --return-type <type>",
+    "Return type for the response",
+    "JSON"
+  )
+  .option(
+    "--parameters <params...>",
+    'List of parameters to read from the entity. Use "--list" to return available parameters'
+  )
+  .action(
+    async (options: {
+      projectPath: string;
+      entityId: string;
+      returnType: string;
+      parameters?: string[];
+    }) => {
+      const finalParameters = options.parameters && options.parameters.length > 0 
+        ? options.parameters 
+        : ["--list"];
+
+      try {
+        const result = await executeEntityRead("entity-read", {
+          entity_id: options.entityId,
+          parameters: finalParameters,
+          return_type: options.returnType,
+          "tensorfleet-project-path": options.projectPath,
+        });
+
+        if (result?.content?.[0]?.text) {
+          console.log(result.content[0].text);
+        } else {
+          console.log("No data received");
+        }
+
+        exitCli(0);
+      } catch (error) {
+        console.error(
+          "Entity read failed:",
           error instanceof Error ? error.message : String(error)
         );
         exitCli(1);
