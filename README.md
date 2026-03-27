@@ -25,7 +25,10 @@ If you have the vscode with the tensorfleet extension up, with the tensorfleet p
 ```bash
 # Test the connection
 bun run cli ros-connect -p [path-to-your-project-folder]
+```
 
+### CLI - `ros-topic-read` command
+```bash
 # Get a list of the available topics
 bun run cli ros-topic-read  -p [path-to-your-project-folder] --topic-id=--list --return-type JSON
 # Result example
@@ -84,4 +87,46 @@ bun run cli ros-topic-read  -p [path-to-your-project-folder] --topic-id=--list -
 #     "serial_number": ""
 #   }
 # }
+```
+
+### CLI - `entity-read` command
+```bash
+
+# List the available entities and their type
+bun run cli entity-read -p [path-to-your-project-folder] --entity-id=--list --return-type JSON
+# Example result
+# {
+#   "entity_type_map": {
+#     "/mavros": "drone"
+#   },
+#   "total_count": 1
+# }
+
+
+# Get the metadata for a specific entity
+bun run cli entity-read -p [path-to-your-project-folder] --entity-id=/mavros --parameters --list --return-type JSON
+# Example result
+# {
+#   "entity_data": {
+#     "name": "/mavros",
+#     "type": "drone",
+#     "target": "/mavros",
+#     "params": {
+#       "type": "drone",
+#       "model_names": [
+#         "x500_0"
+#       ]
+#     }
+#   },
+#   "entity_name": "/mavros",
+#   "entity_type": "drone",
+#   "entity_target": "/mavros",
+#   "entity_params": {
+#     "type": "drone",
+#     "model_names": [
+#       "x500_0"
+#     ]
+#   }
+# }
+
 ```

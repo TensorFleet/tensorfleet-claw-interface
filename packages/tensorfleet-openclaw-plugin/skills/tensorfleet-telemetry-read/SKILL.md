@@ -43,7 +43,7 @@ All the tools mentioned here need an additional param passed called `tensorfleet
 
 - **name**: `tensorfleet-telemetry-entity-read`
 - **purpose**: Use our custom entity system built on top of ROS to access a group of nodes and utility functionalities.
-- **can use when**: Use when our custom system has the entity id and functionality for what we need. Otherwise use raw ros access. Use `"--list"` for `entity_id` to list the available entities. Use `["--list"]` for `parameters` to list available parameters to read.
+- **can use when**: Use when our custom system has the entity id and functionality for what we need. Otherwise use raw ros access. Use `"--list"` for `entity_id` to list the available entities. Use `["--list"]` for `parameters` to list available parameters (in the `entity_params` section) to read along with the entire metadata of the requested entity.
 - **additional notes**: Under the hood it performs multiple raw ros operations using our custom utilities. If available, can give you much more structured data.
 - **returns**: An array of requested parameters. Returns "null" for each member if the parameter is unavailable.
 - **additional notes**: An ROS node can have parameters to set/read. Set and reads are performed via ROS service calls under the hood.

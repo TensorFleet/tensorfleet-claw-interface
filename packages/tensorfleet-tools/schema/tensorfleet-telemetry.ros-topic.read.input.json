@@ -9,7 +9,7 @@
         "parameters": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "A list of parameters to read from the ROS node"
+            "description": "A list of parameters to read from the ROS node. Use `[\"--list\"]` to get a list of available topics in the `topic-type-map` section"
         },
         "return_type": {
             "type": "string",

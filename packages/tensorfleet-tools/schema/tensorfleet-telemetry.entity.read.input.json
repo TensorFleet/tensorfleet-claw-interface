@@ -4,12 +4,12 @@
     "properties": {
         "entity_id": { 
             "type": "string",
-            "description": "Entity id to read from. Use `--list` to get a list of available entities (and pass empty array for `parameters`)"
+            "description": "Entity id to read from. Use `--list` to get a list of available entities in the `entity-type-map` section (and pass empty array for `parameters`)"
         },
         "parameters": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "A list of parameters to read from. Use `[\"--list\"]` to get a list of available parameters"
+            "description": "A list of parameters to read from. Use `[\"--list\"]` to get a list of available `parameters` (in the `entity_params` section) to read along with the entire metadata of the requested entity"
         },
         "return_type": {
             "type": "string",
