@@ -4,11 +4,12 @@
     "properties": {
         "service_id": { 
             "type": "string",
-            "description": "Global ROS path of the service. Use `\"--list\"` for `service_id` to get a list of available services and their schema (and pass null for `arguments`)"
+            "description": "Global ROS path of the service. Use `\"--list\"` for `service_id` to get a list of available services and their schema (and pass empty array for `arguments`)"
         },
         "arguments": {
-            "type": "object",
-            "description": "Arguments to pass. Type/Schema depends on the ROS service"
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "A list of arguments to pass to the service. Use `[\"--list\"]` to get a list of available arguments in the `service-type-map` section"
         },
         "return_type": {
             "type": "string",

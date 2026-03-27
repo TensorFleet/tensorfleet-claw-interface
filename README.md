@@ -130,3 +130,24 @@ bun run cli entity-read -p [path-to-your-project-folder] --entity-id=/mavros --p
 # }
 
 ```
+
+### CLI - `ros-servicec-read` command
+```bash
+
+# Get a list of available service calls
+bun dist/cli.js ros-service-read -p [path-to-your-project-folder] "--service-id=--list" --return-type JSON
+# Example result
+# {
+#   "service_type_map": {
+#     "/mavros/wind/set_parameters_atomically": "rcl_interfaces/srv/SetParametersAtomically",
+#     "/mavros/wind/set_parameters": "rcl_interfaces/srv/SetParameters",
+#     "/mavros/wind/list_parameters": "rcl_interfaces/srv/ListParameters",
+#     "/mavros/wind/get_type_description": "type_description_interfaces/srv/GetTypeDescription",
+#     "/mavros/wind/get_parameters": "rcl_interfaces/srv/GetParameters",
+#     "/mavros/wind/get_parameter_types": "rcl_interfaces/srv/GetParameterTypes",
+#     ...
+#   },
+#   "total_count": 672
+# }
+
+```

@@ -2,7 +2,7 @@
 
 import { Command } from "commander";
 import { version } from "../package.json";
-import { executeRosConnect, executeRosTopicRead, executeEntityRead } from "tensorfleet-tools";
+import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead } from "tensorfleet-tools";
 
 const program = new Command();
 
@@ -154,6 +154,68 @@ program
       } catch (error) {
         console.error(
           "Entity read failed:",
+          error instanceof Error ? error.message : String(error)
+        );
+        exitCli(1);
+      }
+    }
+  );
+
+program
+  .command("ros-service-read")
+  .description("Read from a ROS service by calling it with arguments")
+  .requiredOption(
+    "-p, --project-path <path>",
+    "Tensorfleet project directory path"
+  )
+  .requiredOption(
+    "--service-id <service>",
+    "ROS service path to call. Use --list to get available services"
+  )
+  .option(
+    "-r, --return-type <type>",
+    "Return type for the response",
+    "JSON"
+  )
+  .argument(
+    "[arguments...]",
+    'List of arguments to pass to the service. Use "--list" to return the full service schema'
+  )
+  .action(
+    async (
+      args: string[] = [],
+      options: {
+        projectPath: string;
+        serviceId: string;
+        returnType: string;
+      }
+    ) => {
+      if (!options.serviceId) {
+        console.error("Error: --service-id option is required");
+        exitCli(1);
+      }
+
+      // For --list, pass ["--list"] for arguments
+      const finalArguments = args.length > 0 && args[0] === "--list" ? ["--list"] : args;
+
+      try {
+        const result = await executeRosServiceRead("ros-service-read", {
+          service_id: options.serviceId,
+          arguments: finalArguments,
+          return_type: options.returnType,
+          "tensorfleet-project-path": options.projectPath,
+        });
+
+        if (result?.content?.[0]?.text) {
+          console.log(result.content[0].text);
+        } else {
+          console.log("No data received");
+        }
+
+        exitCli(0);
+      } catch (error) {
+        console.error(
+          "ROS service read failed:",
           error instanceof Error ? error.message : String(error)
         );
         exitCli(1);
