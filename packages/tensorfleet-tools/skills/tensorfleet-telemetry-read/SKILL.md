@@ -72,4 +72,4 @@ Each tool can have additional parameters passed to the input.
 ### Filtering params
 If the response is suspected to be too big, Try filter params to prevent the Agent context from filling with useless information.
 
-- **top-filter**: The most used filter. If return type is a json object with keys, the filter will apply to the top level keys. If the return type is an array of strings, it will apply to each value. If the return type is an array of objects, It will apply to each object individually.
+- **regex-filter**: A smart regex filter that applies to the data. Can handle arrays, maps. If the resulting map has metadata and focused entries, it will apply to the focused entries only (for example a large dataset along with some statistics on the side)
