@@ -138,32 +138,36 @@ export async function rosConnectTool(_id: string, params: any) {
     await rosConnect(_id, params);
     
     // Return the legacy format
+    const responseText = JSON.stringify({
+      success: true,
+      message: "ROS connection established successfully",
+      timestamp: new Date().toISOString(),
+      connectionDetails: {
+        nodeId: (global.window as any)?.TENSORFLEET_NODE_ID || null,
+        proxyUrl: (global.window as any)?.TENSORFLEET_PROXY_URL || null,
+        vmManagerUrl: (global.window as any)?.TENSORFLEET_VM_MANAGER_URL || null
+      }
+    }, null, 2);
+    
     return {
       content: [{
         type: "text",
-        text: JSON.stringify({
-          success: true,
-          message: "ROS connection established successfully",
-          timestamp: new Date().toISOString(),
-          connectionDetails: {
-            nodeId: (global.window as any)?.TENSORFLEET_NODE_ID || null,
-            proxyUrl: (global.window as any)?.TENSORFLEET_PROXY_URL || null,
-            vmManagerUrl: (global.window as any)?.TENSORFLEET_VM_MANAGER_URL || null
-          }
-        }, null, 2)
+        text: responseText || ""
       }]
     };
     
   } catch (error) {
     logger.error('ROS connection failed:', error);
+    const errorText = JSON.stringify({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      timestamp: new Date().toISOString()
+    }, null, 2);
+    
     return {
       content: [{
         type: "text",
-        text: JSON.stringify({
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error occurred',
-          timestamp: new Date().toISOString()
-        }, null, 2)
+        text: errorText || ""
       }]
     };
   }

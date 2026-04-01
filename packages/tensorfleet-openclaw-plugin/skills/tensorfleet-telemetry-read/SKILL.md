@@ -67,6 +67,18 @@ If things aren't working you can check
 2. If you can connect, but you can't seem to find the topics/entities you're looking for, You should know that the virtual machine can start in different modes. Each will start a different simulation. Ask the user to ensure the virtual machine is running in the correct mode. If not, they should stop it and start it again in the correct mode.
 
 
+# Available tools
+
+### ROS connect tool
+
+- **name**: `tensorfleet-telemetry-ros-connect`
+- **purpose**: A debugging tool to test the connection to a ROS 2 network.
+- **can use when**: You need to verify that the ROS 2 connection is working properly, or when troubleshooting connection issues.
+- **returns**: A JSON object indicating connection success with details including node ID, proxy URL, and VM manager URL. On failure, returns an error message.
+- **additional notes**: This tool is primarily used for debugging and testing connectivity. It handles the connection mutex to prevent multiple simultaneous connections.
+
+
+
 
 ### ROS featured entities read tool (Recommended when available)
 
