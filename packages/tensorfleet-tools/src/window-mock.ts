@@ -1,94 +1,9 @@
 import { JSDOM, type DOMWindow } from "jsdom";
-import WebSocket from "ws";
+import { logger } from "tensorfleet-util";
 
 let dom: JSDOM | null = null;
 const previousGlobals = new Map<string, unknown>();
 const ABSENT = Symbol("absent");
-
-const WINDOW_GLOBAL_KEYS = [
-  "window",
-  "self",
-  "top",
-  "parent",
-  "document",
-  "navigator",
-  "location",
-  "history",
-  "customElements",
-  "DOMParser",
-  "XMLSerializer",
-  "MutationObserver",
-  "Node",
-  "Text",
-  "Element",
-  "HTMLElement",
-  "HTMLInputElement",
-  "HTMLTextAreaElement",
-  "HTMLSelectElement",
-  "HTMLCanvasElement",
-  "HTMLImageElement",
-  "DocumentFragment",
-  "Document",
-  "EventTarget",
-  "Event",
-  "CustomEvent",
-  "MessageEvent",
-  "CloseEvent",
-  "KeyboardEvent",
-  "MouseEvent",
-  "FocusEvent",
-  "InputEvent",
-  "UIEvent",
-  "ProgressEvent",
-  "Blob",
-  "File",
-  "FileList",
-  "FormData",
-  "Headers",
-  "Request",
-  "Response",
-  "AbortController",
-  "AbortSignal",
-  "DOMException",
-  "URL",
-  "URLSearchParams",
-  "WebSocket",
-  "performance",
-  "screen",
-  "fetch",
-  "atob",
-  "btoa",
-  "getComputedStyle",
-  "matchMedia",
-  "requestAnimationFrame",
-  "cancelAnimationFrame",
-  "requestIdleCallback",
-  "cancelIdleCallback",
-  "ResizeObserver",
-  "IntersectionObserver",
-  "TextEncoder",
-  "TextDecoder",
-  "ReadableStream",
-  "WritableStream",
-  "TransformStream",
-  "CompressionStream",
-  "DecompressionStream",
-  "structuredClone",
-  "crypto",
-] as const;
-
-const BOUND_FUNCTION_KEYS = new Set([
-  "fetch",
-  "atob",
-  "btoa",
-  "getComputedStyle",
-  "matchMedia",
-  "requestAnimationFrame",
-  "cancelAnimationFrame",
-  "requestIdleCallback",
-  "cancelIdleCallback",
-  "queueMicrotask",
-]);
 
 function savePreviousGlobal(name: string, target: any): void {
   if (!previousGlobals.has(name)) {
@@ -288,25 +203,8 @@ function installNodeWebApis(window: DOMWindow): void {
     };
   }
 
-  if (typeof target.CloseEvent === "undefined") {
-    target.CloseEvent = class CloseEvent extends target.Event {
-      readonly code: number;
-      readonly reason: string;
-      readonly wasClean: boolean;
-
-      constructor(type: string, eventInitDict?: { code?: number; reason?: string; wasClean?: boolean }) {
-        super(type);
-        this.code = eventInitDict?.code || 0;
-        this.reason = eventInitDict?.reason || "";
-        this.wasClean = eventInitDict?.wasClean || false;
-      }
-    };
-  }
-
   installBrowserCompatibleBase64(window);
 
-  target.WebSocket = WebSocket as any;
-  target.OriginalWebSocket = WebSocket as any;
   target.global = target;
   target.process = process;
 }
@@ -349,35 +247,6 @@ function installSafeStorage(window: DOMWindow): void {
   });
 }
 
-function installWindowGlobals(window: DOMWindow): void {
-  const source = window as any;
-
-  setGlobal("window", source);
-  setGlobal("self", source);
-  setGlobal("top", source);
-  setGlobal("parent", source);
-
-  for (const key of WINDOW_GLOBAL_KEYS) {
-    if (!(key in source)) continue;
-
-    let value: any;
-    try {
-      value = source[key];
-    } catch (err) {
-      console.error("[WindowMock] failed reading window property:", key, err);
-      continue;
-    }
-
-    if (typeof value === "undefined") continue;
-
-    if (BOUND_FUNCTION_KEYS.has(key) && typeof value === "function") {
-      setGlobal(key, value.bind(source));
-    } else {
-      setGlobal(key, value);
-    }
-  }
-}
-
 function applyProxyConfig(window: DOMWindow, config: any): void {
   const env = extractProxyConfig(config);
   const target = window as any;
@@ -385,7 +254,7 @@ function applyProxyConfig(window: DOMWindow, config: any): void {
   const tokenStr = env.token as string | undefined;
   const jwtStr = env.TENSORFLEET_JWT as string | undefined;
 
-  console.log('[WindowMock] applyProxyConfig called with env:', {
+  logger.debug('[WindowMock] applyProxyConfig called with env:', {
     hasToken: tokenStr != null,
     hasTENSORFLEET_JWT: jwtStr != null,
     tokenPreview: tokenStr ? `${tokenStr.slice(0, 8)}...` : undefined,
@@ -396,7 +265,6 @@ function applyProxyConfig(window: DOMWindow, config: any): void {
 
   if (env.proxyUrl != null) {
     target.TENSORFLEET_PROXY_URL = env.proxyUrl;
-    // Also set on globalThis for CLI mode where ros2-bridge reads from globalThis
     setGlobal("TENSORFLEET_PROXY_URL", env.proxyUrl);
   }
 
@@ -410,17 +278,16 @@ function applyProxyConfig(window: DOMWindow, config: any): void {
     setGlobal("TENSORFLEET_NODE_ID", env.nodeId);
   }
 
-  // Handle token from either 'token' field or 'TENSORFLEET_JWT' env variable
   if (env.token != null) {
     target.TENSORFLEET_JWT = env.token;
     setGlobal("TENSORFLEET_JWT", env.token);
-    console.log('[WindowMock] Set TENSORFLEET_JWT from env.token');
+    logger.debug('[WindowMock] Set TENSORFLEET_JWT from env.token');
   } else if (env.TENSORFLEET_JWT != null) {
     target.TENSORFLEET_JWT = env.TENSORFLEET_JWT;
     setGlobal("TENSORFLEET_JWT", env.TENSORFLEET_JWT);
-    console.log('[WindowMock] Set TENSORFLEET_JWT from env.TENSORFLEET_JWT');
+    logger.debug('[WindowMock] Set TENSORFLEET_JWT from env.TENSORFLEET_JWT');
   } else {
-    console.log('[WindowMock] No token found in config env');
+    logger.debug('[WindowMock] No token found in config env');
   }
 
   target.__TENSORFLEET_CONFIG__ = config;
@@ -457,21 +324,6 @@ function createDom(): JSDOM {
     };
   }
 
-  if (typeof target.CloseEvent === "undefined") {
-    target.CloseEvent = class CloseEvent extends target.Event {
-      readonly code: number;
-      readonly reason: string;
-      readonly wasClean: boolean;
-
-      constructor(type: string, eventInitDict?: { code?: number; reason?: string; wasClean?: boolean }) {
-        super(type);
-        this.code = eventInitDict?.code || 0;
-        this.reason = eventInitDict?.reason || "";
-        this.wasClean = eventInitDict?.wasClean || false;
-      }
-    };
-  }
-
   installBrowserCompatibleBase64(window);
 
   return dom;
@@ -488,7 +340,6 @@ export function setupWindowMock(config: any): void {
   installNodeWebApis(window);
   installSafeStorage(window);
   applyProxyConfig(window, config);
-  installWindowGlobals(window);
 }
 
 export function setupWindowMockForROS2Bridge(config: any): boolean {
@@ -516,7 +367,7 @@ export function clearROS2BridgeConnection(): void {
     const { ros2Bridge } = require("tensorfleet-ros");
     if (ros2Bridge && typeof ros2Bridge.disconnect === "function") {
       ros2Bridge.disconnect();
-      console.log("[WindowMock] ROS2Bridge connection cleared");
+      logger.debug("[WindowMock] ROS2Bridge connection cleared");
     }
   } catch (error) {
     console.warn("[WindowMock] Failed to clear ROS2Bridge connection:", error);
@@ -524,14 +375,6 @@ export function clearROS2BridgeConnection(): void {
 }
 
 export function getCurrentProxyConfig(): any {
-  return (globalThis as any).window ?? null;
-}
-
-export function setupWebSocketMock(): void {
-  const g = globalThis as any;
-  if (g.window) {
-    g.window.WebSocket = WebSocket as any;
-    g.window.OriginalWebSocket = WebSocket as any;
-  }
-  g.WebSocket = WebSocket as any;
+  if (!dom) return null;
+  return dom.window as any;
 }

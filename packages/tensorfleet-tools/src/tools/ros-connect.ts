@@ -46,7 +46,7 @@ function startAutoReconnectTimer(): void {
   }
 
   // Set new timer to disconnect after 2 minutes
-  autoReconnectTimer = window.setTimeout(() => {
+  autoReconnectTimer = setTimeout(() => {
     logger.debug('Auto-reconnect timer expired, clearing ROS2Bridge connection');
     clearROS2BridgeConnection();
   }, AUTO_RECONNECT_DELAY);

@@ -9,6 +9,7 @@ function withErrorHandling<T extends any[]>(
 ) {
   return async (...args: T) => {
     try {
+      // throw "dummy error"
       return await executor(...args);
     } catch (error) {
       return {
