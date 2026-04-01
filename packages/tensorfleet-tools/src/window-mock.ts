@@ -382,22 +382,45 @@ function applyProxyConfig(window: DOMWindow, config: any): void {
   const env = extractProxyConfig(config);
   const target = window as any;
 
+  const tokenStr = env.token as string | undefined;
+  const jwtStr = env.TENSORFLEET_JWT as string | undefined;
+
+  console.log('[WindowMock] applyProxyConfig called with env:', {
+    hasToken: tokenStr != null,
+    hasTENSORFLEET_JWT: jwtStr != null,
+    tokenPreview: tokenStr ? `${tokenStr.slice(0, 8)}...` : undefined,
+    jwtPreview: jwtStr ? `${jwtStr.slice(0, 8)}...` : undefined,
+  });
+
   Object.assign(target, env);
 
   if (env.proxyUrl != null) {
     target.TENSORFLEET_PROXY_URL = env.proxyUrl;
+    // Also set on globalThis for CLI mode where ros2-bridge reads from globalThis
+    setGlobal("TENSORFLEET_PROXY_URL", env.proxyUrl);
   }
 
   if (env.vmManagerUrl != null) {
     target.TENSORFLEET_VM_MANAGER_URL = env.vmManagerUrl;
+    setGlobal("TENSORFLEET_VM_MANAGER_URL", env.vmManagerUrl);
   }
 
   if (env.nodeId != null) {
     target.TENSORFLEET_NODE_ID = env.nodeId;
+    setGlobal("TENSORFLEET_NODE_ID", env.nodeId);
   }
 
+  // Handle token from either 'token' field or 'TENSORFLEET_JWT' env variable
   if (env.token != null) {
     target.TENSORFLEET_JWT = env.token;
+    setGlobal("TENSORFLEET_JWT", env.token);
+    console.log('[WindowMock] Set TENSORFLEET_JWT from env.token');
+  } else if (env.TENSORFLEET_JWT != null) {
+    target.TENSORFLEET_JWT = env.TENSORFLEET_JWT;
+    setGlobal("TENSORFLEET_JWT", env.TENSORFLEET_JWT);
+    console.log('[WindowMock] Set TENSORFLEET_JWT from env.TENSORFLEET_JWT');
+  } else {
+    console.log('[WindowMock] No token found in config env');
   }
 
   target.__TENSORFLEET_CONFIG__ = config;
