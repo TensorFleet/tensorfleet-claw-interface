@@ -4,6 +4,7 @@ import { rosConnect } from "./ros-connect";
 import { fetchFeaturedEntities } from "tensorfleet-util";
 import { TensorfleetLogger } from "tensorfleet-util";
 import { ros2Bridge } from "tensorfleet-ros";
+import { filterData } from "../data-filter";
 
 const logger = new TensorfleetLogger('Tools');
 
@@ -31,10 +32,23 @@ export async function entityReadTool(_id: string, params: TensorfleetTelemetryEn
         entityMap[entity.name] = entity.type;
       }
       
-      const responseText = JSON.stringify({
+      let responseData = {
         entity_type_map: entityMap,
         total_count: Object.keys(entityMap).length
-      }, null, 2);
+      };
+      
+      // Apply regex filter if provided
+      if (params.regex_filter) {
+        try {
+          const regex = new RegExp(params.regex_filter, 'i');
+          responseData = filterData(responseData, regex) as typeof responseData;
+          logger.debug(`Applied regex filter: ${params.regex_filter}`);
+        } catch (error) {
+          logger.warn(`Invalid regex filter: ${params.regex_filter}`, error);
+        }
+      }
+      
+      const responseText = JSON.stringify(responseData, null, 2);
       
       logger.debug(`Entity list completed: ${Object.keys(entityMap).length} entities found`);
       

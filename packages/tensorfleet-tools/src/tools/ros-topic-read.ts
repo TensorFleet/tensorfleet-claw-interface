@@ -4,6 +4,7 @@ import { rosConnect } from "./ros-connect";
 import { TensorfleetLogger } from "tensorfleet-util";
 const logger = new TensorfleetLogger('Tools');
 import { ros2Bridge } from "tensorfleet-ros";
+import { filterData } from "../data-filter";
 
 interface TopicInfo {
   topic: string;
@@ -34,10 +35,23 @@ export async function rosTopicReadTool(_id: string, params: TensorfleetTelemetry
         topicTypeMap[topic.topic] = topic.type;
       }
       
-      const responseText = JSON.stringify({
+      let responseData = {
         topic_type_map: topicTypeMap,
         total_count: Object.keys(topicTypeMap).length
-      }, null, 2);
+      };
+      
+      // Apply regex filter if provided
+      if (params.regex_filter) {
+        try {
+          const regex = new RegExp(params.regex_filter, 'i');
+          responseData = filterData(responseData, regex) as typeof responseData;
+          logger.debug(`Applied regex filter: ${params.regex_filter}`);
+        } catch (error) {
+          logger.warn(`Invalid regex filter: ${params.regex_filter}`, error);
+        }
+      }
+      
+      const responseText = JSON.stringify(responseData, null, 2);
       
       logger.debug(`ROS topic list completed: ${Object.keys(topicTypeMap).length} topics found`);
       
@@ -86,7 +100,7 @@ export async function rosTopicReadTool(_id: string, params: TensorfleetTelemetry
       );
 
       // Set timeout for waiting for message (30 seconds)
-      timeoutId = window.setTimeout(() => {
+      timeoutId = (globalThis as any).setTimeout(() => {
         cleanup();
         reject(new Error(`Timeout waiting for message on topic "${topic_id}" after 30 seconds`));
       }, 30000);

@@ -1,6 +1,6 @@
 {
-  "id": "tensorfleet-claw-interface",
-  "name": "tensorfleet-claw-interface",
+  "id": "tensorfleet-openclaw-plugin",
+  "name": "tensorfleet-openclaw-plugin",
   "description": "Test plugin with a single echo skill.",
   "version": "0.0.2",
   "skills": ["./skills"],

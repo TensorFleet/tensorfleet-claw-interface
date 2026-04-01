@@ -60,6 +60,10 @@ program
     "Return type for the response",
     "JSON"
   )
+  .option(
+    "--regex-filter <regex>",
+    "Regex filter to apply to the output"
+  )
   .argument(
     "[parameters...]",
     'List of parameters to read from the topic. Use "--list" to return the full message'
@@ -71,6 +75,7 @@ program
         projectPath: string;
         topicId?: string;
         returnType: string;
+        regexFilter?: string;
       }
     ) => {
       if (!options.topicId) {
@@ -86,6 +91,7 @@ program
           parameters: finalParameters,
           return_type: options.returnType,
           "tensorfleet-project-path": options.projectPath,
+          regex_filter: options.regexFilter,
         });
 
         if (result?.content?.[0]?.text) {
@@ -125,12 +131,17 @@ program
     "--parameters <params...>",
     'List of parameters to read from the entity. Use "--list" to return available parameters'
   )
+  .option(
+    "--regex-filter <regex>",
+    "Regex filter to apply to the output"
+  )
   .action(
     async (options: {
       projectPath: string;
       entityId: string;
       returnType: string;
       parameters?: string[];
+      regexFilter?: string;
     }) => {
       const finalParameters = options.parameters && options.parameters.length > 0 
         ? options.parameters 
@@ -142,6 +153,7 @@ program
           parameters: finalParameters,
           return_type: options.returnType,
           "tensorfleet-project-path": options.projectPath,
+          regex_filter: options.regexFilter,
         });
 
         if (result?.content?.[0]?.text) {
@@ -177,6 +189,10 @@ program
     "Return type for the response",
     "JSON"
   )
+  .option(
+    "--regex-filter <regex>",
+    "Regex filter to apply to the output"
+  )
   .argument(
     "[arguments...]",
     'List of arguments to pass to the service. Use "--list" to return the full service schema'
@@ -188,6 +204,7 @@ program
         projectPath: string;
         serviceId: string;
         returnType: string;
+        regexFilter?: string;
       }
     ) => {
       if (!options.serviceId) {
@@ -204,6 +221,7 @@ program
           arguments: finalArguments,
           return_type: options.returnType,
           "tensorfleet-project-path": options.projectPath,
+          regex_filter: options.regexFilter,
         });
 
         if (result?.content?.[0]?.text) {

@@ -30,7 +30,7 @@ bun run cli ros-connect -p [path-to-your-project-folder]
 ### CLI - `ros-topic-read` command
 ```bash
 # Get a list of the available topics
-bun run cli ros-topic-read  -p [path-to-your-project-folder] --topic-id=--list --return-type JSON
+bun run cli ros-topic-read  -p [path-to-your-project-folder] --topic-id=--list
 # Result example
 # {
 #   "topic_type_map": {
@@ -55,7 +55,7 @@ bun run cli ros-topic-read  -p [path-to-your-project-folder] --topic-id=--list -
 
 
 # Read from a topic
-bun run cli ros-topic-read  -p [path-to-your-project-folder] --topic-id=--list --return-type JSON
+bun run cli ros-topic-read  -p [path-to-your-project-folder] --topic-id=--list
 # Result example
 # {
 #   "topic": "/mavros/battery",
@@ -93,7 +93,7 @@ bun run cli ros-topic-read  -p [path-to-your-project-folder] --topic-id=--list -
 ```bash
 
 # List the available entities and their type
-bun run cli entity-read -p [path-to-your-project-folder] --entity-id=--list --return-type JSON
+bun run cli entity-read -p [path-to-your-project-folder] --entity-id=--list
 # Example result
 # {
 #   "entity_type_map": {
@@ -104,7 +104,7 @@ bun run cli entity-read -p [path-to-your-project-folder] --entity-id=--list --re
 
 
 # Get the metadata for a specific entity
-bun run cli entity-read -p [path-to-your-project-folder] --entity-id=/mavros --parameters --list --return-type JSON
+bun run cli entity-read -p [path-to-your-project-folder] --entity-id=/mavros --parameters --list
 # Example result
 # {
 #   "entity_data": {
@@ -135,7 +135,7 @@ bun run cli entity-read -p [path-to-your-project-folder] --entity-id=/mavros --p
 ```bash
 
 # Get a list of available service calls
-bun dist/cli.js ros-service-read -p [path-to-your-project-folder] "--service-id=--list" --return-type JSON
+bun run cli ros-service-read -p [path-to-your-project-folder] "--service-id=--list"
 # Example result
 # {
 #   "service_type_map": {
@@ -150,4 +150,21 @@ bun dist/cli.js ros-service-read -p [path-to-your-project-folder] "--service-id=
 #   "total_count": 672
 # }
 
+```
+
+### CLI - regex-filter usage
+
+For the tools that provide a JSON output, it's possible to apply a smart regex filter to the output. For passing a regex filter use the --regex-filter param.
+
+```bash
+bun run cli ros-topic-read -p [path-to-your-project-folder] --topic-id=--list --regex-filter ".*fix.*"
+
+# Example output
+# {
+#   "topic_type_map": {
+#     "/mavros/sim_state/global_position": "sensor_msgs/msg/NavSatFix",
+#     "/mavros/global_position/raw/fix": "sensor_msgs/msg/NavSatFix",
+#     "/mavros/global_position/global": "sensor_msgs/msg/NavSatFix"
+#   }
+# }
 ```

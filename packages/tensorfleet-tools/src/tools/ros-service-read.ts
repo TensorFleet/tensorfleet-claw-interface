@@ -4,6 +4,7 @@ import { rosConnect } from "./ros-connect";
 import { TensorfleetLogger } from "tensorfleet-util";
 const logger = new TensorfleetLogger('Tools');
 import { ros2Bridge } from "tensorfleet-ros";
+import { filterData } from "../data-filter";
 
 export async function rosServiceReadTool(_id: string, params: TensorfleetTelemetryRosServiceRead) {
   // First, establish ROS connection using ros-connect tool
@@ -29,10 +30,23 @@ export async function rosServiceReadTool(_id: string, params: TensorfleetTelemet
         serviceTypeMap[service.service] = service.type;
       }
       
-      const responseText = JSON.stringify({
+      let responseData = {
         service_type_map: serviceTypeMap,
         total_count: Object.keys(serviceTypeMap).length
-      }, null, 2);
+      };
+      
+      // Apply regex filter if provided
+      if (params.regex_filter) {
+        try {
+          const regex = new RegExp(params.regex_filter, 'i');
+          responseData = filterData(responseData, regex) as typeof responseData;
+          logger.debug(`Applied regex filter: ${params.regex_filter}`);
+        } catch (error) {
+          logger.warn(`Invalid regex filter: ${params.regex_filter}`, error);
+        }
+      }
+      
+      const responseText = JSON.stringify(responseData, null, 2);
       
       logger.debug(`ROS service list completed: ${Object.keys(serviceTypeMap).length} services found`);
       
@@ -69,7 +83,7 @@ export async function rosServiceReadTool(_id: string, params: TensorfleetTelemet
         const responseText = JSON.stringify({
           service_schema: {
             service_id: service_id,
-            service_type: serviceInfo.type || "unknown",
+            service_type: serviceInfo.type ?? "unknown",
             // Note: In a full implementation, we would extract the actual schema
             // from the service definition, but for now we just return the type
           }
