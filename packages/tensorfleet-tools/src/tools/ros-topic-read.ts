@@ -16,7 +16,7 @@ export async function rosTopicReadTool(_id: string, params: TensorfleetTelemetry
   const releaseLock = await rosConnect(_id, params);
   
   try {
-    const { topic_id, parameters, return_type = "JSON" } = params;
+    const { topic_id, return_type = "JSON" } = params;
     
     // Validate required parameters
     if (!topic_id) {
@@ -63,12 +63,7 @@ export async function rosTopicReadTool(_id: string, params: TensorfleetTelemetry
       };
     }
 
-    // For non --list cases, validate that parameters are provided
-    if (!parameters || parameters.length === 0) {
-      throw new Error("parameters array is required and cannot be empty");
-    }
-
-    logger.debug(`ROS topic read: subscribing to topic ${topic_id} with parameters: ${parameters.join(', ')}`);
+    logger.debug(`ROS topic read: subscribing to topic ${topic_id}`);
 
     // Check if topic is available
     const availableTopics = ros2Bridge.getAvailableTopics();
@@ -110,48 +105,12 @@ export async function rosTopicReadTool(_id: string, params: TensorfleetTelemetry
     
     logger.debug(`Received message from topic ${topic_id}:`, message);
 
-    // Extract requested parameters from the message
-    let result: any = {};
-    
-    for (const param of parameters) {
-      if (param === "--list") {
-        // Return all available parameters in the message
-        result = message;
-        break;
-      }
-      
-      // Navigate through nested properties using dot notation
-      let value = message;
-      const path = param.split('.');
-      
-      for (const key of path) {
-        if (value && typeof value === 'object' && key in value) {
-          value = value[key];
-        } else {
-          value = null;
-          break;
-        }
-      }
-      
-      result[param] = value;
-    }
-
-    // Format the response based on return_type
-    let responseText: string;
-    
-    if (return_type === "JSON") {
-      responseText = JSON.stringify(result, null, 2);
-    } else {
-      // For other return types, convert to string representation
-      responseText = String(result);
-    }
-
     logger.debug(`ROS topic read completed for topic ${topic_id}`);
     
     return {
       content: [{
         type: "text",
-        text: responseText || ""
+        text: JSON.stringify(message, null, 2) || ""
       }]
     };
 

@@ -83,12 +83,9 @@ program
         exitCli(1);
       }
 
-      const finalParameters = parameters.length > 0 ? parameters : ["--list"];
-
       try {
         const result = await executeRosTopicRead("ros-topic-read", {
           topic_id: options.topicId,
-          parameters: finalParameters,
           return_type: options.returnType,
           "tensorfleet-project-path": options.projectPath,
           regex_filter: options.regexFilter,
