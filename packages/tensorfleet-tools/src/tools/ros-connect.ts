@@ -1,5 +1,5 @@
 import { loadTensorfleetConfig } from "../config-loader";
-import { setupWindowMock, clearROS2BridgeConnection } from "../window-mock";
+import { setConfig, getConfig, clearConfig } from "tensorfleet-util";
 import { TensorfleetLogger } from "tensorfleet-util";
 // Simple mutex implementation to prevent parallel ROS connections
 class SimpleMutex {
@@ -47,8 +47,11 @@ function startAutoReconnectTimer(): void {
 
   // Set new timer to disconnect after 2 minutes
   autoReconnectTimer = setTimeout(() => {
-    logger.debug('Auto-reconnect timer expired, clearing ROS2Bridge connection');
-    clearROS2BridgeConnection();
+    logger.debug('Auto-reconnect timer expired, disconnecting ROS2Bridge');
+    const { ros2Bridge } = require("tensorfleet-ros");
+    if (ros2Bridge && typeof ros2Bridge.disconnect === "function") {
+      ros2Bridge.disconnect();
+    }
   }, AUTO_RECONNECT_DELAY);
 }
 
@@ -83,9 +86,14 @@ export async function rosConnect(_id: string, params: any): Promise<() => void> 
     const config = await loadTensorfleetConfig(params['tensorfleet-project-path']);
     logger.debug('Configuration loaded successfully');
 
-    // Set up window mock with proxy configuration for ROS2Bridge
-    setupWindowMock(config);
-    logger.debug('Window mock setup complete');
+    // Set up config store with proxy configuration for ROS2Bridge
+    const env = config?.env ?? {};
+    if (env.proxyUrl != null) setConfig("TENSORFLEET_PROXY_URL", env.proxyUrl);
+    if (env.vmManagerUrl != null) setConfig("TENSORFLEET_VM_MANAGER_URL", env.vmManagerUrl);
+    if (env.nodeId != null) setConfig("TENSORFLEET_NODE_ID", env.nodeId);
+    if (env.token != null) setConfig("TENSORFLEET_JWT", env.token);
+    else if (env.TENSORFLEET_JWT != null) setConfig("TENSORFLEET_JWT", env.TENSORFLEET_JWT);
+    logger.debug('Config store setup complete');
 
     // Import and initialize ROS2Bridge
     const { ros2Bridge } = await import("tensorfleet-ros");
@@ -143,9 +151,9 @@ export async function rosConnectTool(_id: string, params: any) {
       message: "ROS connection established successfully",
       timestamp: new Date().toISOString(),
       connectionDetails: {
-        nodeId: (global.window as any)?.TENSORFLEET_NODE_ID || null,
-        proxyUrl: (global.window as any)?.TENSORFLEET_PROXY_URL || null,
-        vmManagerUrl: (global.window as any)?.TENSORFLEET_VM_MANAGER_URL || null
+        nodeId: getConfig("TENSORFLEET_NODE_ID") || null,
+        proxyUrl: getConfig("TENSORFLEET_PROXY_URL") || null,
+        vmManagerUrl: getConfig("TENSORFLEET_VM_MANAGER_URL") || null
       }
     }, null, 2);
     
