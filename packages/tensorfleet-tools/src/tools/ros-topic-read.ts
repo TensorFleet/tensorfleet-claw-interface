@@ -1,8 +1,10 @@
 import { Type } from "@sinclair/typebox";
 import { TensorfleetTelemetryRosTopicRead } from "../schema-types/tensorfleet-telemetry.ros-topic.read.input";
 import { rosConnect } from "./ros-connect";
-import { logger } from "../logger";
+import { TensorfleetLogger } from "tensorfleet-util";
+const logger = new TensorfleetLogger('Tools');
 import { ros2Bridge } from "tensorfleet-ros";
+import { filterData } from "../data-filter";
 
 interface TopicInfo {
   topic: string;
@@ -14,7 +16,7 @@ export async function rosTopicReadTool(_id: string, params: TensorfleetTelemetry
   const releaseLock = await rosConnect(_id, params);
   
   try {
-    const { topic_id, parameters, return_type = "JSON" } = params;
+    const { topic_id, return_type = "JSON" } = params;
     
     // Validate required parameters
     if (!topic_id) {
@@ -24,20 +26,34 @@ export async function rosTopicReadTool(_id: string, params: TensorfleetTelemetry
     // Handle the --list case to list available topics
     if (topic_id === "--list") {
       // For --list, parameters are not required
-      logger.info('ROS topic read: listing available topics');
+      logger.debug('ROS topic read: listing available topics');
       
       const availableTopics = ros2Bridge.getAvailableTopics();
-      const topicList = availableTopics.map((t: TopicInfo) => ({
-        topic: t.topic,
-        type: t.type
-      }));
+      const topicTypeMap: Record<string, string> = {};
       
-      const responseText = JSON.stringify({
-        available_topics: topicList,
-        total_count: topicList.length
-      }, null, 2);
+      for (const topic of availableTopics) {
+        topicTypeMap[topic.topic] = topic.type;
+      }
       
-      logger.info(`ROS topic list completed: ${topicList.length} topics found`);
+      let responseData = {
+        topic_type_map: topicTypeMap,
+        total_count: Object.keys(topicTypeMap).length
+      };
+      
+      // Apply regex filter if provided
+      if (params.regex_filter) {
+        try {
+          const regex = new RegExp(params.regex_filter, 'i');
+          responseData = filterData(responseData, regex) as typeof responseData;
+          logger.debug(`Applied regex filter: ${params.regex_filter}`);
+        } catch (error) {
+          logger.warn(`Invalid regex filter: ${params.regex_filter}`, error);
+        }
+      }
+      
+      const responseText = JSON.stringify(responseData, null, 2);
+      
+      logger.debug(`ROS topic list completed: ${Object.keys(topicTypeMap).length} topics found`);
       
       return {
         content: [{
@@ -47,12 +63,7 @@ export async function rosTopicReadTool(_id: string, params: TensorfleetTelemetry
       };
     }
 
-    // For non --list cases, validate that parameters are provided
-    if (!parameters || parameters.length === 0) {
-      throw new Error("parameters array is required and cannot be empty");
-    }
-
-    logger.info(`ROS topic read: subscribing to topic ${topic_id} with parameters: ${parameters.join(', ')}`);
+    logger.debug(`ROS topic read: subscribing to topic ${topic_id}`);
 
     // Check if topic is available
     const availableTopics = ros2Bridge.getAvailableTopics();
@@ -84,7 +95,7 @@ export async function rosTopicReadTool(_id: string, params: TensorfleetTelemetry
       );
 
       // Set timeout for waiting for message (30 seconds)
-      timeoutId = window.setTimeout(() => {
+      timeoutId = (globalThis as any).setTimeout(() => {
         cleanup();
         reject(new Error(`Timeout waiting for message on topic "${topic_id}" after 30 seconds`));
       }, 30000);
@@ -92,50 +103,14 @@ export async function rosTopicReadTool(_id: string, params: TensorfleetTelemetry
 
     const message = await messagePromise;
     
-    logger.info(`Received message from topic ${topic_id}:`, message);
+    logger.debug(`Received message from topic ${topic_id}:`, message);
 
-    // Extract requested parameters from the message
-    let result: any = {};
-    
-    for (const param of parameters) {
-      if (param === "--list") {
-        // Return all available parameters in the message
-        result = message;
-        break;
-      }
-      
-      // Navigate through nested properties using dot notation
-      let value = message;
-      const path = param.split('.');
-      
-      for (const key of path) {
-        if (value && typeof value === 'object' && key in value) {
-          value = value[key];
-        } else {
-          value = null;
-          break;
-        }
-      }
-      
-      result[param] = value;
-    }
-
-    // Format the response based on return_type
-    let responseText: string;
-    
-    if (return_type === "JSON") {
-      responseText = JSON.stringify(result, null, 2);
-    } else {
-      // For other return types, convert to string representation
-      responseText = String(result);
-    }
-
-    logger.info(`ROS topic read completed for topic ${topic_id}`);
+    logger.debug(`ROS topic read completed for topic ${topic_id}`);
     
     return {
       content: [{
         type: "text",
-        text: responseText || ""
+        text: JSON.stringify(message, null, 2) || ""
       }]
     };
 

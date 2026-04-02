@@ -1,6 +1,6 @@
 import { loadTensorfleetConfig } from "../config-loader";
-import { setupWindowMock, clearROS2BridgeConnection } from "../window-mock";
-import { logger } from "../logger";
+import { setConfig, getConfig, clearConfig } from "tensorfleet-util";
+import { TensorfleetLogger } from "tensorfleet-util";
 // Simple mutex implementation to prevent parallel ROS connections
 class SimpleMutex {
   private locked = false;
@@ -31,6 +31,7 @@ class SimpleMutex {
 }
 
 const rosConnectionMutex = new SimpleMutex();
+const logger = new TensorfleetLogger('Tools');
 
 // Global timer for auto-disconnect/reconnect
 let autoReconnectTimer: number | null = null;
@@ -45,9 +46,12 @@ function startAutoReconnectTimer(): void {
   }
 
   // Set new timer to disconnect after 2 minutes
-  autoReconnectTimer = window.setTimeout(() => {
-    logger.info('Auto-reconnect timer expired, clearing ROS2Bridge connection');
-    clearROS2BridgeConnection();
+  autoReconnectTimer = setTimeout(() => {
+    logger.debug('Auto-reconnect timer expired, disconnecting ROS2Bridge');
+    const { ros2Bridge } = require("tensorfleet-ros");
+    if (ros2Bridge && typeof ros2Bridge.disconnect === "function") {
+      ros2Bridge.disconnect();
+    }
   }, AUTO_RECONNECT_DELAY);
 }
 
@@ -76,21 +80,26 @@ export async function rosConnect(_id: string, params: any): Promise<() => void> 
   
   const releaseLock = await rosConnectionMutex.acquire();
   try {
-    logger.info('Starting ROS connection process...');
+    logger.debug('Starting ROS connection process...');
     
     // Load and validate .tensorfleet configuration
     const config = await loadTensorfleetConfig(params['tensorfleet-project-path']);
-    logger.info('Configuration loaded successfully');
+    logger.debug('Configuration loaded successfully');
 
-    // Set up window mock with proxy configuration for ROS2Bridge
-    setupWindowMock(config);
-    logger.info('Window mock setup complete');
+    // Set up config store with proxy configuration for ROS2Bridge
+    const env = config?.env ?? {};
+    if (env.proxyUrl != null) setConfig("TENSORFLEET_PROXY_URL", env.proxyUrl);
+    if (env.vmManagerUrl != null) setConfig("TENSORFLEET_VM_MANAGER_URL", env.vmManagerUrl);
+    if (env.nodeId != null) setConfig("TENSORFLEET_NODE_ID", env.nodeId);
+    if (env.token != null) setConfig("TENSORFLEET_JWT", env.token);
+    else if (env.TENSORFLEET_JWT != null) setConfig("TENSORFLEET_JWT", env.TENSORFLEET_JWT);
+    logger.debug('Config store setup complete');
 
     // Import and initialize ROS2Bridge
     const { ros2Bridge } = await import("tensorfleet-ros");
     
     // Wait for connection to be established
-    logger.info('Waiting for ROS connection to be established...');
+    logger.debug('Waiting for ROS connection to be established...');
     
     const connectionTimeout = 10000; // 30 seconds timeout
     const startTime = Date.now();
@@ -105,7 +114,7 @@ export async function rosConnect(_id: string, params: any): Promise<() => void> 
         }
         
         if (ros2Bridge.isConnected()) {
-          logger.info('ROS connection established successfully');
+          logger.debug('ROS connection established successfully');
           // Update last connection time and reset auto-reconnect timer
           lastRosConnectTime = Date.now();
           resetAutoReconnectTimer();
@@ -137,32 +146,36 @@ export async function rosConnectTool(_id: string, params: any) {
     await rosConnect(_id, params);
     
     // Return the legacy format
+    const responseText = JSON.stringify({
+      success: true,
+      message: "ROS connection established successfully",
+      timestamp: new Date().toISOString(),
+      connectionDetails: {
+        nodeId: getConfig("TENSORFLEET_NODE_ID") || null,
+        proxyUrl: getConfig("TENSORFLEET_PROXY_URL") || null,
+        vmManagerUrl: getConfig("TENSORFLEET_VM_MANAGER_URL") || null
+      }
+    }, null, 2);
+    
     return {
       content: [{
         type: "text",
-        text: JSON.stringify({
-          success: true,
-          message: "ROS connection established successfully",
-          timestamp: new Date().toISOString(),
-          connectionDetails: {
-            nodeId: (global.window as any)?.TENSORFLEET_NODE_ID || null,
-            proxyUrl: (global.window as any)?.TENSORFLEET_PROXY_URL || null,
-            vmManagerUrl: (global.window as any)?.TENSORFLEET_VM_MANAGER_URL || null
-          }
-        }, null, 2)
+        text: responseText || ""
       }]
     };
     
   } catch (error) {
     logger.error('ROS connection failed:', error);
+    const errorText = JSON.stringify({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      timestamp: new Date().toISOString()
+    }, null, 2);
+    
     return {
       content: [{
         type: "text",
-        text: JSON.stringify({
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error occurred',
-          timestamp: new Date().toISOString()
-        }, null, 2)
+        text: errorText || ""
       }]
     };
   }

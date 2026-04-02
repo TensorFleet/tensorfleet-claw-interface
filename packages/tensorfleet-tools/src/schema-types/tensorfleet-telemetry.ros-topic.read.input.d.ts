@@ -4,10 +4,6 @@ export interface TensorfleetTelemetryRosTopicRead {
    */
   topic_id: string;
   /**
-   * A list of parameters to read from the ROS node
-   */
-  parameters: string[];
-  /**
    * The return type for the response, defaults to JSON
    */
   return_type?: string;
@@ -15,4 +11,8 @@ export interface TensorfleetTelemetryRosTopicRead {
    * Tensorfleet project directory path. The directory should contain both .tensorfleet and .env files at its root
    */
   "tensorfleet-project-path": string;
+  /**
+   * Regex filter to apply to the query
+   */
+  regex_filter?: string;
 }

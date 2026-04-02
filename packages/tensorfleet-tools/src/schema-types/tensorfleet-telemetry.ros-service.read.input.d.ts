@@ -1,14 +1,12 @@
 export interface TensorfleetTelemetryRosServiceRead {
   /**
-   * Global ROS path of the service. Use `"--list"` for `service_id` to get a list of available services and their schema (and pass null for `arguments`)
+   * Global ROS path of the service. Use `"--list"` for `service_id` to get a list of available services and their schema (and pass empty array for `arguments`)
    */
   service_id: string;
   /**
-   * Arguments to pass. Type/Schema depends on the ROS service
+   * A list of arguments to pass to the service. Use `["--list"]` to get a list of available arguments in the `service-type-map` section
    */
-  arguments: {
-    [k: string]: unknown;
-  };
+  arguments: string[];
   /**
    * The return type for the response, defaults to JSON
    */
@@ -17,4 +15,8 @@ export interface TensorfleetTelemetryRosServiceRead {
    * Tensorfleet project directory path. The directory should contain both .tensorfleet and .env files at its root
    */
   "tensorfleet-project-path": string;
+  /**
+   * Regex filter to apply to the query
+   */
+  regex_filter?: string;
 }

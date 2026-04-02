@@ -4,12 +4,12 @@
     "properties": {
         "entity_id": { 
             "type": "string",
-            "description": "Entity id to read from. Use `--list` to get a list of available entities (and pass empty array for `parameters`)"
+            "description": "Entity id to read from. Use `--list` to get a list of available entities in the `entity-type-map` section (and pass empty array for `parameters`)"
         },
         "parameters": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "A list of parameters to read from. Use `[\"--list\"]` to get a list of available parameters"
+            "description": "A list of parameters to read from. Use `[\"--list\"]` to get a list of available `parameters` (in the `entity_params` section) to read along with the entire metadata of the requested entity"
         },
         "return_type": {
             "type": "string",
@@ -19,28 +19,11 @@
         "tensorfleet-project-path": {
             "type": "string",
             "description": "Tensorfleet project directory path. The directory should contain both .tensorfleet and .env files at its root"
-        }
-    },
-    "top_filter": {
-        "type": "object",
-        "description": "Top-level filter to apply to the query",
-        "properties": {
-            "field": {
-                "type": "string",
-                "description": "Field to filter on"
-            },
-            "operator": {
-                "type": "string",
-                "enum": ["eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "like", "regex"],
-                "description": "Operator to use for filtering"
-            },
-            "value": {
-                "type": "string",
-                "description": "Value to filter by"
-            }
         },
-        "required": ["field", "operator", "value"],
-        "additionalProperties": false
+        "regex_filter": {
+            "type": "string",
+            "description": "Regex filter to apply to the query"
+        }
     },
     "required": ["entity_id", "parameters", "tensorfleet-project-path"]
 }

@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { parse } from "dotenv";
 import { TEMPLATE_TO_CONFIG_ID, getConfigById } from "../packages/tensorfleet-util/src/config/vm-config";
-import { logger } from "./logger";
+import { logger } from "tensorfleet-util";
 
 /**
  * Load and validate .tensorfleet configuration from a directory path
@@ -35,7 +35,7 @@ export async function loadTensorfleetConfig(projectPath: string): Promise<any> {
   try {
     const configContent = fs.readFileSync(tensorfleetPath, 'utf8');
     tensorfleetConfig = JSON.parse(configContent);
-    logger.info(`Loaded .tensorfleet configuration from ${tensorfleetPath}`);
+    logger.debug(`Loaded .tensorfleet configuration from ${tensorfleetPath}`);
   } catch (error) {
     throw new Error(`Failed to read .tensorfleet file at ${tensorfleetPath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
@@ -49,7 +49,7 @@ export async function loadTensorfleetConfig(projectPath: string): Promise<any> {
       const envContent = fs.readFileSync(envPath, 'utf8');
       const parsedEnv = parse(envContent);
       envConfig = parsedEnv;
-      logger.info(`Loaded .env configuration from ${envPath}`);
+      logger.debug(`Loaded .env configuration from ${envPath}`);
     } else {
       logger.warn(`No .env file found at ${envPath}, proceeding with .tensorfleet only`);
     }
@@ -60,7 +60,7 @@ export async function loadTensorfleetConfig(projectPath: string): Promise<any> {
   // Check if this is a full configuration file (has env field)
   // This is the new format that contains proxy settings directly
   if (tensorfleetConfig.env && typeof tensorfleetConfig.env === 'object') {
-    logger.info(`Loaded full configuration file with env settings from ${tensorfleetPath}`);
+    logger.debug(`Loaded full configuration file with env settings from ${tensorfleetPath}`);
     // Merge .env variables into the existing env configuration
     const mergedConfig = {
       ...tensorfleetConfig,

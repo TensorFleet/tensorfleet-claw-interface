@@ -4,11 +4,12 @@
     "properties": {
         "service_id": { 
             "type": "string",
-            "description": "Global ROS path of the service. Use `\"--list\"` for `service_id` to get a list of available services and their schema (and pass null for `arguments`)"
+            "description": "Global ROS path of the service. Use `\"--list\"` for `service_id` to get a list of available services and their schema (and pass empty array for `arguments`)"
         },
         "arguments": {
-            "type": "object",
-            "description": "Arguments to pass. Type/Schema depends on the ROS service"
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "A list of arguments to pass to the service. Use `[\"--list\"]` to get a list of available arguments in the `service-type-map` section"
         },
         "return_type": {
             "type": "string",
@@ -18,28 +19,11 @@
         "tensorfleet-project-path": {
             "type": "string",
             "description": "Tensorfleet project directory path. The directory should contain both .tensorfleet and .env files at its root"
-        }
-    },
-    "top_filter": {
-        "type": "object",
-        "description": "Top-level filter to apply to the query",
-        "properties": {
-            "field": {
-                "type": "string",
-                "description": "Field to filter on"
-            },
-            "operator": {
-                "type": "string",
-                "enum": ["eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "like", "regex"],
-                "description": "Operator to use for filtering"
-            },
-            "value": {
-                "type": "string",
-                "description": "Value to filter by"
-            }
         },
-        "required": ["field", "operator", "value"],
-        "additionalProperties": false
+        "regex_filter": {
+            "type": "string",
+            "description": "Regex filter to apply to the query"
+        }
     },
     "required": ["service_id", "arguments", "tensorfleet-project-path"]
 }

@@ -7,6 +7,7 @@ const rootDir = __dirname;
 const packagesDir = path.resolve(rootDir, "./packages");
 const typesDir = path.resolve(rootDir, "./packages/@types");
 const tensorfleetUtilDir = path.resolve(rootDir, "./packages/tensorfleet-util/src");
+const tensorfleetRosDir = path.resolve(rootDir, "./packages/tensorfleet-ros/src");
 
 const nodeBuiltins = [
   ...builtinModules,
@@ -66,6 +67,14 @@ function viteLikeAliasPlugin() {
         const subpath = match?.[1] ?? "";
         return {
           path: resolvePackageEntry(tensorfleetUtilDir, subpath),
+        };
+      });
+
+      build.onResolve({ filter: /^tensorfleet-ros(\/.*)?$/ }, (args: any) => {
+        const match = args.path.match(/^tensorfleet-ros(\/.*)?$/);
+        const subpath = match?.[1] ?? "";
+        return {
+          path: resolvePackageEntry(tensorfleetRosDir, subpath),
         };
       });
 
