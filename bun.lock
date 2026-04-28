@@ -1,6 +1,5 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 1,
   "workspaces": {
     "": {
       "name": "tensorfleet-claw-interface",
@@ -34,6 +33,7 @@
       },
       "dependencies": {
         "commander": "^11.0.0",
+        "tensorfleet-auth": "workspace:*",
         "tensorfleet-tools": "workspace:*",
       },
       "devDependencies": {
@@ -468,6 +468,14 @@
       "devDependencies": {
         "@types/node": "^20.0.0",
         "typescript": "^5.0.0",
+      },
+    },
+    "packages/tensorfleet-tools/packages/tensorfleet-auth": {
+      "name": "tensorfleet-auth",
+      "version": "1.0.0",
+      "devDependencies": {
+        "@types/node": "^20.0.0",
+        "typescript": "^5.5.3",
       },
     },
     "packages/tensorfleet-tools/packages/theme": {
@@ -2890,6 +2898,8 @@
     "tar-fs": ["tar-fs@2.1.4", "", { "dependencies": { "chownr": "^1.1.1", "mkdirp-classic": "^0.5.2", "pump": "^3.0.0", "tar-stream": "^2.1.4" } }, "sha512-mDAjwmZdh7LTT6pNleZ05Yt65HC3E+NiQzl672vQG38jIrehtJk/J3mNwIg+vShQPcLF/LV7CMnDW6vjj6sfYQ=="],
 
     "tar-stream": ["tar-stream@2.2.0", "", { "dependencies": { "bl": "^4.0.3", "end-of-stream": "^1.4.1", "fs-constants": "^1.0.0", "inherits": "^2.0.3", "readable-stream": "^3.1.1" } }, "sha512-ujeqbceABgwMZxEJnk2HDY2DlnUZ+9oEcb1KzTVfYHio0UE6dG71n60d8D2I4qNvleWrrXpmjpt7vZeF1LnMZQ=="],
+
+    "tensorfleet-auth": ["tensorfleet-auth@workspace:packages/tensorfleet-tools/packages/tensorfleet-auth"],
 
     "tensorfleet-cli": ["tensorfleet-cli@workspace:packages/tensorfleet-cli"],
 

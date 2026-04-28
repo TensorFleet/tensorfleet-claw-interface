@@ -1,10 +1,15 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
+import { createServer } from "node:http";
+import { execFile } from "node:child_process";
 import { version } from "../package.json";
 import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead } from "tensorfleet-tools";
+import { startOAuthRedirectFlow } from "tensorfleet-auth";
+import { getGlobalAuthInfo, storeAuthTokenOnGlobal } from "./auth-global";
 
 const program = new Command();
+const DEFAULT_AUTH_BACKEND_URL = "https://app.tensorfleet.net/";
 
 function exitCli(code: number): never {
   try {
@@ -20,6 +25,77 @@ program
   .name("tensorfleet")
   .description("TensorFleet CLI tool")
   .version(version);
+
+program
+  .command("test-auth")
+  .description("Test TensorFleet authentication and store auth info on globalThis")
+  .option("--backend-url <url>", "TensorFleet backend URL", DEFAULT_AUTH_BACKEND_URL)
+  .option("--no-open", "Print the login URL instead of opening a browser")
+  .action(async (options: { backendUrl: string; open: boolean }) => {
+    try {
+      const session = await startOAuthRedirectFlow({
+        backendUrl: options.backendUrl,
+        createServer,
+        openBrowser: async (url) => {
+          if (!options.open) {
+            console.log(`Open this URL to authenticate:\n${url}`);
+            return;
+          }
+
+          await openBrowser(url);
+        },
+        onTokenReceived: (token) => {
+          storeAuthTokenOnGlobal(token, "oauth");
+        },
+      });
+
+      await session.tokenPromise;
+      const authInfo = getGlobalAuthInfo();
+
+      if (!authInfo) {
+        console.error("Authentication completed but no auth info was stored");
+        exitCli(1);
+      }
+
+      console.log(JSON.stringify({
+        success: true,
+        authInfo: {
+          ...authInfo,
+          token: `${authInfo.token.slice(0, 8)}...`,
+        },
+      }, null, 2));
+      exitCli(0);
+    } catch (error) {
+      console.error(
+        "Auth test failed:",
+        error instanceof Error ? error.message : String(error)
+      );
+      exitCli(1);
+    }
+  });
+
+function openBrowser(url: string): Promise<void> {
+  const command =
+    process.platform === "darwin"
+      ? "open"
+      : process.platform === "win32"
+        ? "cmd"
+        : "xdg-open";
+  const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
+
+  return new Promise((resolve, reject) => {
+    const child = execFile(command, args, (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    });
+
+    child.unref();
+  });
+}
 
 program
   .command("ros-connect")
