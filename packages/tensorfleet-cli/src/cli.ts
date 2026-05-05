@@ -4,7 +4,7 @@ import { Command } from "commander";
 import { createServer } from "node:http";
 import { execFile } from "node:child_process";
 import { version } from "../package.json";
-import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead, executeVmStatus, executeListRegions } from "tensorfleet-tools";
+import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead, executeVmTool, executeListRegions } from "tensorfleet-tools";
 import { startOAuthRedirectFlow, getRegionById } from "tensorfleet-auth";
 import { getGlobalAuthInfo, storeAuthTokenOnGlobal } from "./auth-global";
 
@@ -315,14 +315,22 @@ program
   );
 
 program
-  .command("vm-status")
-  .description("Check VM status. Uses stored auth token or runs OAuth flow. Stores region config for future commands.")
-  .option("--region <id>", "Region to check (eu, asia, local). Defaults to local", "local")
-  .option("--do-auth", "Run OAuth authentication before checking VM status")
+  .command("vm")
+  .description("Manage VMs: status, start, stop. Uses stored auth token or runs OAuth flow.")
+  .argument("<action>", "Action to perform: status, start, stop")
+  .option("--region <id>", "Region (eu, asia, local). Defaults to local", "local")
+  .option("--config <id>", "VM config for start: px4, ardupilot, simple_robot, lerobot")
+  .option("--do-auth", "Run OAuth authentication first")
   .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
   .option("--no-open", "Print the login URL instead of opening a browser during --do-auth")
-  .action(async (options: { region: string; doAuth: boolean; backendUrl: string; open: boolean }) => {
+  .action(async (action: string, options: { region: string; config?: string; doAuth: boolean; backendUrl: string; open: boolean }) => {
     try {
+      // Validate action
+      if (!["status", "start", "stop"].includes(action)) {
+        console.error(`Invalid action: ${action}. Use: status, start, or stop`);
+        exitCli(1);
+      }
+
       // Run OAuth if requested
       if (options.doAuth) {
         const session = await startOAuthRedirectFlow({
@@ -353,22 +361,24 @@ program
       const region = getRegionById(options.region, true);
       const vmManagerUrl = region.vmManagerUrl;
 
-      const result = await executeVmStatus("vm-status", {
+      const result = await executeVmTool(`vm-${action}`, {
+        action: action as "status" | "start" | "stop",
         token: authInfo.token,
         vmManagerUrl,
         region: options.region,
+        configId: options.config,
       });
 
       if (result?.content?.[0]?.text) {
         console.log(result.content[0].text);
       } else {
-        console.log("No status data received");
+        console.log("No data received");
       }
 
       exitCli(0);
     } catch (error) {
       console.error(
-        "VM status check failed:",
+        `VM ${action} failed:`,
         error instanceof Error ? error.message : String(error)
       );
       exitCli(1);

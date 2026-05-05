@@ -36,14 +36,14 @@ Each layer overrides the one below it. CLI commands set values in layers 1 & 2, 
 ## Layer 2: `config-store` — Runtime Config (Map)
 
 **Defined in:** `tensorfleet-util/src/config/config-store.ts`
-**Set by:** CLI commands (vm-status, future commands)
+**Set by:** CLI commands (`vm <action>`, future commands)
 **Read by:** `tensorfleet-util` consumers (ROS bridge, future tools)
 
 | Key | Description | Set by |
 |---|---|---|
-| `TENSORFLEET_VM_MANAGER_URL` | Base URL for VM Manager API | `vm-status --region` → `setConfig()` |
+| `TENSORFLEET_VM_MANAGER_URL` | Base URL for VM Manager API | `vm status --region` → `setConfig()` |
 | `TENSORFLEET_PROXY_URL` | WebSocket proxy URL | *(future command)* |
-| `TENSORFLEET_NODE_ID` | VM node identifier | *(future command)* |
+| `TENSORFLEET_NODE_ID` | VM node identifier | `vm status` (auto-detected) |
 | `TENSORFLEET_JWT` | Auth token (also in layer 1) | *(future command)* |
 
 **Config-store replaces:** `vmManagerUrl`, `proxyUrl`, `nodeId` from `.tensorfleet` file (legacy config-loader).
@@ -62,10 +62,10 @@ This layer is being gradually replaced by CLI commands that set layers 1 & 2 dir
 | File value | CLI replacement | Status |
 |---|---|---|
 | `.env` → `TENSORFLEET_JWT` | `tensorfleet test-auth` or `--do-auth` flag | ✅ Done |
-| `.tensorfleet` → `env.vmManagerUrl` | `tensorfleet vm-status --region <id>` | ✅ This PR |
+| `.tensorfleet` → `env.vmManagerUrl` | `tensorfleet vm status --region <id>` | ✅ Done |
 | `.tensorfleet` → `env.proxyUrl` | *(future)* | ⬜ Planned |
-| `.tensorfleet` → `env.nodeId` | `tensorfleet vm-status` (auto-detected) | ✅ This PR |
-| `.tensorfleet` → `template` | `tensorfleet vm-status` (via vm-config) | ✅ This PR |
+| `.tensorfleet` → `env.nodeId` | `tensorfleet vm status` (auto-detected) | ✅ Done |
+| `.tensorfleet` → `template` | `tensorfleet vm start --config <id>` | ✅ Done |
 
 ---
 
@@ -98,7 +98,7 @@ When a CLI command accepts `--region`, it:
    → storeAuthTokenOnGlobal(token, "oauth")
    → token + profile stored on globalThis
 
-2. User runs `tensorfleet vm-status --region eu`
+2. User runs `tensorfleet vm status --region eu`
    → getGlobalAuthInfo() reads token from globalThis
    → if no token: error "Not authenticated. Run test-auth first"
    → OR: pass --do-auth to run OAuth first
