@@ -4,8 +4,8 @@ import { Command } from "commander";
 import { createServer } from "node:http";
 import { execFile } from "node:child_process";
 import { version } from "../package.json";
-import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead } from "tensorfleet-tools";
-import { startOAuthRedirectFlow } from "tensorfleet-auth";
+import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead, executeVmStatus, executeListRegions } from "tensorfleet-tools";
+import { startOAuthRedirectFlow, getRegionById } from "tensorfleet-auth";
 import { getGlobalAuthInfo, storeAuthTokenOnGlobal } from "./auth-global";
 
 const program = new Command();
@@ -313,6 +313,93 @@ program
       }
     }
   );
+
+program
+  .command("vm-status")
+  .description("Check VM status. Uses stored auth token or runs OAuth flow. Stores region config for future commands.")
+  .option("--region <id>", "Region to check (eu, asia, local). Defaults to local", "local")
+  .option("--do-auth", "Run OAuth authentication before checking VM status")
+  .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
+  .option("--no-open", "Print the login URL instead of opening a browser during --do-auth")
+  .action(async (options: { region: string; doAuth: boolean; backendUrl: string; open: boolean }) => {
+    try {
+      // Run OAuth if requested
+      if (options.doAuth) {
+        const session = await startOAuthRedirectFlow({
+          backendUrl: options.backendUrl,
+          createServer,
+          openBrowser: async (url) => {
+            if (!options.open) {
+              console.log(`Open this URL to authenticate:\n${url}`);
+              return;
+            }
+            await openBrowser(url);
+          },
+          onTokenReceived: (token) => {
+            storeAuthTokenOnGlobal(token, "oauth");
+          },
+        });
+        await session.tokenPromise;
+      }
+
+      // Check for stored auth
+      const authInfo = getGlobalAuthInfo();
+      if (!authInfo) {
+        console.error("Not authenticated. Run `tensorfleet test-auth` first or pass --do-auth");
+        exitCli(1);
+      }
+
+      // Resolve region to get VM Manager URL
+      const region = getRegionById(options.region, true);
+      const vmManagerUrl = region.vmManagerUrl;
+
+      const result = await executeVmStatus("vm-status", {
+        token: authInfo.token,
+        vmManagerUrl,
+        region: options.region,
+      });
+
+      if (result?.content?.[0]?.text) {
+        console.log(result.content[0].text);
+      } else {
+        console.log("No status data received");
+      }
+
+      exitCli(0);
+    } catch (error) {
+      console.error(
+        "VM status check failed:",
+        error instanceof Error ? error.message : String(error)
+      );
+      exitCli(1);
+    }
+  });
+
+program
+  .command("list-regions")
+  .description("List available TensorFleet regions")
+  .option("--dev", "Include development-only regions")
+  .action(async (options: { dev: boolean }) => {
+    try {
+      const result = await executeListRegions("list-regions", {
+        includeDev: options.dev ?? false,
+      });
+
+      if (result?.content?.[0]?.text) {
+        console.log(result.content[0].text);
+      } else {
+        console.log("No region data received");
+      }
+
+      exitCli(0);
+    } catch (error) {
+      console.error(
+        "Listing regions failed:",
+        error instanceof Error ? error.message : String(error)
+      );
+      exitCli(1);
+    }
+  });
 
 program.parseAsync(process.argv).catch((error) => {
   console.error(error instanceof Error ? error.message : String(error));

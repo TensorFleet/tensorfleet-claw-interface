@@ -3,6 +3,8 @@ export { executeRosNodeRead } from "./tools/ros-node-read-executor";
 export { executeRosTopicRead } from "./tools/ros-topic-read-executor";
 export { executeRosServiceRead } from "./tools/ros-service-read-executor";
 export { executeRosConnect } from "./tools/ros-connect-executor";
+export { executeVmStatus } from "./tools/vm-status-executor";
+export { executeListRegions } from "./tools/list-regions-executor";
 export type { ToolAPI, ToolDefinition, ToolParameters, ToolExecutionResult } from "./tool-api";
 
 // Export schema definitions
