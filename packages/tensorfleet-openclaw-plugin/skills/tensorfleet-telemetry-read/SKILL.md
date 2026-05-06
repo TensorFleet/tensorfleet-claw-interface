@@ -121,3 +121,15 @@ Each tool can have additional parameters passed to the input.
 If the response is suspected to be too big, Try filter params to prevent the Agent context from filling with useless information.
 
 - **regex-filter**: A smart regex filter that applies to the data. Can handle arrays, maps. If the resulting map has metadata and focused entries, it will apply to the focused entries only (for example a large dataset along with some statistics on the side)
+
+
+### Authentication Tool
+
+- **name**: `tensorfleet-auth`
+- **purpose**: authenticate the user's tensorfleet account
+- **can use when**: User needs to log in to TensorFleet, or when other TensorFleet tools return authentication errors. This tool must be run before any other TensorFleet operations if not already authenticated.
+- **parameters**:
+  - `backendUrl` (optional): Custom backend URL for OAuth authentication. Defaults to https://app.tensorfleet.net/
+- **returns**: JSON object with authentication status and user profile. On success, the auth token is stored globally for all subsequent tool calls.
+- **additional notes**: Opens system browser for OAuth login flow. User must complete login in the browser window that appears. **This tool DOES NOT require any parameters, project path, or config file to run.**
+

@@ -1,0 +1,11 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "backendUrl": {
+            "type": "string",
+            "description": "Optional custom backend URL for OAuth authentication. Defaults to https://app.tensorfleet.net/"
+        }
+    },
+    "required": []
+}

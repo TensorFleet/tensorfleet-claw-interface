@@ -14,6 +14,7 @@ import rosNodeReadSchema from "../schema/tensorfleet-telemetry.ros-node.read.inp
 import rosTopicReadSchema from "../schema/tensorfleet-telemetry.ros-topic.read.input.json";
 import rosServiceReadSchema from "../schema/tensorfleet-telemetry.ros-service.read.input.json";
 import rosConnectSchema from "../schema/tensorfleet-telemetry.ros-connect.input.json";
+import authSchema from "../schema/tensorfleet.auth.input.json";
 
 
-export { entityReadSchema, rosNodeReadSchema, rosTopicReadSchema, rosServiceReadSchema, rosConnectSchema };
+export { entityReadSchema, rosNodeReadSchema, rosTopicReadSchema, rosServiceReadSchema, rosConnectSchema, authSchema };
