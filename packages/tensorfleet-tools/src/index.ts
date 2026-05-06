@@ -5,6 +5,7 @@ export { executeRosServiceRead } from "./tools/ros-service-read-executor";
 export { executeRosConnect } from "./tools/ros-connect-executor";
 export { executeVmTool } from "./tools/vm-executor";
 export { executeListRegions } from "./tools/list-regions-executor";
+export { executeAuthTool } from "./tools/auth-executor";
 export type { ToolAPI, ToolDefinition, ToolParameters, ToolExecutionResult } from "./tool-api";
 
 // Export schema definitions

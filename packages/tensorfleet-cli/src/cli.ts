@@ -4,9 +4,9 @@ import { Command } from "commander";
 import { createServer } from "node:http";
 import { execFile } from "node:child_process";
 import { version } from "../package.json";
-import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead, executeVmTool, executeListRegions } from "tensorfleet-tools";
-import { startOAuthRedirectFlow, getRegionById } from "tensorfleet-auth";
-import { getGlobalAuthInfo, storeAuthTokenOnGlobal } from "./auth-global";
+import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead, executeVmTool, executeListRegions, executeAuthTool } from "tensorfleet-tools";
+import { getRegionById } from "tensorfleet-auth";
+import { getGlobalAuthInfo } from "./auth-global";
 
 const program = new Command();
 const DEFAULT_AUTH_BACKEND_URL = "https://app.tensorfleet.net/";
@@ -30,40 +30,18 @@ program
   .command("test-auth")
   .description("Test TensorFleet authentication and store auth info on globalThis")
   .option("--backend-url <url>", "TensorFleet backend URL", DEFAULT_AUTH_BACKEND_URL)
-  .option("--no-open", "Print the login URL instead of opening a browser")
-  .action(async (options: { backendUrl: string; open: boolean }) => {
+  .action(async (options: { backendUrl: string }) => {
     try {
-      const session = await startOAuthRedirectFlow({
+      const result = await executeAuthTool("test-auth", {
         backendUrl: options.backendUrl,
-        createServer,
-        openBrowser: async (url) => {
-          if (!options.open) {
-            console.log(`Open this URL to authenticate:\n${url}`);
-            return;
-          }
-
-          await openBrowser(url);
-        },
-        onTokenReceived: (token) => {
-          storeAuthTokenOnGlobal(token, "oauth");
-        },
       });
 
-      await session.tokenPromise;
-      const authInfo = getGlobalAuthInfo();
-
-      if (!authInfo) {
-        console.error("Authentication completed but no auth info was stored");
-        exitCli(1);
+      if (result?.content?.[0]?.text) {
+        console.log(result.content[0].text);
+      } else {
+        console.log("No auth data received");
       }
 
-      console.log(JSON.stringify({
-        success: true,
-        authInfo: {
-          ...authInfo,
-          token: `${authInfo.token.slice(0, 8)}...`,
-        },
-      }, null, 2));
       exitCli(0);
     } catch (error) {
       console.error(
