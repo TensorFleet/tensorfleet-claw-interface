@@ -3,7 +3,7 @@ import * as path from "path";
 import { parse } from "dotenv";
 import { TEMPLATE_TO_CONFIG_ID, getConfigById } from "../packages/tensorfleet-util/src/config/vm-config";
 import { getConfig } from "../packages/tensorfleet-util/src/config/config-store";
-import { getGlobalAuthInfo } from "@tensorfleet/cli/src/auth-global";
+import { getGlobalAuthInfo } from "tensorfleet-auth";
 import { logger } from "tensorfleet-util";
 
 /**

@@ -1,6 +1,5 @@
 import { TensorfleetLogger } from "tensorfleet-util";
-import { startOAuthRedirectFlow } from "tensorfleet-auth";
-import { storeAuthTokenOnGlobal, getGlobalAuthInfo } from "tensorfleet-cli/src/auth-global";
+import { startOAuthRedirectFlow, storeAuthTokenOnGlobal, getGlobalAuthInfo, clearGlobalAuthInfo } from "tensorfleet-auth";
 import { createServer } from "node:http";
 import { execFile } from "node:child_process";
 
@@ -8,11 +7,55 @@ const logger = new TensorfleetLogger("Tools");
 const DEFAULT_AUTH_BACKEND_URL = "https://app.tensorfleet.net/";
 
 export interface AuthParams {
+  command?: "status" | "login" | "logout";
   backendUrl?: string;
 }
 
 export async function authTool(_id: string, params: AuthParams) {
   try {
+    // Default to 'login' for backward compatibility
+    const command = params.command ?? "login";
+
+    if (command === "status") {
+      const authInfo = getGlobalAuthInfo();
+      const responseText = JSON.stringify(
+        {
+          success: true,
+          command: "status",
+          authenticated: !!authInfo,
+          authInfo: authInfo ? {
+            ...authInfo,
+            token: `${authInfo.token.slice(0, 8)}...`,
+          } : null,
+        },
+        null,
+        2
+      );
+
+      return {
+        content: [{ type: "text", text: responseText || "" }],
+      };
+    }
+
+    if (command === "logout") {
+      clearGlobalAuthInfo();
+      const responseText = JSON.stringify(
+        {
+          success: true,
+          command: "logout",
+          message: "Successfully logged out",
+          timestamp: new Date().toISOString(),
+        },
+        null,
+        2
+      );
+
+      return {
+        content: [{ type: "text", text: responseText || "" }],
+      };
+    }
+
+    // Default: login command
     const backendUrl = params.backendUrl ?? DEFAULT_AUTH_BACKEND_URL;
 
     function openBrowser(url: string): Promise<void> {
@@ -59,6 +102,7 @@ export async function authTool(_id: string, params: AuthParams) {
     const responseText = JSON.stringify(
       {
         success: true,
+        command: "login",
         authInfo: {
           ...authInfo,
           token: `${authInfo.token.slice(0, 8)}...`,

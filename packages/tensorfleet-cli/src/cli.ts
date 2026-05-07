@@ -5,8 +5,8 @@ import { createServer } from "node:http";
 import { execFile } from "node:child_process";
 import { version } from "../package.json";
 import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead, executeVmTool, executeListRegions, executeAuthTool } from "tensorfleet-tools";
-import { getRegionById } from "tensorfleet-auth";
-import { getGlobalAuthInfo } from "./auth-global";
+import { getRegionById, startOAuthRedirectFlow } from "tensorfleet-auth";
+import { getGlobalAuthInfo, storeAuthTokenOnGlobal } from "tensorfleet-auth";
 
 const program = new Command();
 const DEFAULT_AUTH_BACKEND_URL = "https://app.tensorfleet.net/";
@@ -26,13 +26,97 @@ program
   .description("TensorFleet CLI tool")
   .version(version);
 
-program
-  .command("test-auth")
-  .description("Test TensorFleet authentication and store auth info on globalThis")
+const authCommand = program
+  .command("auth")
+  .description("Authentication management");
+
+authCommand
+  .command("login")
+  .description("Perform OAuth authentication and store credentials")
   .option("--backend-url <url>", "TensorFleet backend URL", DEFAULT_AUTH_BACKEND_URL)
   .action(async (options: { backendUrl: string }) => {
     try {
+      const result = await executeAuthTool("auth-login", {
+        command: "login",
+        backendUrl: options.backendUrl,
+      });
+
+      if (result?.content?.[0]?.text) {
+        console.log(result.content[0].text);
+      } else {
+        console.log("No auth data received");
+      }
+
+      exitCli(0);
+    } catch (error) {
+      console.error(
+        "Login failed:",
+        error instanceof Error ? error.message : String(error)
+      );
+      exitCli(1);
+    }
+  });
+
+authCommand
+  .command("status")
+  .description("Check current authentication status")
+  .action(async () => {
+    try {
+      const result = await executeAuthTool("auth-status", {
+        command: "status",
+      });
+
+      if (result?.content?.[0]?.text) {
+        console.log(result.content[0].text);
+      } else {
+        console.log("No auth status available");
+      }
+
+      exitCli(0);
+    } catch (error) {
+      console.error(
+        "Failed to check auth status:",
+        error instanceof Error ? error.message : String(error)
+      );
+      exitCli(1);
+    }
+  });
+
+authCommand
+  .command("logout")
+  .description("Clear stored authentication credentials")
+  .action(async () => {
+    try {
+      const result = await executeAuthTool("auth-logout", {
+        command: "logout",
+      });
+
+      if (result?.content?.[0]?.text) {
+        console.log(result.content[0].text);
+      } else {
+        console.log("Logout completed");
+      }
+
+      exitCli(0);
+    } catch (error) {
+      console.error(
+        "Logout failed:",
+        error instanceof Error ? error.message : String(error)
+      );
+      exitCli(1);
+    }
+  });
+
+// Keep test-auth for backward compatibility
+program
+  .command("test-auth")
+  .description("Deprecated: Use 'tensorfleet auth login' instead")
+  .option("--backend-url <url>", "TensorFleet backend URL", DEFAULT_AUTH_BACKEND_URL)
+  .action(async (options: { backendUrl: string }) => {
+    console.warn("Warning: 'test-auth' is deprecated. Use 'auth login' instead.");
+    try {
       const result = await executeAuthTool("test-auth", {
+        command: "login",
         backendUrl: options.backendUrl,
       });
 

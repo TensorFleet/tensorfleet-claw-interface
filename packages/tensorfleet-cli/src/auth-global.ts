@@ -40,6 +40,10 @@ export function getGlobalAuthInfo(): TensorfleetGlobalAuthInfo | undefined {
   return (globalThis as TensorfleetGlobal)[TENSORFLEET_AUTH_GLOBAL_KEY];
 }
 
+export function clearGlobalAuthInfo(): void {
+  delete (globalThis as TensorfleetGlobal)[TENSORFLEET_AUTH_GLOBAL_KEY];
+}
+
 function resolveProcessAuthInfo(): TensorfleetGlobalAuthInfo | undefined {
   const token = pickString(process.env.TENSORFLEET_JWT);
   return token ? createAuthInfo(token, "process-env") : undefined;
