@@ -1,5 +1,10 @@
 import { TensorfleetLogger } from "tensorfleet-util";
-import { startOAuthRedirectFlow, storeAuthTokenOnGlobal, getGlobalAuthInfo, clearGlobalAuthInfo } from "tensorfleet-auth";
+import {
+  startOAuthRedirectFlow,
+  storeAuthTokenOnGlobal,
+  getGlobalAuthInfo,
+  clearGlobalAuthInfo,
+} from "tensorfleet-auth";
 import { createServer } from "node:http";
 import { execFile } from "node:child_process";
 
@@ -11,6 +16,28 @@ export interface AuthParams {
   backendUrl?: string;
 }
 
+function createTextResponse(value: unknown) {
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: JSON.stringify(value, null, 2) ?? String(value),
+      },
+    ],
+  };
+}
+
+function redactAuthInfo(authInfo: ReturnType<typeof getGlobalAuthInfo>) {
+  if (!authInfo) {
+    return null;
+  }
+
+  return {
+    ...authInfo,
+    token: `${authInfo.token.slice(0, 8)}...`,
+  };
+}
+
 export async function authTool(_id: string, params: AuthParams) {
   try {
     // Default to 'login' for backward compatibility
@@ -18,41 +45,24 @@ export async function authTool(_id: string, params: AuthParams) {
 
     if (command === "status") {
       const authInfo = getGlobalAuthInfo();
-      const responseText = JSON.stringify(
-        {
-          success: true,
-          command: "status",
-          authenticated: !!authInfo,
-          authInfo: authInfo ? {
-            ...authInfo,
-            token: `${authInfo.token.slice(0, 8)}...`,
-          } : null,
-        },
-        null,
-        2
-      );
 
-      return {
-        content: [{ type: "text", text: responseText || "" }],
-      };
+      return createTextResponse({
+        success: true,
+        command: "status",
+        authenticated: !!authInfo,
+        authInfo: redactAuthInfo(authInfo),
+      });
     }
 
     if (command === "logout") {
       clearGlobalAuthInfo();
-      const responseText = JSON.stringify(
-        {
-          success: true,
-          command: "logout",
-          message: "Successfully logged out",
-          timestamp: new Date().toISOString(),
-        },
-        null,
-        2
-      );
 
-      return {
-        content: [{ type: "text", text: responseText || "" }],
-      };
+      return createTextResponse({
+        success: true,
+        command: "logout",
+        message: "Successfully logged out",
+        timestamp: new Date().toISOString(),
+      });
     }
 
     // Default: login command
@@ -60,12 +70,16 @@ export async function authTool(_id: string, params: AuthParams) {
 
     function openBrowser(url: string): Promise<void> {
       const command =
-        process.platform === "darwin"
-          ? "open"
-          : process.platform === "win32"
-            ? "cmd"
-            : "xdg-open";
-      const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
+          process.platform === "darwin"
+              ? "open"
+              : process.platform === "win32"
+                  ? "cmd"
+                  : "xdg-open";
+
+      const args =
+          process.platform === "win32"
+              ? ["/c", "start", "", url]
+              : [url];
 
       return new Promise((resolve, reject) => {
         const child = execFile(command, args, (error) => {
@@ -93,42 +107,27 @@ export async function authTool(_id: string, params: AuthParams) {
     });
 
     await session.tokenPromise;
+
     const authInfo = getGlobalAuthInfo();
 
     if (!authInfo) {
       throw new Error("Authentication completed but no auth info was stored");
     }
 
-    const responseText = JSON.stringify(
-      {
-        success: true,
-        command: "login",
-        authInfo: {
-          ...authInfo,
-          token: `${authInfo.token.slice(0, 8)}...`,
-        },
-      },
-      null,
-      2
-    );
-
-    return {
-      content: [{ type: "text", text: responseText || "" }],
-    };
+    return createTextResponse({
+      success: true,
+      command: "login",
+      authInfo: redactAuthInfo(authInfo),
+    });
   } catch (error) {
-    logger.error(`Auth failed:`, error);
-    const errorText = JSON.stringify(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error occurred",
-        timestamp: new Date().toISOString(),
-      },
-      null,
-      2
-    );
+    const message = error instanceof Error ? error.message : "Unknown error occurred";
 
-    return {
-      content: [{ type: "text", text: errorText || "" }],
-    };
+    logger.error("Auth failed:", message);
+
+    return createTextResponse({
+      success: false,
+      error: message,
+      timestamp: new Date().toISOString(),
+    });
   }
 }

@@ -1,7 +1,7 @@
 {
   "name": "tensorfleet-openclaw-plugin",
   "version": "1.0.0",
-  "description": "Empty TypeScript Node.js project",
+  "description": "OpenClaw plugin for TensorFleet telemetry and auth tools",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -10,14 +10,17 @@
     "watch": "tsup src/index.ts --format esm,cjs --dts --watch --clean",
     "start": "bun dist/index.js"
   },
+  "files": [
+    "dist",
+    "skills",
+    "openclaw.plugin.json",
+    "README.md"
+  ],
   "keywords": [
     "typescript",
     "nodejs"
   ],
   "author": "",
-  "dependencies": {
-    "tensorfleet-tools": "workspace:*"
-  },
   "openclaw": {
     "extensions": [
       "./dist/index.js"
