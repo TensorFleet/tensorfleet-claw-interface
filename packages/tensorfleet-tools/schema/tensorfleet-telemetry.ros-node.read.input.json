@@ -42,5 +42,5 @@
         "required": ["field", "operator", "value"],
         "additionalProperties": false
     },
-    "required": ["node_id", "parameters", "tensorfleet-project-path"]
+    "required": ["node_id", "parameters"]
 }

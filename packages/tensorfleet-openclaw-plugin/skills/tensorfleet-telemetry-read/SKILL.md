@@ -13,6 +13,19 @@ tools:
 author: tensorfleet
 ---
 
+# Authentication Tool
+You can use the authentication tool to log into the tensorfleet account
+- **name**: `tensorfleet-auth`
+- **purpose**: authenticate the user's tensorfleet account
+- **can use when**: User needs to log in to TensorFleet, or when other TensorFleet tools return authentication errors. This tool must be run before any other TensorFleet operations if not already authenticated.
+- **parameters**:
+  - `backendUrl` (optional): Custom backend URL for OAuth authentication. Defaults to https://app.tensorfleet.net/
+- **returns**: JSON object with authentication status and user profile. On success, the auth token is stored globally for all subsequent tool calls.
+- **additional notes**: Opens system browser for OAuth login flow. User must complete login in the browser window that appears. **This tool DOES NOT require any parameters, project path, or config file to run.**
+
+## Tensorfleet config file
+If login is not done, the auth token and virtual machine id are needed. In that case they are provided via the directory path as "tensorfleet-project-path".
+
 # Tensorfleet telemetry read skill
 
 ## Purpose
@@ -27,10 +40,6 @@ Use this skill when the user asks to:
 ## Read tools
 
 We have a couple of tools we can use to perform a read operation.
-
-
-## Tensorfleet config file
-All the tools mentioned here need an additional param passed called `config-file` which is the absolute path to a config file for the connection.
 
 
 ## Usage protocol
@@ -123,13 +132,5 @@ If the response is suspected to be too big, Try filter params to prevent the Age
 - **regex-filter**: A smart regex filter that applies to the data. Can handle arrays, maps. If the resulting map has metadata and focused entries, it will apply to the focused entries only (for example a large dataset along with some statistics on the side)
 
 
-### Authentication Tool
 
-- **name**: `tensorfleet-auth`
-- **purpose**: authenticate the user's tensorfleet account
-- **can use when**: User needs to log in to TensorFleet, or when other TensorFleet tools return authentication errors. This tool must be run before any other TensorFleet operations if not already authenticated.
-- **parameters**:
-  - `backendUrl` (optional): Custom backend URL for OAuth authentication. Defaults to https://app.tensorfleet.net/
-- **returns**: JSON object with authentication status and user profile. On success, the auth token is stored globally for all subsequent tool calls.
-- **additional notes**: Opens system browser for OAuth login flow. User must complete login in the browser window that appears. **This tool DOES NOT require any parameters, project path, or config file to run.**
 
