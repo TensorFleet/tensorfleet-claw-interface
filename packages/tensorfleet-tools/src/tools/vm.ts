@@ -1,5 +1,6 @@
-import { setConfig, fetchVmSnapshot, startVm, stopVm, getConfigById, getDefaultConfig } from "tensorfleet-util";
+import { setConfig, getConfig, fetchVmSnapshot, startVm, stopVm, getConfigById, getDefaultConfig, getRegionOrDefault } from "tensorfleet-util";
 import { TensorfleetLogger } from "tensorfleet-util";
+import { getGlobalAuthInfo } from "tensorfleet-auth";
 import type { VMConfig } from "tensorfleet-util";
 
 const logger = new TensorfleetLogger("Tools");
@@ -8,15 +9,26 @@ export type VmAction = "status" | "start" | "stop";
 
 export interface VmParams {
   action: VmAction;
-  token: string;
-  vmManagerUrl: string;
+  token?: string;
+  vmManagerUrl?: string;
   region?: string;
   configId?: string;
 }
 
 export async function vmTool(_id: string, params: VmParams) {
   try {
-    const { action, token, vmManagerUrl, region } = params;
+    const { action, region } = params;
+    const token = params.token ?? getGlobalAuthInfo()?.token;
+
+    if (!token) {
+      throw new Error("Not authenticated. Run tensorfleet-auth login first.");
+    }
+
+    const vmManagerUrl =
+      params.vmManagerUrl ??
+      (region ? getRegionOrDefault(region, true).vmManagerUrl : undefined) ??
+      getConfig<string>("TENSORFLEET_VM_MANAGER_URL") ??
+      getRegionOrDefault(undefined, true).vmManagerUrl;
 
     // Always store the VM manager URL in config-store
     setConfig("TENSORFLEET_VM_MANAGER_URL", vmManagerUrl);

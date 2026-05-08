@@ -1,7 +1,7 @@
-import { executeEntityRead, executeRosNodeRead, executeRosTopicRead, executeRosServiceRead, executeRosConnect, executeAuthTool } from "tensorfleet-tools";
+import { executeEntityRead, executeRosNodeRead, executeRosTopicRead, executeRosServiceRead, executeRosConnect, executeAuthTool, executeVmTool } from "tensorfleet-tools";
 
 // Import schema definitions from tensorfleet-tools
-import { entityReadSchema, rosNodeReadSchema, rosTopicReadSchema, rosServiceReadSchema, rosConnectSchema, authSchema } from "tensorfleet-tools";
+import { entityReadSchema, rosNodeReadSchema, rosTopicReadSchema, rosServiceReadSchema, rosConnectSchema, authSchema, vmSchema } from "tensorfleet-tools";
 
 // Helper function to wrap executor with try-catch and return JSON error on failure
 function withErrorHandling<T extends any[]>(
@@ -75,5 +75,12 @@ export default function (api: ToolAPI) {
     description: "authenticate the user's tensorfleet account",
     parameters: authSchema,
     execute: withErrorHandling(executeAuthTool),
+  });
+
+  api.registerTool({
+    name: "tensorfleet-vm",
+    description: "Manage TensorFleet virtual machines",
+    parameters: vmSchema,
+    execute: withErrorHandling(executeVmTool),
   });
 }

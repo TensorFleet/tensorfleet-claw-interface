@@ -1,0 +1,29 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "action": {
+            "type": "string",
+            "enum": ["status", "start", "stop"],
+            "description": "VM action to execute"
+        },
+        "token": {
+            "type": "string",
+            "description": "Optional TensorFleet JWT auth token. Defaults to the token stored by tensorfleet-auth login."
+        },
+        "vmManagerUrl": {
+            "type": "string",
+            "description": "Optional VM Manager API base URL override. Prefer region for known TensorFleet environments"
+        },
+        "region": {
+            "type": "string",
+            "enum": ["eu", "asia", "local"],
+            "description": "Optional TensorFleet region id. Defaults to the previously configured VM manager URL, or eu if none was configured"
+        },
+        "configId": {
+            "type": "string",
+            "description": "Optional VM config id to use when action is start"
+        }
+    },
+    "required": ["action"]
+}
