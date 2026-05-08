@@ -11,7 +11,7 @@ export default defineConfig({
   dts: true,
   clean: true,
   target: "esnext",
-  outDir: "dist",
+  outDir: "dist/dist",
   noExternal: ["tensorfleet-tools"],
 
   external: [
