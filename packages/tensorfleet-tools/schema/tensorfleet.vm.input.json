@@ -24,6 +24,11 @@
             "type": "string",
             "description": "Optional VM config id to use when action is start. Discover valid ids with action=list-configs."
         },
+        "timeout": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Optional wait timeout in seconds. When provided for action=start, waits until the VM status becomes running. When provided for action=stop, waits until the VM status becomes stopped. If omitted, start and stop return immediately after submitting the request."
+        },
         "includeDev": {
             "type": "boolean",
             "description": "Include development-only regions when action is list-regions."

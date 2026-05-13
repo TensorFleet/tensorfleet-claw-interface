@@ -382,11 +382,12 @@ program
   .argument("<action>", "Action to perform: status, start, stop, list-configs, list-regions")
   .option("--region <id>", "Region (eu, asia, local). Defaults to local", "local")
   .option("--config <id>", "VM config for start: px4, ardupilot, simple_robot, lerobot")
+  .option("--timeout <seconds>", "Optional wait timeout in seconds for start/stop to reach the target state")
   .option("--dev", "Include development-only regions for list-regions")
   .option("--do-auth", "Run OAuth authentication first")
   .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
   .option("--no-open", "Print the login URL instead of opening a browser during --do-auth")
-  .action(async (action: string, options: { region: string; config?: string; dev?: boolean; doAuth: boolean; backendUrl: string; open: boolean }) => {
+  .action(async (action: string, options: { region: string; config?: string; timeout?: string; dev?: boolean; doAuth: boolean; backendUrl: string; open: boolean }) => {
     try {
       // Validate action
       if (!["status", "start", "stop", "list-configs", "list-regions"].includes(action)) {
@@ -407,6 +408,13 @@ program
         }
 
         exitCli(0);
+      }
+
+      const timeout =
+        options.timeout != undefined ? Number(options.timeout) : undefined;
+      if (timeout != undefined && (!Number.isFinite(timeout) || timeout < 0)) {
+        console.error("--timeout must be a non-negative number of seconds");
+        exitCli(1);
       }
 
       // Run OAuth if requested
@@ -449,6 +457,7 @@ program
         vmManagerUrl,
         region: options.region,
         configId: options.config,
+        timeout,
       });
 
       if (result?.content?.[0]?.text) {
