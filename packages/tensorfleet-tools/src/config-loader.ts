@@ -1,15 +1,13 @@
 import * as fs from "fs";
 import * as path from "path";
 import { parse } from "dotenv";
-import { TEMPLATE_TO_CONFIG_ID, getConfigById } from "../packages/tensorfleet-util/src/config/vm-config";
-import { getConfig } from "../packages/tensorfleet-util/src/config/config-store";
-import { getGlobalAuthInfo } from "tensorfleet-auth";
+import { TEMPLATE_TO_CONFIG_ID, getConfig, getConfigById, getGlobalAuthInfo } from "tensorfleet-auth";
 import { logger } from "tensorfleet-util";
 
 /**
  * Load and validate .tensorfleet configuration from a directory path
  * If projectPath is not provided, returns configuration from in-memory stores only
- * @param projectPath - Optional absolute path to the tensorfleet project directory containing .tensorfleet and .env files
+ * @param projectPath - Optional absolute path to a legacy tensorfleet project directory containing .tensorfleet/.env files
  * @returns Promise resolving to the validated configuration with merged .env variables
  * @throws Error if config files are invalid or missing required fields
  */
@@ -20,7 +18,7 @@ export async function loadTensorfleetConfig(projectPath?: string): Promise<any> 
     
     return {
       env: {
-        TENSORFLEET_JWT: authInfo?.token,
+        TENSORFLEET_JWT: authInfo?.token ?? process.env.TENSORFLEET_JWT,
         TENSORFLEET_VM_MANAGER_URL: getConfig("TENSORFLEET_VM_MANAGER_URL"),
         TENSORFLEET_PROXY_URL: getConfig("TENSORFLEET_PROXY_URL"),
         TENSORFLEET_NODE_ID: getConfig("TENSORFLEET_NODE_ID"),

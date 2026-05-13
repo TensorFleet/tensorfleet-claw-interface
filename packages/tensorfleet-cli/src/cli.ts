@@ -4,7 +4,7 @@ import { Command } from "commander";
 import { createServer } from "node:http";
 import { execFile } from "node:child_process";
 import { version } from "../package.json";
-import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead, executeVmTool, executeListRegions, executeAuthTool } from "tensorfleet-tools";
+import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead, executeVmTool, executeAuthTool } from "tensorfleet-tools";
 import { getRegionById, startOAuthRedirectFlow } from "tensorfleet-auth";
 import { getGlobalAuthInfo, storeAuthTokenOnGlobal } from "tensorfleet-auth";
 
@@ -161,12 +161,12 @@ function openBrowser(url: string): Promise<void> {
 
 program
   .command("ros-connect")
-  .description("Test ROS connection for a specific tensorfleet project directory")
-  .requiredOption(
+  .description("Test ROS connection using in-memory config or an optional tensorfleet project directory")
+  .option(
     "-p, --project-path <path>",
-    "Tensorfleet project directory path"
+    "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback"
   )
-  .action(async (options: { projectPath: string }) => {
+  .action(async (options: { projectPath?: string }) => {
     try {
       await executeRosConnect("ros-connect", {
         "tensorfleet-project-path": options.projectPath,
@@ -185,9 +185,9 @@ program
 program
   .command("ros-topic-read")
   .description("Read from a ROS topic and wait for one publication")
-  .requiredOption(
+  .option(
     "-p, --project-path <path>",
-    "Tensorfleet project directory path"
+    "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback"
   )
   .option(
     "--topic-id <topic>",
@@ -210,7 +210,7 @@ program
     async (
       parameters: string[] = [],
       options: {
-        projectPath: string;
+        projectPath?: string;
         topicId?: string;
         returnType: string;
         regexFilter?: string;
@@ -249,9 +249,9 @@ program
 program
   .command("entity-read")
   .description("Read from a featured entity in the ROS environment")
-  .requiredOption(
+  .option(
     "-p, --project-path <path>",
-    "Tensorfleet project directory path"
+    "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback"
   )
   .requiredOption(
     "--entity-id <entity>",
@@ -272,7 +272,7 @@ program
   )
   .action(
     async (options: {
-      projectPath: string;
+      projectPath?: string;
       entityId: string;
       returnType: string;
       parameters?: string[];
@@ -311,9 +311,9 @@ program
 program
   .command("ros-service-read")
   .description("Read from a ROS service by calling it with arguments")
-  .requiredOption(
+  .option(
     "-p, --project-path <path>",
-    "Tensorfleet project directory path"
+    "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback"
   )
   .requiredOption(
     "--service-id <service>",
@@ -336,7 +336,7 @@ program
     async (
       args: string[] = [],
       options: {
-        projectPath: string;
+        projectPath?: string;
         serviceId: string;
         returnType: string;
         regexFilter?: string;
@@ -378,19 +378,35 @@ program
 
 program
   .command("vm")
-  .description("Manage VMs: status, start, stop. Uses stored auth token or runs OAuth flow.")
-  .argument("<action>", "Action to perform: status, start, stop")
+  .description("Manage VMs: status, start, stop, list-configs, list-regions. Uses stored auth token or runs OAuth flow.")
+  .argument("<action>", "Action to perform: status, start, stop, list-configs, list-regions")
   .option("--region <id>", "Region (eu, asia, local). Defaults to local", "local")
   .option("--config <id>", "VM config for start: px4, ardupilot, simple_robot, lerobot")
+  .option("--dev", "Include development-only regions for list-regions")
   .option("--do-auth", "Run OAuth authentication first")
   .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
   .option("--no-open", "Print the login URL instead of opening a browser during --do-auth")
-  .action(async (action: string, options: { region: string; config?: string; doAuth: boolean; backendUrl: string; open: boolean }) => {
+  .action(async (action: string, options: { region: string; config?: string; dev?: boolean; doAuth: boolean; backendUrl: string; open: boolean }) => {
     try {
       // Validate action
-      if (!["status", "start", "stop"].includes(action)) {
-        console.error(`Invalid action: ${action}. Use: status, start, or stop`);
+      if (!["status", "start", "stop", "list-configs", "list-regions"].includes(action)) {
+        console.error(`Invalid action: ${action}. Use: status, start, stop, list-configs, or list-regions`);
         exitCli(1);
+      }
+
+      if (action === "list-configs" || action === "list-regions") {
+        const result = await executeVmTool(`vm-${action}`, {
+          action: action as "list-configs" | "list-regions",
+          includeDev: options.dev ?? false,
+        });
+
+        if (result?.content?.[0]?.text) {
+          console.log(result.content[0].text);
+        } else {
+          console.log("No VM discovery data received");
+        }
+
+        exitCli(0);
       }
 
       // Run OAuth if requested
@@ -421,6 +437,10 @@ program
 
       // Resolve region to get VM Manager URL
       const region = getRegionById(options.region, true);
+      if (!region) {
+        console.error(`Invalid region: ${options.region}. Use \`tensorfleet vm list-regions --dev\` to view available regions.`);
+        exitCli(1);
+      }
       const vmManagerUrl = region.vmManagerUrl;
 
       const result = await executeVmTool(`vm-${action}`, {
@@ -441,32 +461,6 @@ program
     } catch (error) {
       console.error(
         `VM ${action} failed:`,
-        error instanceof Error ? error.message : String(error)
-      );
-      exitCli(1);
-    }
-  });
-
-program
-  .command("list-regions")
-  .description("List available TensorFleet regions")
-  .option("--dev", "Include development-only regions")
-  .action(async (options: { dev: boolean }) => {
-    try {
-      const result = await executeListRegions("list-regions", {
-        includeDev: options.dev ?? false,
-      });
-
-      if (result?.content?.[0]?.text) {
-        console.log(result.content[0].text);
-      } else {
-        console.log("No region data received");
-      }
-
-      exitCli(0);
-    } catch (error) {
-      console.error(
-        "Listing regions failed:",
         error instanceof Error ? error.message : String(error)
       );
       exitCli(1);

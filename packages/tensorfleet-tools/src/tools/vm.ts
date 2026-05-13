@@ -1,11 +1,11 @@
-import { setConfig, getConfig, fetchVmSnapshot, startVm, stopVm, getConfigById, getDefaultConfig, getRegionOrDefault } from "tensorfleet-util";
+import { DEFAULT_CONFIG_ID, fetchVmSnapshot, getAllConfigOptions, getConfig, getConfigById, getDefaultConfig, getRegionOrDefault, setConfig, startVm, stopVm } from "tensorfleet-auth";
 import { TensorfleetLogger } from "tensorfleet-util";
-import { getGlobalAuthInfo } from "tensorfleet-auth";
-import type { VMConfig } from "tensorfleet-util";
+import { getAvailableRegions, getGlobalAuthInfo } from "tensorfleet-auth";
+import type { VMConfig } from "tensorfleet-auth";
 
 const logger = new TensorfleetLogger("Tools");
 
-export type VmAction = "status" | "start" | "stop";
+export type VmAction = "status" | "start" | "stop" | "list-configs" | "list-regions";
 
 export interface VmParams {
   action: VmAction;
@@ -13,11 +13,62 @@ export interface VmParams {
   vmManagerUrl?: string;
   region?: string;
   configId?: string;
+  includeDev?: boolean;
 }
 
 export async function vmTool(_id: string, params: VmParams) {
   try {
     const { action, region } = params;
+
+    if (action === "list-configs") {
+      const configs = getAllConfigOptions().map(({ id, label, description, config }) => ({
+        id,
+        name: label,
+        description,
+        isDefault: id === DEFAULT_CONFIG_ID,
+        simConfig: config.sim_config,
+      }));
+
+      const responseText = JSON.stringify(
+        {
+          success: true,
+          action,
+          defaultConfigId: DEFAULT_CONFIG_ID,
+          configs,
+        },
+        null,
+        2
+      );
+
+      return {
+        content: [{ type: "text", text: responseText || "" }],
+      };
+    }
+
+    if (action === "list-regions") {
+      const regions = Object.entries(getAvailableRegions(params.includeDev ?? false)).map(([, config]) => ({
+        id: config.id,
+        name: config.name,
+        description: config.description,
+        vmManagerUrl: config.vmManagerUrl,
+        devOnly: config.devOnly ?? false,
+      }));
+
+      const responseText = JSON.stringify(
+        {
+          success: true,
+          action,
+          regions,
+        },
+        null,
+        2
+      );
+
+      return {
+        content: [{ type: "text", text: responseText || "" }],
+      };
+    }
+
     const token = params.token ?? getGlobalAuthInfo()?.token;
 
     if (!token) {

@@ -45,9 +45,6 @@
     "packages/tensorfleet-openclaw-plugin": {
       "name": "tensorfleet-openclaw-plugin",
       "version": "1.0.0",
-      "dependencies": {
-        "tensorfleet-tools": "workspace:*",
-      },
       "devDependencies": {
         "@foxglove/wasm-bz2": "^0.1.1",
         "@foxglove/wasm-lz4": "^1.0.2",
@@ -450,6 +447,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@lichtblick/suite-base": "workspace:*",
+        "tensorfleet-auth": "workspace:*",
         "tensorfleet-util": "workspace:*",
       },
       "devDependencies": {

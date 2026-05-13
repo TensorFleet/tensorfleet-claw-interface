@@ -4,8 +4,8 @@
     "properties": {
         "action": {
             "type": "string",
-            "enum": ["status", "start", "stop"],
-            "description": "VM action to execute"
+            "enum": ["status", "start", "stop", "list-configs", "list-regions"],
+            "description": "VM action to execute. Use list-configs to discover available VM/bot configurations before start. Use list-regions to discover VM manager regions."
         },
         "token": {
             "type": "string",
@@ -22,7 +22,11 @@
         },
         "configId": {
             "type": "string",
-            "description": "Optional VM config id to use when action is start"
+            "description": "Optional VM config id to use when action is start. Discover valid ids with action=list-configs."
+        },
+        "includeDev": {
+            "type": "boolean",
+            "description": "Include development-only regions when action is list-regions."
         }
     },
     "required": ["action"]
