@@ -1,6 +1,6 @@
 import { Type } from "@sinclair/typebox";
 import { TensorfleetTelemetryEntityRead } from "../schema-types/tensorfleet-telemetry.entity.read.input";
-import { rosConnect } from "./ros-connect";
+import { withRosConnection } from "./ros-connect";
 import { fetchFeaturedEntities } from "tensorfleet-util";
 import { TensorfleetLogger } from "tensorfleet-util";
 import { ros2Bridge } from "tensorfleet-ros";
@@ -9,10 +9,8 @@ import { filterData } from "../data-filter";
 const logger = new TensorfleetLogger('Tools');
 
 export async function entityReadTool(_id: string, params: TensorfleetTelemetryEntityRead) {
-  // First, establish ROS connection using ros-connect tool
-  const releaseLock = await rosConnect(_id, params);
-  
-  try {
+  return await withRosConnection(_id, params, async () => {
+    try {
     const { entity_id, parameters, return_type = "JSON" } = params;
     
     // Validate required parameters
@@ -102,11 +100,9 @@ export async function entityReadTool(_id: string, params: TensorfleetTelemetryEn
     // For now, return a not implemented error for specific parameters
     throw new Error(`Entity read for specific parameters is not yet implemented. Use --list to dump entity data.`);
     
-  } catch (error) {
-    logger.error('Entity read failed:', error);
-    throw error;
-  } finally {
-    // Release the lock when we're done
-    releaseLock();
-  }
+    } catch (error) {
+      logger.error('Entity read failed:', error);
+      throw error;
+    }
+  });
 }

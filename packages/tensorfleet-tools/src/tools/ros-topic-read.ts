@@ -1,6 +1,6 @@
 import { Type } from "@sinclair/typebox";
 import { TensorfleetTelemetryRosTopicRead } from "../schema-types/tensorfleet-telemetry.ros-topic.read.input";
-import { rosConnect } from "./ros-connect";
+import { withRosConnection } from "./ros-connect";
 import { TensorfleetLogger } from "tensorfleet-util";
 const logger = new TensorfleetLogger('Tools');
 import { ros2Bridge } from "tensorfleet-ros";
@@ -12,10 +12,8 @@ interface TopicInfo {
 }
 
 export async function rosTopicReadTool(_id: string, params: TensorfleetTelemetryRosTopicRead) {
-  // First, establish ROS connection using ros-connect tool
-  const releaseLock = await rosConnect(_id, params);
-  
-  try {
+  return await withRosConnection(_id, params, async () => {
+    try {
     const { topic_id, return_type = "JSON" } = params;
     
     // Validate required parameters
@@ -114,11 +112,9 @@ export async function rosTopicReadTool(_id: string, params: TensorfleetTelemetry
       }]
     };
 
-  } catch (error) {
-    logger.error('ROS topic read failed:', error);
-    throw error;
-  } finally {
-    // Release the lock when we're done
-    releaseLock();
-  }
+    } catch (error) {
+      logger.error('ROS topic read failed:', error);
+      throw error;
+    }
+  });
 }

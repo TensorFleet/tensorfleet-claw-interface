@@ -4,26 +4,39 @@ import { TensorfleetLogger } from "tensorfleet-util";
 // Simple mutex implementation to prevent parallel ROS connections
 class SimpleMutex {
   private locked = false;
-  private waitQueue: Array<() => void> = [];
+  private waitQueue: Array<{ grant: () => void; reject: (error: Error) => void; timeout: ReturnType<typeof setTimeout> }> = [];
 
-  async acquire(): Promise<() => void> {
-    return new Promise((resolve) => {
+  async acquire(timeoutMs = 15000): Promise<() => void> {
+    return new Promise((resolve, reject) => {
       if (!this.locked) {
         this.locked = true;
         resolve(() => this.release());
       } else {
-        this.waitQueue.push(() => {
-          this.locked = true;
-          resolve(() => this.release());
-        });
+        const queued = {
+          grant: () => {
+            clearTimeout(queued.timeout);
+            this.locked = true;
+            resolve(() => this.release());
+          },
+          reject,
+          timeout: setTimeout(() => {
+            const index = this.waitQueue.indexOf(queued);
+            if (index >= 0) {
+              this.waitQueue.splice(index, 1);
+            }
+            reject(new Error(`Timed out waiting for ROS connection lock after ${timeoutMs}ms`));
+          }, timeoutMs),
+        };
+        this.waitQueue.push(queued);
       }
     });
   }
 
   private release(): void {
-    if (this.waitQueue.length > 0) {
-      const next = this.waitQueue.shift();
-      if (next) next();
+    const next = this.waitQueue.shift();
+
+    if (next) {
+      next.grant();
     } else {
       this.locked = false;
     }
@@ -34,7 +47,7 @@ const rosConnectionMutex = new SimpleMutex();
 const logger = new TensorfleetLogger('Tools');
 
 // Global timer for auto-disconnect/reconnect
-let autoReconnectTimer: number | null = null;
+let autoReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let lastRosConnectTime: number = 0;
 const AUTO_RECONNECT_DELAY = 2 * 60 * 1000; // 2 minutes in milliseconds
 
@@ -90,11 +103,7 @@ function pauseAutoReconnectTimer(): void {
   }
 }
 
-export async function rosConnect(_id: string, params: any): Promise<() => void> {
-  // Pause timer when mutex is locked (connection in progress)
-  pauseAutoReconnectTimer();
-  
-  const releaseLock = await rosConnectionMutex.acquire();
+export async function ensureRosConnected(_id: string, params: any): Promise<void> {
   try {
     logger.debug('Starting ROS connection process...');
     
@@ -113,7 +122,7 @@ export async function rosConnect(_id: string, params: any): Promise<() => void> 
     // Wait for connection to be established
     logger.debug('Waiting for ROS connection to be established...');
     
-    const connectionTimeout = 10000; // 30 seconds timeout
+    const connectionTimeout = 10000; // 10 seconds timeout
     const startTime = Date.now();
     
     await new Promise<void>((resolve, reject) => {
@@ -140,22 +149,33 @@ export async function rosConnect(_id: string, params: any): Promise<() => void> 
       // Start checking connection status
       checkConnection();
     });
-    
-    } catch (error) {
+  } catch (error) {
     logger.error('ROS connection failed:', error);
     throw error;
-  } finally {
-    // The release function will be called by the caller
   }
-  
-  // Return the release function for the caller to call when done
-  return releaseLock;
+}
+
+export async function withRosConnection<T>(_id: string, params: any, fn: () => Promise<T>): Promise<T> {
+  // Pause timer while an operation is actively acquiring/using the connection.
+  pauseAutoReconnectTimer();
+
+  const releaseLock = await rosConnectionMutex.acquire();
+  try {
+    await ensureRosConnected(_id, params);
+    return await fn();
+  } finally {
+    releaseLock();
+  }
+}
+
+export async function rosConnect(_id: string, params: any): Promise<() => void> {
+  await withRosConnection(_id, params, async () => undefined);
+  return () => undefined;
 }
 
 export async function rosConnectTool(_id: string, params: any) {
   try {
-    // Use the new rosConnect function which handles the mutex
-    await rosConnect(_id, params);
+    await withRosConnection(_id, params, async () => undefined);
     
     // Return the legacy format
     const responseText = JSON.stringify({
