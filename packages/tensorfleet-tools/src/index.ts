@@ -3,6 +3,8 @@ export { executeRosNodeRead } from "./tools/ros-node-read-executor";
 export { executeRosTopicRead } from "./tools/ros-topic-read-executor";
 export { executeRosServiceRead } from "./tools/ros-service-read-executor";
 export { executeRosConnect } from "./tools/ros-connect-executor";
+export { executeVmTool } from "./tools/vm-executor";
+export { executeAuthTool } from "./tools/auth-executor";
 export type { ToolAPI, ToolDefinition, ToolParameters, ToolExecutionResult } from "./tool-api";
 
 // Export schema definitions
@@ -11,6 +13,8 @@ import rosNodeReadSchema from "../schema/tensorfleet-telemetry.ros-node.read.inp
 import rosTopicReadSchema from "../schema/tensorfleet-telemetry.ros-topic.read.input.json";
 import rosServiceReadSchema from "../schema/tensorfleet-telemetry.ros-service.read.input.json";
 import rosConnectSchema from "../schema/tensorfleet-telemetry.ros-connect.input.json";
+import authSchema from "../schema/tensorfleet.auth.input.json";
+import vmSchema from "../schema/tensorfleet.vm.input.json";
 
 
-export { entityReadSchema, rosNodeReadSchema, rosTopicReadSchema, rosServiceReadSchema, rosConnectSchema };
+export { entityReadSchema, rosNodeReadSchema, rosTopicReadSchema, rosServiceReadSchema, rosConnectSchema, authSchema, vmSchema };

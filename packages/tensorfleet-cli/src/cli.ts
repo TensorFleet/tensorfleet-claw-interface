@@ -1,10 +1,15 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
+import { createServer } from "node:http";
+import { execFile } from "node:child_process";
 import { version } from "../package.json";
-import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead } from "tensorfleet-tools";
+import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead, executeVmTool, executeAuthTool } from "tensorfleet-tools";
+import { getRegionById, startOAuthRedirectFlow } from "tensorfleet-auth";
+import { getGlobalAuthInfo, storeAuthTokenOnGlobal } from "tensorfleet-auth";
 
 const program = new Command();
+const DEFAULT_AUTH_BACKEND_URL = "https://app.tensorfleet.net/";
 
 function exitCli(code: number): never {
   try {
@@ -21,14 +26,147 @@ program
   .description("TensorFleet CLI tool")
   .version(version);
 
+const authCommand = program
+  .command("auth")
+  .description("Authentication management");
+
+authCommand
+  .command("login")
+  .description("Perform OAuth authentication and store credentials")
+  .option("--backend-url <url>", "TensorFleet backend URL", DEFAULT_AUTH_BACKEND_URL)
+  .action(async (options: { backendUrl: string }) => {
+    try {
+      const result = await executeAuthTool("auth-login", {
+        command: "login",
+        backendUrl: options.backendUrl,
+      });
+
+      if (result?.content?.[0]?.text) {
+        console.log(result.content[0].text);
+      } else {
+        console.log("No auth data received");
+      }
+
+      exitCli(0);
+    } catch (error) {
+      console.error(
+        "Login failed:",
+        error instanceof Error ? error.message : String(error)
+      );
+      exitCli(1);
+    }
+  });
+
+authCommand
+  .command("status")
+  .description("Check current authentication status")
+  .action(async () => {
+    try {
+      const result = await executeAuthTool("auth-status", {
+        command: "status",
+      });
+
+      if (result?.content?.[0]?.text) {
+        console.log(result.content[0].text);
+      } else {
+        console.log("No auth status available");
+      }
+
+      exitCli(0);
+    } catch (error) {
+      console.error(
+        "Failed to check auth status:",
+        error instanceof Error ? error.message : String(error)
+      );
+      exitCli(1);
+    }
+  });
+
+authCommand
+  .command("logout")
+  .description("Clear stored authentication credentials")
+  .action(async () => {
+    try {
+      const result = await executeAuthTool("auth-logout", {
+        command: "logout",
+      });
+
+      if (result?.content?.[0]?.text) {
+        console.log(result.content[0].text);
+      } else {
+        console.log("Logout completed");
+      }
+
+      exitCli(0);
+    } catch (error) {
+      console.error(
+        "Logout failed:",
+        error instanceof Error ? error.message : String(error)
+      );
+      exitCli(1);
+    }
+  });
+
+// Keep test-auth for backward compatibility
+program
+  .command("test-auth")
+  .description("Deprecated: Use 'tensorfleet auth login' instead")
+  .option("--backend-url <url>", "TensorFleet backend URL", DEFAULT_AUTH_BACKEND_URL)
+  .action(async (options: { backendUrl: string }) => {
+    console.warn("Warning: 'test-auth' is deprecated. Use 'auth login' instead.");
+    try {
+      const result = await executeAuthTool("test-auth", {
+        command: "login",
+        backendUrl: options.backendUrl,
+      });
+
+      if (result?.content?.[0]?.text) {
+        console.log(result.content[0].text);
+      } else {
+        console.log("No auth data received");
+      }
+
+      exitCli(0);
+    } catch (error) {
+      console.error(
+        "Auth test failed:",
+        error instanceof Error ? error.message : String(error)
+      );
+      exitCli(1);
+    }
+  });
+
+function openBrowser(url: string): Promise<void> {
+  const command =
+    process.platform === "darwin"
+      ? "open"
+      : process.platform === "win32"
+        ? "cmd"
+        : "xdg-open";
+  const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
+
+  return new Promise((resolve, reject) => {
+    const child = execFile(command, args, (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    });
+
+    child.unref();
+  });
+}
+
 program
   .command("ros-connect")
-  .description("Test ROS connection for a specific tensorfleet project directory")
-  .requiredOption(
+  .description("Test ROS connection using in-memory config or an optional tensorfleet project directory")
+  .option(
     "-p, --project-path <path>",
-    "Tensorfleet project directory path"
+    "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback"
   )
-  .action(async (options: { projectPath: string }) => {
+  .action(async (options: { projectPath?: string }) => {
     try {
       await executeRosConnect("ros-connect", {
         "tensorfleet-project-path": options.projectPath,
@@ -47,9 +185,9 @@ program
 program
   .command("ros-topic-read")
   .description("Read from a ROS topic and wait for one publication")
-  .requiredOption(
+  .option(
     "-p, --project-path <path>",
-    "Tensorfleet project directory path"
+    "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback"
   )
   .option(
     "--topic-id <topic>",
@@ -72,7 +210,7 @@ program
     async (
       parameters: string[] = [],
       options: {
-        projectPath: string;
+        projectPath?: string;
         topicId?: string;
         returnType: string;
         regexFilter?: string;
@@ -111,9 +249,9 @@ program
 program
   .command("entity-read")
   .description("Read from a featured entity in the ROS environment")
-  .requiredOption(
+  .option(
     "-p, --project-path <path>",
-    "Tensorfleet project directory path"
+    "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback"
   )
   .requiredOption(
     "--entity-id <entity>",
@@ -134,7 +272,7 @@ program
   )
   .action(
     async (options: {
-      projectPath: string;
+      projectPath?: string;
       entityId: string;
       returnType: string;
       parameters?: string[];
@@ -173,9 +311,9 @@ program
 program
   .command("ros-service-read")
   .description("Read from a ROS service by calling it with arguments")
-  .requiredOption(
+  .option(
     "-p, --project-path <path>",
-    "Tensorfleet project directory path"
+    "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback"
   )
   .requiredOption(
     "--service-id <service>",
@@ -198,7 +336,7 @@ program
     async (
       args: string[] = [],
       options: {
-        projectPath: string;
+        projectPath?: string;
         serviceId: string;
         returnType: string;
         regexFilter?: string;
@@ -237,6 +375,120 @@ program
       }
     }
   );
+
+program
+  .command("vm")
+  .description("Manage VMs: status, start, stop, list-configs, list-regions, select-vm. Uses stored auth token or runs OAuth flow.")
+  .argument("<action>", "Action to perform: status, start, stop, list-configs, list-regions, select-vm")
+  .option("--region <id>", "Region (eu, asia, local)")
+  .option("--vm-id <id>", "VM/node id for select-vm")
+  .option("--config <id>", "VM config for start: px4, ardupilot, simple_robot, lerobot")
+  .option("--timeout <seconds>", "Optional wait timeout in seconds for start/stop to reach the target state")
+  .option("--dev", "Include development-only regions for list-regions")
+  .option("--do-auth", "Run OAuth authentication first")
+  .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
+  .option("--no-open", "Print the login URL instead of opening a browser during --do-auth")
+  .action(async (action: string, options: { region?: string; vmId?: string; config?: string; timeout?: string; dev?: boolean; doAuth: boolean; backendUrl: string; open: boolean }) => {
+    try {
+      // Validate action
+      if (!["status", "start", "stop", "list-configs", "list-regions", "select-vm"].includes(action)) {
+        console.error(`Invalid action: ${action}. Use: status, start, stop, list-configs, list-regions, or select-vm`);
+        exitCli(1);
+      }
+
+      if (action === "list-configs" || action === "list-regions" || action === "select-vm") {
+        if (action === "select-vm" && !options.region) {
+          console.error("Error: --region is required for select-vm");
+          exitCli(1);
+        }
+        if (action === "select-vm" && !options.vmId) {
+          console.error("Error: --vm-id is required for select-vm");
+          exitCli(1);
+        }
+
+        const result = await executeVmTool(`vm-${action}`, {
+          action: action as "list-configs" | "list-regions" | "select-vm",
+          includeDev: options.dev ?? false,
+          region: options.region,
+          nodeId: options.vmId,
+        });
+
+        if (result?.content?.[0]?.text) {
+          console.log(result.content[0].text);
+        } else {
+          console.log("No VM discovery data received");
+        }
+
+        exitCli(0);
+      }
+
+      const timeout =
+        options.timeout != undefined ? Number(options.timeout) : undefined;
+      if (timeout != undefined && (!Number.isFinite(timeout) || timeout < 0)) {
+        console.error("--timeout must be a non-negative number of seconds");
+        exitCli(1);
+      }
+
+      // Run OAuth if requested
+      if (options.doAuth) {
+        const session = await startOAuthRedirectFlow({
+          backendUrl: options.backendUrl,
+          createServer,
+          openBrowser: async (url) => {
+            if (!options.open) {
+              console.log(`Open this URL to authenticate:\n${url}`);
+              return;
+            }
+            await openBrowser(url);
+          },
+          onTokenReceived: (token) => {
+            storeAuthTokenOnGlobal(token, "oauth");
+          },
+        });
+        await session.tokenPromise;
+      }
+
+      // Check for stored auth
+      const authInfo = getGlobalAuthInfo();
+      if (!authInfo) {
+        console.error("Not authenticated. Run `tensorfleet test-auth` first or pass --do-auth");
+        exitCli(1);
+      }
+
+      let vmManagerUrl: string | undefined;
+      if (options.region) {
+        const region = getRegionById(options.region, true);
+        if (!region) {
+          console.error(`Invalid region: ${options.region}. Use \`tensorfleet vm list-regions --dev\` to view available regions.`);
+          exitCli(1);
+        }
+        vmManagerUrl = region.vmManagerUrl;
+      }
+
+      const result = await executeVmTool(`vm-${action}`, {
+        action: action as "status" | "start" | "stop",
+        token: authInfo.token,
+        vmManagerUrl,
+        region: options.region,
+        configId: options.config,
+        timeout,
+      });
+
+      if (result?.content?.[0]?.text) {
+        console.log(result.content[0].text);
+      } else {
+        console.log("No data received");
+      }
+
+      exitCli(0);
+    } catch (error) {
+      console.error(
+        `VM ${action} failed:`,
+        error instanceof Error ? error.message : String(error)
+      );
+      exitCli(1);
+    }
+  });
 
 program.parseAsync(process.argv).catch((error) => {
   console.error(error instanceof Error ? error.message : String(error));

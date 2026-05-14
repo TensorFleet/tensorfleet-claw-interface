@@ -1,7 +1,7 @@
-import { executeEntityRead, executeRosNodeRead, executeRosTopicRead, executeRosServiceRead, executeRosConnect } from "tensorfleet-tools";
+import { executeEntityRead, executeRosNodeRead, executeRosTopicRead, executeRosServiceRead, executeRosConnect, executeAuthTool, executeVmTool } from "tensorfleet-tools";
 
 // Import schema definitions from tensorfleet-tools
-import { entityReadSchema, rosNodeReadSchema, rosTopicReadSchema, rosServiceReadSchema, rosConnectSchema } from "tensorfleet-tools";
+import { entityReadSchema, rosNodeReadSchema, rosTopicReadSchema, rosServiceReadSchema, rosConnectSchema, authSchema, vmSchema } from "tensorfleet-tools";
 
 // Helper function to wrap executor with try-catch and return JSON error on failure
 function withErrorHandling<T extends any[]>(
@@ -68,5 +68,19 @@ export default function (api: ToolAPI) {
     description: "Connect to a ROS 2 network",
     parameters: rosConnectSchema,
     execute: withErrorHandling(executeRosConnect),
+  });
+
+  api.registerTool({
+    name: "tensorfleet-auth",
+    description: "authenticate the user's tensorfleet account",
+    parameters: authSchema,
+    execute: withErrorHandling(executeAuthTool),
+  });
+
+  api.registerTool({
+    name: "tensorfleet-vm",
+    description: "Manage TensorFleet virtual machines",
+    parameters: vmSchema,
+    execute: withErrorHandling(executeVmTool),
   });
 }

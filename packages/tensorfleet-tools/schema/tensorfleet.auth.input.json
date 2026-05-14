@@ -1,0 +1,16 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "command": {
+            "type": "string",
+            "enum": ["status", "login", "logout"],
+            "description": "Auth command to execute. Defaults to 'login' for backward compatibility"
+        },
+        "backendUrl": {
+            "type": "string",
+            "description": "Optional custom backend URL for OAuth authentication. Defaults to https://app.tensorfleet.net/"
+        }
+    },
+    "required": []
+}

@@ -12,9 +12,9 @@ export interface TensorfleetTelemetryRosServiceRead {
    */
   return_type?: string;
   /**
-   * Tensorfleet project directory path. The directory should contain both .tensorfleet and .env files at its root
+   * Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback. Omit when using in-memory auth and config-store values.
    */
-  "tensorfleet-project-path": string;
+  "tensorfleet-project-path"?: string;
   /**
    * Regex filter to apply to the query
    */

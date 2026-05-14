@@ -1,0 +1,11 @@
+{
+  "name": "tensorfleet-openclaw-plugin",
+  "version": "1.0.0",
+  "description": "OpenClaw plugin for TensorFleet telemetry and auth tools",
+  "main": "dist/index.js",
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  }
+}

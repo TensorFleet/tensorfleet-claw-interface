@@ -1,16 +1,14 @@
 import { Type } from "@sinclair/typebox";
 import { TensorfleetTelemetryRosServiceRead } from "../schema-types/tensorfleet-telemetry.ros-service.read.input";
-import { rosConnect } from "./ros-connect";
+import { withRosConnection } from "./ros-connect";
 import { TensorfleetLogger } from "tensorfleet-util";
 const logger = new TensorfleetLogger('Tools');
 import { ros2Bridge } from "tensorfleet-ros";
 import { filterData } from "../data-filter";
 
 export async function rosServiceReadTool(_id: string, params: TensorfleetTelemetryRosServiceRead) {
-  // First, establish ROS connection using ros-connect tool
-  const releaseLock = await rosConnect(_id, params);
-  
-  try {
+  return await withRosConnection(_id, params, async () => {
+    try {
     const { service_id, arguments: args, return_type = "JSON" } = params;
     
     // Validate required parameters
@@ -115,7 +113,7 @@ export async function rosServiceReadTool(_id: string, params: TensorfleetTelemet
     let responseText: string;
     
     if (return_type === "JSON") {
-      responseText = JSON.stringify(result, null, 2);
+      responseText = JSON.stringify(result, null, 2) ?? "";
     } else {
       // For other return types, convert to string representation
       responseText = String(result);
@@ -130,11 +128,9 @@ export async function rosServiceReadTool(_id: string, params: TensorfleetTelemet
       }]
     };
 
-  } catch (error) {
-    logger.error('ROS service read failed:', error);
-    throw error;
-  } finally {
-    // Release the lock when we're done
-    releaseLock();
-  }
+    } catch (error) {
+      logger.error('ROS service read failed:', error);
+      throw error;
+    }
+  });
 }
