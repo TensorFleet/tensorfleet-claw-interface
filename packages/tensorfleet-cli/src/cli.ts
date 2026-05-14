@@ -378,27 +378,39 @@ program
 
 program
   .command("vm")
-  .description("Manage VMs: status, start, stop, list-configs, list-regions. Uses stored auth token or runs OAuth flow.")
-  .argument("<action>", "Action to perform: status, start, stop, list-configs, list-regions")
-  .option("--region <id>", "Region (eu, asia, local). Defaults to local", "local")
+  .description("Manage VMs: status, start, stop, list-configs, list-regions, select-vm. Uses stored auth token or runs OAuth flow.")
+  .argument("<action>", "Action to perform: status, start, stop, list-configs, list-regions, select-vm")
+  .option("--region <id>", "Region (eu, asia, local)")
+  .option("--vm-id <id>", "VM/node id for select-vm")
   .option("--config <id>", "VM config for start: px4, ardupilot, simple_robot, lerobot")
   .option("--timeout <seconds>", "Optional wait timeout in seconds for start/stop to reach the target state")
   .option("--dev", "Include development-only regions for list-regions")
   .option("--do-auth", "Run OAuth authentication first")
   .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
   .option("--no-open", "Print the login URL instead of opening a browser during --do-auth")
-  .action(async (action: string, options: { region: string; config?: string; timeout?: string; dev?: boolean; doAuth: boolean; backendUrl: string; open: boolean }) => {
+  .action(async (action: string, options: { region?: string; vmId?: string; config?: string; timeout?: string; dev?: boolean; doAuth: boolean; backendUrl: string; open: boolean }) => {
     try {
       // Validate action
-      if (!["status", "start", "stop", "list-configs", "list-regions"].includes(action)) {
-        console.error(`Invalid action: ${action}. Use: status, start, stop, list-configs, or list-regions`);
+      if (!["status", "start", "stop", "list-configs", "list-regions", "select-vm"].includes(action)) {
+        console.error(`Invalid action: ${action}. Use: status, start, stop, list-configs, list-regions, or select-vm`);
         exitCli(1);
       }
 
-      if (action === "list-configs" || action === "list-regions") {
+      if (action === "list-configs" || action === "list-regions" || action === "select-vm") {
+        if (action === "select-vm" && !options.region) {
+          console.error("Error: --region is required for select-vm");
+          exitCli(1);
+        }
+        if (action === "select-vm" && !options.vmId) {
+          console.error("Error: --vm-id is required for select-vm");
+          exitCli(1);
+        }
+
         const result = await executeVmTool(`vm-${action}`, {
-          action: action as "list-configs" | "list-regions",
+          action: action as "list-configs" | "list-regions" | "select-vm",
           includeDev: options.dev ?? false,
+          region: options.region,
+          nodeId: options.vmId,
         });
 
         if (result?.content?.[0]?.text) {
@@ -443,13 +455,15 @@ program
         exitCli(1);
       }
 
-      // Resolve region to get VM Manager URL
-      const region = getRegionById(options.region, true);
-      if (!region) {
-        console.error(`Invalid region: ${options.region}. Use \`tensorfleet vm list-regions --dev\` to view available regions.`);
-        exitCli(1);
+      let vmManagerUrl: string | undefined;
+      if (options.region) {
+        const region = getRegionById(options.region, true);
+        if (!region) {
+          console.error(`Invalid region: ${options.region}. Use \`tensorfleet vm list-regions --dev\` to view available regions.`);
+          exitCli(1);
+        }
+        vmManagerUrl = region.vmManagerUrl;
       }
-      const vmManagerUrl = region.vmManagerUrl;
 
       const result = await executeVmTool(`vm-${action}`, {
         action: action as "status" | "start" | "stop",

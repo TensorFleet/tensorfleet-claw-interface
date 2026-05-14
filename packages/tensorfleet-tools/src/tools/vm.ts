@@ -1,17 +1,19 @@
-import { DEFAULT_CONFIG_ID, fetchVmSnapshot, getAllConfigOptions, getConfig, getConfigById, getDefaultConfig, getRegionOrDefault, setConfig, startVm, stopVm } from "tensorfleet-auth";
+import { DEFAULT_CONFIG_ID, fetchVmSnapshot, getAllConfigOptions, getConfig, getConfigById, getDefaultConfig, getRegionById, getRegionOrDefault, setConfig, startVm, stopVm } from "tensorfleet-auth";
 import { TensorfleetLogger } from "tensorfleet-util";
 import { getAvailableRegions, getGlobalAuthInfo } from "tensorfleet-auth";
 import type { VMConfig } from "tensorfleet-auth";
 
 const logger = new TensorfleetLogger("Tools");
 
-export type VmAction = "status" | "start" | "stop" | "list-configs" | "list-regions";
+export type VmAction = "status" | "start" | "stop" | "list-configs" | "list-regions" | "select-vm";
 
 export interface VmParams {
   action: VmAction;
   token?: string;
   vmManagerUrl?: string;
   region?: string;
+  nodeId?: string;
+  vmId?: string;
   configId?: string;
   includeDev?: boolean;
   timeout?: number;
@@ -72,6 +74,42 @@ export async function vmTool(_id: string, params: VmParams) {
       };
     }
 
+    if (action === "select-vm") {
+      if (!region) {
+        throw new Error("region is required for select-vm");
+      }
+
+      const selectedNodeId = params.nodeId ?? params.vmId;
+      if (!selectedNodeId) {
+        throw new Error("nodeId is required for select-vm");
+      }
+
+      const selectedRegion = getRegionById(region, true);
+      if (!selectedRegion) {
+        throw new Error(`Region not available: ${region}`);
+      }
+
+      setConfig("TENSORFLEET_REGION", selectedRegion.id);
+      setConfig("TENSORFLEET_VM_MANAGER_URL", selectedRegion.vmManagerUrl);
+      setConfig("TENSORFLEET_NODE_ID", selectedNodeId);
+
+      const responseText = JSON.stringify(
+        {
+          success: true,
+          action,
+          region: selectedRegion.id,
+          vmManagerUrl: selectedRegion.vmManagerUrl,
+          nodeId: selectedNodeId,
+        },
+        null,
+        2
+      );
+
+      return {
+        content: [{ type: "text", text: responseText || "" }],
+      };
+    }
+
     const token = params.token ?? getGlobalAuthInfo()?.token;
 
     if (!token) {
@@ -84,18 +122,12 @@ export async function vmTool(_id: string, params: VmParams) {
       getConfig<string>("TENSORFLEET_VM_MANAGER_URL") ??
       getRegionOrDefault(undefined, true).vmManagerUrl;
 
-    // Always store the VM manager URL in config-store
-    setConfig("TENSORFLEET_VM_MANAGER_URL", vmManagerUrl);
-
     let result: any;
 
     switch (action) {
       case "status": {
         logger.debug(`Checking VM status at ${vmManagerUrl}`);
         const snapshot = await fetchVmSnapshot({ baseUrl: vmManagerUrl, token });
-        if (snapshot.nodeId) {
-          setConfig("TENSORFLEET_NODE_ID", snapshot.nodeId);
-        }
         result = {
           snapshot: {
             connection: snapshot.connection,
@@ -159,7 +191,7 @@ export async function vmTool(_id: string, params: VmParams) {
       {
         success: true,
         action,
-        region: region ?? "local",
+        region: region ?? getConfig<string>("TENSORFLEET_REGION") ?? null,
         vmManagerUrl,
         ...result,
       },
@@ -203,10 +235,6 @@ async function waitForVmState(options: {
     const remainingMs = deadline - Date.now();
     await delay(Math.min(VM_WAIT_POLL_INTERVAL_MS, Math.max(remainingMs, 0)));
     snapshot = await fetchVmSnapshot({ baseUrl: options.vmManagerUrl, token: options.token });
-  }
-
-  if (snapshot.nodeId) {
-    setConfig("TENSORFLEET_NODE_ID", snapshot.nodeId);
   }
 
   return {

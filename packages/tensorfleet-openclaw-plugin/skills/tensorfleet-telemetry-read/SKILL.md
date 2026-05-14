@@ -20,11 +20,29 @@ You can use the authentication tool to log into the tensorfleet account
 - **can use when**: User needs to log in to TensorFleet, or when other TensorFleet tools return authentication errors. This tool must be run before any other TensorFleet operations if not already authenticated.
 - **parameters**:
   - `backendUrl` (optional): Custom backend URL for OAuth authentication. Defaults to https://app.tensorfleet.net/
-- **returns**: JSON object with authentication status and user profile. On success, the auth token is stored globally for all subsequent tool calls.
-- **additional notes**: Opens system browser for OAuth login flow. User must complete login in the browser window that appears. **This tool DOES NOT require any parameters, project path, or config file to run.**
+- **returns**: JSON object with authentication status and user profile. On success, the auth token is stored globally for all subsequent tool calls. Auth token will remain in memory till openclaw gateway is restarted.
+- **How it works**: When logging in, the tool opens a browser tab for logging in. after it's done your tool returns.
+
+# Virtual machine Tool
+Tensorfleet robotics simulations happen in a cloud virtual machine. This tool helps managing these machines.
+- **name**: `tensorfleet-vm`
+- **purpose**: Select the virtual machine. that you want to use the virtual machine from. List virtual machines, stop or start your VM and.
+
+# Auth + VM selection workflow
+auth tool and virtual machine tool are multipurpose and give us different actions to perform.
+We need to use these automatically with the workflow shown below. Please don't pause in between unless you have a question from the user.
+1- User asks something. If you don't know about the auth status, run the auth status.
+1.1- If not logged in, Ask for permission to open the auth window. After you have the auth token proceed without pausing.
+2- Assuming auth tokens are cached, We need to know if we have selected a running virtual machine.
+2.1- Check the chat history, If user has not mentioned any region, list the regions and ASK THEM which region they want to use. Even if there is only one, Ask the user!. Note that the "local" region may not list but still exists for development.
+2.2- Get the virtual machine status for the desired region. If it's not running, Ask for permission then start it.
+2.2.1- To start a vm you need a configuration. You have to know which configuration you're starting it. Use the `list-configs` action on `tensorfleet-vm` to get a list of possible configurations. The user must choose which to use. You can add description/notes to guide them.
+2.3- Run the `select-vm` action for the `tensorfleet-vm` tool to select the running virtual machine. if the status isn't running, inform the user to wait and retry in 30 seconds.
+3- You assume auth is done, vm is selected, proceed with drone operations.
+
 
 ## Tensorfleet config file
-If login is not done, the auth token and virtual machine id are needed. In that case they are provided via the directory path as "tensorfleet-project-path".
+If login is not done, the auth token and virtual machine id are needed. In that case they are provided via the directory path as "tensorfleet-project-path". Note that this is the legacy workflow.
 
 # Tensorfleet telemetry read skill
 

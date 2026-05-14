@@ -4,8 +4,8 @@
     "properties": {
         "action": {
             "type": "string",
-            "enum": ["status", "start", "stop", "list-configs", "list-regions"],
-            "description": "VM action to execute. Use list-configs to discover available VM/bot configurations before start. Use list-regions to discover VM manager regions."
+            "enum": ["status", "start", "stop", "list-configs", "list-regions", "select-vm"],
+            "description": "VM action to execute. Use select-vm with region and nodeId to set the active in-memory VM target. Use list-configs to discover available VM/bot configurations before start. Use list-regions to discover VM manager regions."
         },
         "token": {
             "type": "string",
@@ -18,7 +18,15 @@
         "region": {
             "type": "string",
             "enum": ["eu", "asia", "local"],
-            "description": "Optional TensorFleet region id. Defaults to the previously configured VM manager URL, or eu if none was configured"
+            "description": "Optional TensorFleet region id. Required for action=select-vm. For other actions, overrides the VM manager URL for that request without changing the active in-memory VM target."
+        },
+        "nodeId": {
+            "type": "string",
+            "description": "VM/node id to select for later operations. Required for action=select-vm."
+        },
+        "vmId": {
+            "type": "string",
+            "description": "Alias for nodeId. VM id to select for later operations when action=select-vm."
         },
         "configId": {
             "type": "string",
