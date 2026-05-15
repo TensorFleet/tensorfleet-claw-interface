@@ -31,14 +31,15 @@ Tensorfleet robotics simulations happen in a cloud virtual machine. This tool he
 # Auth + VM selection workflow
 auth tool and virtual machine tool are multipurpose and give us different actions to perform.
 We need to use these automatically with the workflow shown below. Please don't pause in between unless you have a question from the user.
-1- User asks something. If you don't know about the auth status, run the auth status.
-1.1- If not logged in, Ask for permission to open the auth window. After you have the auth token proceed without pausing.
-2- Assuming auth tokens are cached, We need to know if we have selected a running virtual machine.
-2.1- Check the chat history, If user has not mentioned any region, list the regions and ASK THEM which region they want to use. Even if there is only one, Ask the user!. Note that the "local" region may not list but still exists for development.
-2.2- Get the virtual machine status for the desired region. If it's not running, Ask for permission then start it.
-2.2.1- To start a vm you need a configuration. You have to know which configuration you're starting it. Use the `list-configs` action on `tensorfleet-vm` to get a list of possible configurations. The user must choose which to use. You can add description/notes to guide them.
-2.3- Run the `select-vm` action for the `tensorfleet-vm` tool to select the running virtual machine. if the status isn't running, inform the user to wait and retry in 30 seconds.
-3- You assume auth is done, vm is selected, proceed with drone operations.
+
+1. User asks something. If you don't know about the auth status, run the auth status. 
+   1. If not logged in, Ask for permission to open the auth window. After you have the auth token proceed without pausing.
+2. Assuming auth tokens are cached, We need to know if we have selected a running virtual machine. 
+   1. Check the chat history, If user has not mentioned any region, list the regions and ASK THEM which region they want to use. Even if there is only one, Ask the user!. Note that the "local" region may not list but still exists for development.
+   2. Get the virtual machine status for the desired region. If it's not running, Ask for permission then start it.
+      1. To start a vm you need a configuration. You have to know which configuration you're starting it. Use the `list-configs` action on `tensorfleet-vm` to get a list of possible configurations. The user must choose which to use. You can add description/notes to guide them. 
+   3. Run the `select-vm` action for the `tensorfleet-vm` tool to select the running virtual machine. if the status isn't running, inform the user to wait and retry in 30 seconds. 
+3. You assume auth is done, vm is selected, proceed with drone operations.
 
 
 ## Tensorfleet config file
@@ -61,31 +62,22 @@ We have a couple of tools we can use to perform a read operation.
 
 
 ## Usage protocol
-When a user asks for something that requires using any of the tools mentioned below, follow these steps in order (or the same time)
-1. Ensure you know the project path. Give an extremely short note to the user when asking them to ensure their virtual machine is started and vscode logged in to the tensorfleet account is open for it. Do not repeat this unless needed
-2. Default to the entity system for context (don’t announce the backend). Switch to raw ROS only if the user asks OR the entity system does not have what you need. Use the "Environment quick-reference" to speed up your understanding.
 
-## Operator preference
-- Do not ask the user to specify the query filters. They are there to make you more efficient automatically. You can derive filters and other arguments automatically unless specified otherwise.
-- Operator preference is in **Environment quick-reference**.
+### Drone interfacing
+When interfacing with drones first use our `tensorfleet-drone` tool unless you need lower level telemetry.
+For lower level telemetry a default drone will be available under the `/mavros/*` topic path if the virtual machine has spawned one. use `.*mavros.*` in your regex-filter (you can expand on that) to filter for this.
+
+### Other robot type interfacing
+Do not do anything unless the user asks for low level telemetry. Its still in development.
+
+### ROS access interfacing
+If the user provided filtering suggestions, make up your `regex-filter`. Otherwise do warn them that the output will be long and if they want to proceed with no filters
+
+## Generic tool guide
+- When using regex filters in tool parameters do not ask the user to specify the query filters. They are there to make you more efficient automatically. You can derive filters and other arguments automatically unless specified otherwise.
 - When reading data from the drone, the operation is not expensive. Unless making direct service calls, there are no safety considerations.
-
-### If the user asks for
-do what's in front of ':'. (n) references are to the **Usage protocol**
-- **Data on a drone**: Just ensure (1), Then refer to **Common drone topics** section.
-- **Data on a robotics arm**: State that support is in development. Offer to perform raw ROS operations starting with a `.*arm.*` `regex-filter`.
-- **Data on a ground robotc (called simple-robot)** : State that support is in development and do not perform anything.
-- **Raw ROS access** : If they have provided filtering suggestions, make up your `regex-filter`. Otherwise do warn them that the output will be long and if they want to proceed with no filters
-
-Additional notes :
 - Parse the tool outputs in a way that's understandable for the user. Shorten them if needed. The user is a human.
 - `regex-filter` : It's mostly needed when you're giving the OUTPUT of a tool directly to the user. When using list functions in raw ROS `--list` functionality to list nodes, topics or services (property lists shouldn't be a concern either).Otherwise the output isn't that long and won't be long enough to be concerned. And as mentioned, If you're just reading the output of a tool and responding BASED on it, It won't fill the chat history with junk and is not a concern.
-
-
-### Environment quick-reference
-These are suggestions for ASSISTANT (you) and the USER.
-When a user asks for something. You can suggest a quick list from Environment quick-reference
-- **Drones** : A default drone will be available under the `/mavros/*` topic path if the virtual machine has spawned one. use `.*mavros.*` in your regex-filter (you can expand on that) to filter for this. 
 
 
 ## Troubleshooting
@@ -96,6 +88,12 @@ If things aren't working you can check
 
 # Available tools
 
+### Drone tool
+- **name**: `tensorfleet-drone`
+- **purpose**: get the drone state or command the drone. returns after drone reaches desired state. Which might take a while depending on the request and current state.
+- **can use when**: You need to verify that the ROS 2 connection is working properly, or when troubleshooting connection issues.
+- **additional notes**: For this tool we auto-detect the existing mavros drone, you don't need to specify it.
+- 
 ### ROS connect tool
 
 - **name**: `tensorfleet-telemetry-ros-connect`

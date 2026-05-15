@@ -85,7 +85,7 @@ export default function (api: ToolAPI) {
   });
 
   api.registerTool({
-    name: "tensorfleet-drone-tools",
+    name: "tensorfleet-drone",
     description: "Control a MAVROS-backed drone through the TensorFleet drone controller",
     parameters: droneSchema,
     execute: withErrorHandling(executeDroneTool),
