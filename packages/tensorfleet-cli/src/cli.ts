@@ -5,7 +5,7 @@ import { createServer } from "node:http";
 import { execFile } from "node:child_process";
 import { version } from "../package.json";
 import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead, executeVmTool, executeAuthTool, executeDroneTool } from "tensorfleet-tools";
-import { getRegionById, setConfig, startOAuthRedirectFlow } from "tensorfleet-auth";
+import { fetchVmSnapshot, getRegionById, setConfig, startOAuthRedirectFlow } from "tensorfleet-auth";
 import { getGlobalAuthInfo, storeAuthTokenOnGlobal } from "tensorfleet-auth";
 
 const program = new Command();
@@ -555,11 +555,23 @@ program
         await session.tokenPromise;
       }
 
+      const authInfo = getGlobalAuthInfo();
       if (!options.projectPath) {
-        const authInfo = getGlobalAuthInfo();
         if (!authInfo) {
           console.error("Not authenticated. Pass --do-auth or provide --project-path with legacy auth config");
           exitCli(1);
+        }
+      }
+
+      let nodeId: string | undefined;
+      if (authInfo?.token) {
+        const snapshot = await fetchVmSnapshot({
+          baseUrl: region.vmManagerUrl,
+          token: authInfo.token,
+        });
+        nodeId = snapshot.nodeId ?? undefined;
+        if (nodeId) {
+          setConfig("TENSORFLEET_NODE_ID", nodeId);
         }
       }
 
@@ -568,6 +580,10 @@ program
       const result = await executeDroneTool(`drone-${action}`, {
         action: action as any,
         "tensorfleet-project-path": options.projectPath,
+        token: authInfo?.token,
+        vmManagerUrl: region.vmManagerUrl,
+        nodeId,
+        region: region.id,
         autoState: autoState as any,
       });
 

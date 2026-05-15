@@ -131,6 +131,134 @@ bun run cli entity-read -p [path-to-your-project-folder] --entity-id=/mavros --p
 
 ```
 
+### CLI - `drone get-state` command
+```bash
+# Get the current drone state
+bun run cli -- drone get-state --do-auth --region local
+
+# From the built CLI package
+cd packages/tensorfleet-cli && bun dist/cli.mjs drone get-state --do-auth --region local
+
+# Example output
+# {
+#   "success": true,
+#   "action": "get-state",
+#   "state": {
+#     "status": {
+#       "time_boot_ms": 1778823847892,
+#       "connected": true,
+#       "gcs_link": true,
+#       "faults": [],
+#       "armable": true,
+#       "arm_reasons": []
+#     },
+#     "extended": {
+#       "time_boot_ms": 1778823847896,
+#       "landed_state": 1,
+#       "vtol_state": 0
+#     },
+#     "vehicle": {
+#       "time_boot_ms": 1778823847895,
+#       "connected": true,
+#       "armed": false,
+#       "guided": true,
+#       "manual_input": false,
+#       "mode": "AUTO.LOITER",
+#       "system_status": 3
+#     },
+#     "home": {
+#       "time_boot_ms": 1778823847142,
+#       "lat": 47.3979683,
+#       "lon": 8.5461709,
+#       "alt": 47.355216973519596,
+#       "orientation": {
+#         "x": 0.9524350305582139,
+#         "y": -0.3047416501931096,
+#         "z": 5.831982557844642e-17,
+#         "w": -1.8660044323793688e-17
+#       }
+#     },
+#     "global_position_int": {
+#       "time_boot_ms": 1778823847145,
+#       "lat": 47.3979713,
+#       "lon": 8.546164,
+#       "alt": 47.50122801451891,
+#       "relative_alt": 0.07465769350528717,
+#       "vx": 0,
+#       "vy": 0,
+#       "vz": 0,
+#       "hdg": 79.69
+#     },
+#     "rotation": {
+#       "x": 0,
+#       "y": 0,
+#       "z": 0.6407129104654069,
+#       "w": 0.7677805457049218
+#     },
+#     "yaw": 1.390852880914281,
+#     "local": {
+#       "time_boot_ms": 1778823847876,
+#       "position": {
+#         "x": -0.0050081610679626465,
+#         "y": -0.06836334615945816,
+#         "z": 0.05360324680805206
+#       },
+#       "orientation": {
+#         "x": -0.0019964856772488582,
+#         "y": -0.020767029837662907,
+#         "z": -0.08970965134913489,
+#         "w": -0.9957493889197082
+#       },
+#       "linear": {
+#         "x": 0.007964672520756721,
+#         "y": -0.013953634537756443,
+#         "z": -0.005281757563352585
+#       },
+#       "angular": {
+#         "x": 0.00046921308695598187,
+#         "y": -0.00022385835551320962,
+#         "z": 0.000032958483718124534
+#       }
+#     },
+#     "imu": {
+#       "time_boot_ms": 1778823847882,
+#       "orientation": {
+#         "x": -0.002001117879318007,
+#         "y": -0.020768069020896503,
+#         "z": -0.08970585813276893,
+#         "w": -0.9957497260944964
+#       },
+#       "angular_velocity": {
+#         "x": 0.00015666490071453154,
+#         "y": -0.000397564668674022,
+#         "z": -0.0006122688646428287
+#       },
+#       "linear_acceleration": {
+#         "x": -0.39340150356292725,
+#         "y": 0.06795473396778226,
+#         "z": 9.802226066589355
+#       }
+#     },
+#     "altitude": {
+#       "time_boot_ms": 1778823847846,
+#       "amsl": 0.20972560346126556,
+#       "local": 0.05348041653633118,
+#       "relative": 0.07465769350528717,
+#       "terrain": null,
+#       "bottom_clearance": null
+#     },
+#     "battery": {
+#       "time_boot_ms": 1778823847897,
+#       "temperature": 0,
+#       "percentage": 1,
+#       "voltage": 16.200000762939453,
+#       "current": 1
+#     }
+#   },
+#   "timestamp": "2026-05-15T05:44:07.897Z"
+# }
+```
+
 ### CLI - `ros-servicec-read` command
 ```bash
 
