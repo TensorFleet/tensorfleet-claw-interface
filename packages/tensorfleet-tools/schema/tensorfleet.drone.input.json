@@ -1,0 +1,133 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "action": {
+            "type": "string",
+            "enum": ["get-state", "set-auto-state"],
+            "description": "Get drone state or set the controller autoState."
+        },
+        "tensorfleet-project-path": {
+            "type": "string",
+            "description": "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback."
+        },
+        "autoState": {
+            "description": "Target autoState for action=set-auto-state. Use null to clear autoState.",
+            "anyOf": [
+                { "type": "null" },
+                {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "kind": { "const": "landed" },
+                        "armed": {
+                            "anyOf": [
+                                { "type": "boolean" },
+                                { "type": "null" }
+                            ]
+                        }
+                    },
+                    "required": ["kind", "armed"]
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "kind": { "const": "airborne" },
+                        "altMeters": { "type": "number" },
+                        "yawRad": { "type": "number" }
+                    },
+                    "required": ["kind", "altMeters"]
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "kind": { "const": "offboard" },
+                        "target": { "$ref": "#/definitions/offboardTarget" }
+                    },
+                    "required": ["kind", "target"]
+                }
+            ]
+        }
+    },
+    "definitions": {
+        "vector3": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "x": { "type": "number" },
+                "y": { "type": "number" },
+                "z": { "type": "number" }
+            },
+            "required": ["x", "y", "z"]
+        },
+        "quaternion": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "x": { "type": "number" },
+                "y": { "type": "number" },
+                "z": { "type": "number" },
+                "w": { "type": "number" }
+            },
+            "required": ["x", "y", "z", "w"]
+        },
+        "offboardTarget": {
+            "anyOf": [
+                {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "kind": { "const": "position_local" },
+                        "x": { "type": "number" },
+                        "y": { "type": "number" },
+                        "z": { "type": "number" },
+                        "yawRad": { "type": "number" }
+                    },
+                    "required": ["kind", "x", "y", "z"]
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "kind": { "const": "velocity_local" },
+                        "vx": { "type": "number" },
+                        "vy": { "type": "number" },
+                        "vz": { "type": "number" },
+                        "yawRate": { "type": "number" }
+                    },
+                    "required": ["kind", "vx", "vy", "vz"]
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "kind": { "const": "raw_local" },
+                        "coordinate_frame": { "type": "number" },
+                        "type_mask": { "type": "number" },
+                        "position": { "$ref": "#/definitions/vector3" },
+                        "velocity": { "$ref": "#/definitions/vector3" },
+                        "acceleration_or_force": { "$ref": "#/definitions/vector3" },
+                        "yaw": { "type": "number" },
+                        "yaw_rate": { "type": "number" }
+                    },
+                    "required": ["kind", "coordinate_frame", "type_mask"]
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "kind": { "const": "raw_attitude" },
+                        "type_mask": { "type": "number" },
+                        "orientation": { "$ref": "#/definitions/quaternion" },
+                        "body_rate": { "$ref": "#/definitions/vector3" },
+                        "thrust": { "type": "number" }
+                    },
+                    "required": ["kind", "type_mask"]
+                }
+            ]
+        }
+    },
+    "required": ["action"]
+}

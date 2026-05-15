@@ -1,7 +1,7 @@
-import { executeEntityRead, executeRosNodeRead, executeRosTopicRead, executeRosServiceRead, executeRosConnect, executeAuthTool, executeVmTool } from "tensorfleet-tools";
+import { executeEntityRead, executeRosNodeRead, executeRosTopicRead, executeRosServiceRead, executeRosConnect, executeAuthTool, executeVmTool, executeDroneTool } from "tensorfleet-tools";
 
 // Import schema definitions from tensorfleet-tools
-import { entityReadSchema, rosNodeReadSchema, rosTopicReadSchema, rosServiceReadSchema, rosConnectSchema, authSchema, vmSchema } from "tensorfleet-tools";
+import { entityReadSchema, rosNodeReadSchema, rosTopicReadSchema, rosServiceReadSchema, rosConnectSchema, authSchema, vmSchema, droneSchema } from "tensorfleet-tools";
 
 // Helper function to wrap executor with try-catch and return JSON error on failure
 function withErrorHandling<T extends any[]>(
@@ -82,5 +82,12 @@ export default function (api: ToolAPI) {
     description: "Manage TensorFleet virtual machines",
     parameters: vmSchema,
     execute: withErrorHandling(executeVmTool),
+  });
+
+  api.registerTool({
+    name: "tensorfleet-drone-tools",
+    description: "Control a MAVROS-backed drone through the TensorFleet drone controller",
+    parameters: droneSchema,
+    execute: withErrorHandling(executeDroneTool),
   });
 }

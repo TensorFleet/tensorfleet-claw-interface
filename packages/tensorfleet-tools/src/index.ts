@@ -5,6 +5,7 @@ export { executeRosServiceRead } from "./tools/ros-service-read-executor";
 export { executeRosConnect } from "./tools/ros-connect-executor";
 export { executeVmTool } from "./tools/vm-executor";
 export { executeAuthTool } from "./tools/auth-executor";
+export { executeDroneTool } from "./tools/drone-executor";
 export type { ToolAPI, ToolDefinition, ToolParameters, ToolExecutionResult } from "./tool-api";
 
 // Export schema definitions
@@ -15,6 +16,7 @@ import rosServiceReadSchema from "../schema/tensorfleet-telemetry.ros-service.re
 import rosConnectSchema from "../schema/tensorfleet-telemetry.ros-connect.input.json";
 import authSchema from "../schema/tensorfleet.auth.input.json";
 import vmSchema from "../schema/tensorfleet.vm.input.json";
+import droneSchema from "../schema/tensorfleet.drone.input.json";
 
 
-export { entityReadSchema, rosNodeReadSchema, rosTopicReadSchema, rosServiceReadSchema, rosConnectSchema, authSchema, vmSchema };
+export { entityReadSchema, rosNodeReadSchema, rosTopicReadSchema, rosServiceReadSchema, rosConnectSchema, authSchema, vmSchema, droneSchema };

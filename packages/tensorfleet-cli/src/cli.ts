@@ -4,8 +4,8 @@ import { Command } from "commander";
 import { createServer } from "node:http";
 import { execFile } from "node:child_process";
 import { version } from "../package.json";
-import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead, executeVmTool, executeAuthTool } from "tensorfleet-tools";
-import { getRegionById, startOAuthRedirectFlow } from "tensorfleet-auth";
+import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead, executeVmTool, executeAuthTool, executeDroneTool } from "tensorfleet-tools";
+import { getRegionById, setConfig, startOAuthRedirectFlow } from "tensorfleet-auth";
 import { getGlobalAuthInfo, storeAuthTokenOnGlobal } from "tensorfleet-auth";
 
 const program = new Command();
@@ -484,6 +484,103 @@ program
     } catch (error) {
       console.error(
         `VM ${action} failed:`,
+        error instanceof Error ? error.message : String(error)
+      );
+      exitCli(1);
+    }
+  });
+
+program
+  .command("drone")
+  .description("Get drone state or set autoState")
+  .argument("<action>", "Action to perform: get-state, set-auto-state")
+  .option(
+    "-p, --project-path <path>",
+    "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback"
+  )
+  .option("--region <id>", "Region (eu, asia, local)")
+  .option("--do-auth", "Run OAuth authentication first")
+  .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
+  .option("--no-open", "Print the login URL instead of opening a browser during --do-auth")
+  .option("--auto-state <json>", "Target autoState JSON for set-auto-state. Use null to clear autoState.")
+  .action(async (action: string, options: {
+    projectPath?: string;
+    region?: string;
+    doAuth: boolean;
+    backendUrl: string;
+    open: boolean;
+    autoState?: string;
+  }) => {
+    try {
+      if (!["get-state", "set-auto-state"].includes(action)) {
+        console.error(`Invalid action: ${action}. Use: get-state or set-auto-state`);
+        exitCli(1);
+      }
+
+      if (!options.region) {
+        console.error("Error: --region is required for drone");
+        exitCli(1);
+      }
+
+      if (!options.projectPath && !options.doAuth) {
+        console.error("Error: provide either --project-path or --do-auth");
+        exitCli(1);
+      }
+
+      const region = getRegionById(options.region, true);
+      if (!region) {
+        console.error(`Invalid region: ${options.region}. Use \`tensorfleet vm list-regions --dev\` to view available regions.`);
+        exitCli(1);
+      }
+
+      setConfig("TENSORFLEET_REGION", region.id);
+      setConfig("TENSORFLEET_VM_MANAGER_URL", region.vmManagerUrl);
+
+      if (options.doAuth) {
+        const session = await startOAuthRedirectFlow({
+          backendUrl: options.backendUrl,
+          createServer,
+          openBrowser: async (url) => {
+            if (!options.open) {
+              console.log(`Open this URL to authenticate:\n${url}`);
+              return;
+            }
+            await openBrowser(url);
+          },
+          onTokenReceived: (token) => {
+            storeAuthTokenOnGlobal(token, "oauth");
+            setConfig("TENSORFLEET_JWT", token);
+          },
+        });
+        await session.tokenPromise;
+      }
+
+      if (!options.projectPath) {
+        const authInfo = getGlobalAuthInfo();
+        if (!authInfo) {
+          console.error("Not authenticated. Pass --do-auth or provide --project-path with legacy auth config");
+          exitCli(1);
+        }
+      }
+
+      const autoState = options.autoState ? JSON.parse(options.autoState) : undefined;
+
+      const result = await executeDroneTool(`drone-${action}`, {
+        action: action as any,
+        "tensorfleet-project-path": options.projectPath,
+        autoState: autoState as any,
+      });
+
+      if (result?.content?.[0]?.text) {
+        console.log(result.content[0].text);
+      } else {
+        console.log("No drone data received");
+      }
+
+      exitCli(0);
+    } catch (error) {
+      console.error(
+        `Drone ${action} failed:`,
         error instanceof Error ? error.message : String(error)
       );
       exitCli(1);
