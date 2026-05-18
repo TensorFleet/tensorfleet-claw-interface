@@ -27,6 +27,7 @@ You can use the authentication tool to log into the tensorfleet account
 Tensorfleet robotics simulations happen in a cloud virtual machine. This tool helps managing these machines.
 - **name**: `tensorfleet-vm`
 - **purpose**: Select the virtual machine. that you want to use the virtual machine from. List virtual machines, stop or start your VM and.
+- **WHEN TO NOT USE**: The user never specified the region. Must be 100% sure of the region the user is referring to. DO NOT USE DEFAULT ASSUMPTIONS!
 
 # Auth + VM selection workflow
 auth tool and virtual machine tool are multipurpose and give us different actions to perform.
@@ -74,6 +75,8 @@ Do not do anything unless the user asks for low level telemetry. Its still in de
 If the user provided filtering suggestions, make up your `regex-filter`. Otherwise do warn them that the output will be long and if they want to proceed with no filters
 
 ## Generic tool guide
+- DO NOT try to use any tool other than tensorfleet-auth before ensuring login status is authenticated.
+- DO NOT try to use any tool other than tensorfleet-vm before ensuring vm is running, for the user-requested region. the user MUST specify the region!
 - When using regex filters in tool parameters do not ask the user to specify the query filters. They are there to make you more efficient automatically. You can derive filters and other arguments automatically unless specified otherwise.
 - When reading data from the drone, the operation is not expensive. Unless making direct service calls, there are no safety considerations.
 - Parse the tool outputs in a way that's understandable for the user. Shorten them if needed. The user is a human.
@@ -87,13 +90,14 @@ If things aren't working you can check
 
 
 # Available tools
+---- DO NOT TRY TO USE THESE BEFORE YOU ARE 100% SURE which region the user is refering to!!!! AND HAVE IT SELECTED! USING THE `tensorfleet-vm` REGION SELECTION! and ENSURE VM IS RUNNING!!!!!! ---
 
 ### Drone tool
 - **name**: `tensorfleet-drone`
 - **purpose**: get the drone state or command the drone. returns after drone reaches desired state. Which might take a while depending on the request and current state.
 - **can use when**: You need to verify that the ROS 2 connection is working properly, or when troubleshooting connection issues.
 - **additional notes**: For this tool we auto-detect the existing mavros drone, you don't need to specify it.
-- 
+
 ### ROS connect tool
 
 - **name**: `tensorfleet-telemetry-ros-connect`

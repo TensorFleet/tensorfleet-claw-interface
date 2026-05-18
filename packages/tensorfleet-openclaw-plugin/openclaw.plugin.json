@@ -17,7 +17,8 @@
       "tensorfleet-telemetry-ros-service-read",
       "tensorfleet-telemetry-ros-connect",
       "tensorfleet-auth",
-      "tensorfleet-vm"
+      "tensorfleet-vm",
+      "tensorfleet-drone"
     ]
   },
   "activation": {
