@@ -4,129 +4,230 @@
     "properties": {
         "action": {
             "type": "string",
-            "enum": ["get-state", "set-auto-state"],
-            "description": "Get drone state or set the controller autoState."
+            "enum": [
+                "get-state",
+                "set-auto-state-landed",
+                "set-auto-state-airborne",
+                "set-auto-state-offboard-position-local",
+                "set-auto-state-offboard-velocity-local",
+                "set-auto-state-offboard-raw-local",
+                "set-auto-state-offboard-raw-attitude"
+            ],
+            "description": "Use get-state to read state. Use one of the set-auto-state-* commands to request a supported autoState object. Do not use generic set-auto-state."
         },
         "tensorfleet-project-path": {
             "type": "string",
             "description": "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback."
         },
-        "autoState": {
-            "description": "Target autoState for action=set-auto-state. Use null to clear autoState.",
-            "anyOf": [
-                { "type": "null" },
-                {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                        "kind": { "const": "landed" },
-                        "armed": {
-                            "anyOf": [
-                                { "type": "boolean" },
-                                { "type": "null" }
-                            ]
-                        }
-                    },
-                    "required": ["kind", "armed"]
-                },
-                {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                        "kind": { "const": "airborne" },
-                        "altMeters": { "type": "number" },
-                        "yawRad": { "type": "number" }
-                    },
-                    "required": ["kind", "altMeters"]
-                },
-                {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                        "kind": { "const": "offboard" },
-                        "target": { "$ref": "#/definitions/offboardTarget" }
-                    },
-                    "required": ["kind", "target"]
-                }
-            ]
-        }
-    },
-    "definitions": {
-        "vector3": {
+
+        "landed": {
             "type": "object",
             "additionalProperties": false,
+            "description": "Payload for action=set-auto-state-landed. Produces autoState={kind:\"landed\",armed}.",
             "properties": {
-                "x": { "type": "number" },
-                "y": { "type": "number" },
-                "z": { "type": "number" }
+                "armed": {
+                    "type": ["boolean", "null"],
+                    "description": "Desired arm state after landing. true arms, false disarms, null leaves arm state unchanged."
+                }
+            },
+            "required": ["armed"]
+        },
+
+        "airborne": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Payload for action=set-auto-state-airborne. Produces autoState={kind:\"airborne\",altMeters,yawRad?}.",
+            "properties": {
+                "altMeters": {
+                    "type": "number",
+                    "description": "Target altitude in meters."
+                },
+                "yawRad": {
+                    "type": "number",
+                    "description": "Optional yaw in radians."
+                }
+            },
+            "required": ["altMeters"]
+        },
+
+        "offboardPositionLocal": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Payload for action=set-auto-state-offboard-position-local. Produces autoState={kind:\"offboard\",target:{kind:\"position_local\",x,y,z,yawRad?}}.",
+            "properties": {
+                "x": {
+                    "type": "number",
+                    "description": "Local X position target."
+                },
+                "y": {
+                    "type": "number",
+                    "description": "Local Y position target."
+                },
+                "z": {
+                    "type": "number",
+                    "description": "Local Z position target."
+                },
+                "yawRad": {
+                    "type": "number",
+                    "description": "Optional yaw target in radians."
+                }
             },
             "required": ["x", "y", "z"]
         },
-        "quaternion": {
+
+        "offboardVelocityLocal": {
             "type": "object",
             "additionalProperties": false,
+            "description": "Payload for action=set-auto-state-offboard-velocity-local. Produces autoState={kind:\"offboard\",target:{kind:\"velocity_local\",vx,vy,vz,yawRate?}}.",
             "properties": {
-                "x": { "type": "number" },
-                "y": { "type": "number" },
-                "z": { "type": "number" },
-                "w": { "type": "number" }
-            },
-            "required": ["x", "y", "z", "w"]
-        },
-        "offboardTarget": {
-            "anyOf": [
-                {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                        "kind": { "const": "position_local" },
-                        "x": { "type": "number" },
-                        "y": { "type": "number" },
-                        "z": { "type": "number" },
-                        "yawRad": { "type": "number" }
-                    },
-                    "required": ["kind", "x", "y", "z"]
+                "vx": {
+                    "type": "number",
+                    "description": "Local X velocity target."
                 },
-                {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                        "kind": { "const": "velocity_local" },
-                        "vx": { "type": "number" },
-                        "vy": { "type": "number" },
-                        "vz": { "type": "number" },
-                        "yawRate": { "type": "number" }
-                    },
-                    "required": ["kind", "vx", "vy", "vz"]
+                "vy": {
+                    "type": "number",
+                    "description": "Local Y velocity target."
                 },
-                {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                        "kind": { "const": "raw_local" },
-                        "coordinate_frame": { "type": "number" },
-                        "type_mask": { "type": "number" },
-                        "position": { "$ref": "#/definitions/vector3" },
-                        "velocity": { "$ref": "#/definitions/vector3" },
-                        "acceleration_or_force": { "$ref": "#/definitions/vector3" },
-                        "yaw": { "type": "number" },
-                        "yaw_rate": { "type": "number" }
-                    },
-                    "required": ["kind", "coordinate_frame", "type_mask"]
+                "vz": {
+                    "type": "number",
+                    "description": "Local Z velocity target."
                 },
-                {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                        "kind": { "const": "raw_attitude" },
-                        "type_mask": { "type": "number" },
-                        "orientation": { "$ref": "#/definitions/quaternion" },
-                        "body_rate": { "$ref": "#/definitions/vector3" },
-                        "thrust": { "type": "number" }
-                    },
-                    "required": ["kind", "type_mask"]
+                "yawRate": {
+                    "type": "number",
+                    "description": "Optional yaw rate target."
                 }
-            ]
+            },
+            "required": ["vx", "vy", "vz"]
+        },
+
+        "offboardRawLocal": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Payload for action=set-auto-state-offboard-raw-local. Produces autoState={kind:\"offboard\",target:{kind:\"raw_local\",coordinate_frame,type_mask,position?,velocity?,acceleration_or_force?,yaw?,yaw_rate?}}.",
+            "properties": {
+                "coordinate_frame": {
+                    "type": "number",
+                    "description": "MAVLink SET_POSITION_TARGET_LOCAL_NED coordinate_frame value."
+                },
+                "type_mask": {
+                    "type": "number",
+                    "description": "MAVLink SET_POSITION_TARGET_LOCAL_NED type_mask value."
+                },
+                "position": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "Optional position vector.",
+                    "properties": {
+                        "x": {
+                            "type": "number"
+                        },
+                        "y": {
+                            "type": "number"
+                        },
+                        "z": {
+                            "type": "number"
+                        }
+                    },
+                    "required": ["x", "y", "z"]
+                },
+                "velocity": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "Optional velocity vector.",
+                    "properties": {
+                        "x": {
+                            "type": "number"
+                        },
+                        "y": {
+                            "type": "number"
+                        },
+                        "z": {
+                            "type": "number"
+                        }
+                    },
+                    "required": ["x", "y", "z"]
+                },
+                "acceleration_or_force": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "Optional acceleration or force vector.",
+                    "properties": {
+                        "x": {
+                            "type": "number"
+                        },
+                        "y": {
+                            "type": "number"
+                        },
+                        "z": {
+                            "type": "number"
+                        }
+                    },
+                    "required": ["x", "y", "z"]
+                },
+                "yaw": {
+                    "type": "number",
+                    "description": "Optional yaw value."
+                },
+                "yaw_rate": {
+                    "type": "number",
+                    "description": "Optional yaw rate value."
+                }
+            },
+            "required": ["coordinate_frame", "type_mask"]
+        },
+
+        "offboardRawAttitude": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Payload for action=set-auto-state-offboard-raw-attitude. Produces autoState={kind:\"offboard\",target:{kind:\"raw_attitude\",type_mask,orientation?,body_rate?,thrust?}}.",
+            "properties": {
+                "type_mask": {
+                    "type": "number",
+                    "description": "MAVLink SET_ATTITUDE_TARGET type_mask value."
+                },
+                "orientation": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "Optional quaternion orientation.",
+                    "properties": {
+                        "x": {
+                            "type": "number"
+                        },
+                        "y": {
+                            "type": "number"
+                        },
+                        "z": {
+                            "type": "number"
+                        },
+                        "w": {
+                            "type": "number"
+                        }
+                    },
+                    "required": ["x", "y", "z", "w"]
+                },
+                "body_rate": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "Optional body rate vector.",
+                    "properties": {
+                        "x": {
+                            "type": "number"
+                        },
+                        "y": {
+                            "type": "number"
+                        },
+                        "z": {
+                            "type": "number"
+                        }
+                    },
+                    "required": ["x", "y", "z"]
+                },
+                "thrust": {
+                    "type": "number",
+                    "description": "Optional thrust value."
+                }
+            },
+            "required": ["type_mask"]
         }
     },
     "required": ["action"]

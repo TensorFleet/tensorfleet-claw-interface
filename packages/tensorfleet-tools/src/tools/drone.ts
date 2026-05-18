@@ -1,25 +1,21 @@
-import { DroneController, DroneStateModel, TensorfleetLogger } from "tensorfleet-util";
+import { assertTargetAutoState, DroneController, DroneStateModel, TensorfleetLogger } from "tensorfleet-util";
 import type { TargetAutoState } from "tensorfleet-util";
 import { ros2Bridge } from "tensorfleet-ros";
 import { withRosConnection } from "./ros-connect";
 import { setConfig } from "tensorfleet-auth";
+import type { TensorfleetDrone } from "../schema-types/tensorfleet.drone.input";
 
 const logger = new TensorfleetLogger("Tools");
 
-export type DroneAction =
-  | "get-state"
-  | "set-auto-state";
+export type DroneAction = TensorfleetDrone["action"];
 
-export interface DroneParams {
-  action: DroneAction;
-  "tensorfleet-project-path"?: string;
+export type DroneParams = TensorfleetDrone & {
   token?: string;
   vmManagerUrl?: string;
   proxyUrl?: string;
   nodeId?: string;
   region?: string;
-  autoState?: TargetAutoState;
-}
+};
 
 export async function droneTool(_id: string, params: DroneParams) {
   try {
@@ -28,7 +24,7 @@ export async function droneTool(_id: string, params: DroneParams) {
     return await withRosConnection(_id, params, async () => {
       const model = new DroneStateModel();
       const controller = new DroneController(model, ros2Bridge, {
-        autoStateManagement: params.action === "set-auto-state",
+        autoStateManagement: isSetAutoStateAction(params.action),
       });
 
       model.connect(ros2Bridge);
@@ -86,12 +82,19 @@ async function runDroneAction(controller: DroneController, model: DroneStateMode
     case "get-state":
       return { state: await model.getState() };
 
-    case "set-auto-state": {
+    case "set-auto-state-landed":
+    case "set-auto-state-airborne":
+    case "set-auto-state-offboard-position-local":
+    case "set-auto-state-offboard-velocity-local":
+    case "set-auto-state-offboard-raw-local":
+    case "set-auto-state-offboard-raw-attitude": {
+      const autoState = buildTargetAutoState(params);
+
       await controller.initialize();
-      await controller.requestAutoState(params.autoState ?? null);
+      await controller.requestAutoState(autoState);
 
       return {
-        autoState: params.autoState ?? null,
+        autoState,
         reached: controller.isInRequestedAutoState(),
       };
     }
@@ -99,4 +102,101 @@ async function runDroneAction(controller: DroneController, model: DroneStateMode
     default:
       throw new Error(`Unknown drone action: ${(params as { action: string }).action}`);
   }
+}
+
+function isSetAutoStateAction(action: DroneAction): boolean {
+  return action.startsWith("set-auto-state-");
+}
+
+function buildTargetAutoState(params: DroneParams): TargetAutoState {
+  let autoState: unknown;
+
+  switch (params.action) {
+    case "set-auto-state-landed": {
+      if (params.landed == null) {
+        throw new Error("Missing landed payload for set-auto-state-landed");
+      }
+
+      autoState = { kind: "landed", armed: params.landed.armed };
+      break;
+    }
+
+    case "set-auto-state-airborne": {
+      if (params.airborne == null) {
+        throw new Error("Missing airborne payload for set-auto-state-airborne");
+      }
+
+      autoState = {
+        kind: "airborne",
+        altMeters: params.airborne.altMeters,
+        ...(params.airborne.yawRad === undefined ? {} : { yawRad: params.airborne.yawRad }),
+      };
+      break;
+    }
+
+    case "set-auto-state-offboard-position-local": {
+      if (params.offboardPositionLocal == null) {
+        throw new Error("Missing offboardPositionLocal payload for set-auto-state-offboard-position-local");
+      }
+
+      autoState = {
+        kind: "offboard",
+        target: {
+          kind: "position_local",
+          ...params.offboardPositionLocal,
+        },
+      };
+      break;
+    }
+
+    case "set-auto-state-offboard-velocity-local": {
+      if (params.offboardVelocityLocal == null) {
+        throw new Error("Missing offboardVelocityLocal payload for set-auto-state-offboard-velocity-local");
+      }
+
+      autoState = {
+        kind: "offboard",
+        target: {
+          kind: "velocity_local",
+          ...params.offboardVelocityLocal,
+        },
+      };
+      break;
+    }
+
+    case "set-auto-state-offboard-raw-local": {
+      if (params.offboardRawLocal == null) {
+        throw new Error("Missing offboardRawLocal payload for set-auto-state-offboard-raw-local");
+      }
+
+      autoState = {
+        kind: "offboard",
+        target: {
+          kind: "raw_local",
+          ...params.offboardRawLocal,
+        },
+      };
+      break;
+    }
+
+    case "set-auto-state-offboard-raw-attitude": {
+      if (params.offboardRawAttitude == null) {
+        throw new Error("Missing offboardRawAttitude payload for set-auto-state-offboard-raw-attitude");
+      }
+
+      autoState = {
+        kind: "offboard",
+        target: {
+          kind: "raw_attitude",
+          ...params.offboardRawAttitude,
+        },
+      };
+      break;
+    }
+
+    default:
+      throw new Error(`Action does not set auto state: ${params.action}`);
+  }
+
+  return assertTargetAutoState(autoState);
 }
