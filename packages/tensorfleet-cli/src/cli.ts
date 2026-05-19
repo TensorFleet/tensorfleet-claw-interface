@@ -492,8 +492,8 @@ program
 
 program
   .command("drone")
-  .description("Get drone state or set autoState")
-  .argument("<action>", "Action to perform: get-state, set-auto-state")
+  .description("Get drone state or set autopilot state")
+  .argument("<action>", "Action to perform: get-state, set-autopilot-state")
   .option(
     "-p, --project-path <path>",
     "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback"
@@ -502,7 +502,7 @@ program
   .option("--do-auth", "Run OAuth authentication first")
   .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
   .option("--no-open", "Print the login URL instead of opening a browser during --do-auth")
-  .option("--auto-state <json>", "Target autoState JSON for set-auto-state. Use null to clear autoState.")
+  .option("--auto-state <json>", "Target state payload JSON for set-autopilot-state, containing exactly one of landed or airborne_position_local.")
   .action(async (action: string, options: {
     projectPath?: string;
     region?: string;
@@ -512,8 +512,8 @@ program
     autoState?: string;
   }) => {
     try {
-      if (!["get-state", "set-auto-state"].includes(action)) {
-        console.error(`Invalid action: ${action}. Use: get-state or set-auto-state`);
+      if (!["get-state", "set-autopilot-state"].includes(action)) {
+        console.error(`Invalid action: ${action}. Use: get-state or set-autopilot-state`);
         exitCli(1);
       }
 
@@ -575,7 +575,7 @@ program
         }
       }
 
-      const autoState = options.autoState ? JSON.parse(options.autoState) : undefined;
+      const autoStatePayload = options.autoState ? JSON.parse(options.autoState) : {};
 
       const result = await executeDroneTool(`drone-${action}`, {
         action: action as any,
@@ -584,7 +584,7 @@ program
         vmManagerUrl: region.vmManagerUrl,
         nodeId,
         region: region.id,
-        autoState: autoState as any,
+        ...(autoStatePayload as object),
       });
 
       if (result?.content?.[0]?.text) {

@@ -82,12 +82,7 @@ async function runDroneAction(controller: DroneController, model: DroneStateMode
     case "get-state":
       return { state: await model.getState() };
 
-    case "set-auto-state-landed":
-    case "set-auto-state-airborne":
-    case "set-auto-state-offboard-position-local":
-    case "set-auto-state-offboard-velocity-local":
-    case "set-auto-state-offboard-raw-local":
-    case "set-auto-state-offboard-raw-attitude": {
+    case "set-autopilot-state": {
       const autoState = buildTargetAutoState(params);
 
       await controller.initialize();
@@ -105,97 +100,35 @@ async function runDroneAction(controller: DroneController, model: DroneStateMode
 }
 
 function isSetAutoStateAction(action: DroneAction): boolean {
-  return action.startsWith("set-auto-state-");
+  return action === "set-autopilot-state";
 }
 
 function buildTargetAutoState(params: DroneParams): TargetAutoState {
-  let autoState: unknown;
+  if (params.action !== "set-autopilot-state") {
+    throw new Error(`Action does not set autopilot state: ${params.action}`);
+  }
 
-  switch (params.action) {
-    case "set-auto-state-landed": {
-      if (params.landed == null) {
-        throw new Error("Missing landed payload for set-auto-state-landed");
-      }
+  const requestedStates = [
+    params.landed == null ? null : "landed",
+    params.airborne_position_local == null ? null : "airborne_position_local",
+  ].filter(Boolean);
 
-      autoState = { kind: "landed", armed: params.landed.armed };
-      break;
-    }
+  if (requestedStates.length !== 1) {
+    throw new Error("set-autopilot-state requires exactly one of landed or airborne_position_local");
+  }
 
-    case "set-auto-state-airborne": {
-      if (params.airborne == null) {
-        throw new Error("Missing airborne payload for set-auto-state-airborne");
-      }
+  let autoState: unknown = null;
 
-      autoState = {
-        kind: "airborne",
-        altMeters: params.airborne.altMeters,
-        ...(params.airborne.yawRad === undefined ? {} : { yawRad: params.airborne.yawRad }),
-      };
-      break;
-    }
-
-    case "set-auto-state-offboard-position-local": {
-      if (params.offboardPositionLocal == null) {
-        throw new Error("Missing offboardPositionLocal payload for set-auto-state-offboard-position-local");
-      }
-
-      autoState = {
-        kind: "offboard",
-        target: {
-          kind: "position_local",
-          ...params.offboardPositionLocal,
-        },
-      };
-      break;
-    }
-
-    case "set-auto-state-offboard-velocity-local": {
-      if (params.offboardVelocityLocal == null) {
-        throw new Error("Missing offboardVelocityLocal payload for set-auto-state-offboard-velocity-local");
-      }
-
-      autoState = {
-        kind: "offboard",
-        target: {
-          kind: "velocity_local",
-          ...params.offboardVelocityLocal,
-        },
-      };
-      break;
-    }
-
-    case "set-auto-state-offboard-raw-local": {
-      if (params.offboardRawLocal == null) {
-        throw new Error("Missing offboardRawLocal payload for set-auto-state-offboard-raw-local");
-      }
-
-      autoState = {
-        kind: "offboard",
-        target: {
-          kind: "raw_local",
-          ...params.offboardRawLocal,
-        },
-      };
-      break;
-    }
-
-    case "set-auto-state-offboard-raw-attitude": {
-      if (params.offboardRawAttitude == null) {
-        throw new Error("Missing offboardRawAttitude payload for set-auto-state-offboard-raw-attitude");
-      }
-
-      autoState = {
-        kind: "offboard",
-        target: {
-          kind: "raw_attitude",
-          ...params.offboardRawAttitude,
-        },
-      };
-      break;
-    }
-
-    default:
-      throw new Error(`Action does not set auto state: ${params.action}`);
+  if (params.landed != null) {
+    autoState = { kind: "landed", armed: params.landed.armed ?? null };
+  } else if (params.airborne_position_local != null) {
+    autoState = {
+      kind: "offboard",
+      target: {
+        kind: "position_local",
+        ...params.airborne_position_local,
+      },
+    };
   }
 
   return assertTargetAutoState(autoState);
