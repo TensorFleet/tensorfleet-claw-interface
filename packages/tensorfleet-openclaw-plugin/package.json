@@ -21,6 +21,9 @@
     "nodejs"
   ],
   "author": "",
+  "dependencies": {
+    "tensorfleet-tools": "workspace:*"
+  },
   "openclaw": {
     "extensions": [
       "./dist/dist/index.js"
