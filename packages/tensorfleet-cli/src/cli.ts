@@ -2,7 +2,6 @@
 
 import { Command } from "commander";
 import { createServer } from "node:http";
-import { execFile } from "node:child_process";
 import { version } from "../package.json";
 import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead, executeVmTool, executeAuthTool, executeDroneTool } from "tensorfleet-tools";
 import { fetchVmSnapshot, getRegionById, setConfig, startOAuthRedirectFlow } from "tensorfleet-auth";
@@ -10,6 +9,43 @@ import { getGlobalAuthInfo, storeAuthTokenOnGlobal } from "tensorfleet-auth";
 
 const program = new Command();
 const DEFAULT_AUTH_BACKEND_URL = "https://app.tensorfleet.net/";
+
+function redactAuthInfo(authInfo: ReturnType<typeof getGlobalAuthInfo>) {
+  if (!authInfo) {
+    return null;
+  }
+
+  return {
+    ...authInfo,
+    token: `${authInfo.token.slice(0, 8)}...`,
+  };
+}
+
+async function runCliAuthLogin(backendUrl: string) {
+  const session = await startOAuthRedirectFlow({
+    backendUrl,
+    createServer,
+    openBrowser: async (url) => {
+      console.log(`Open this URL to authenticate:\n${url}`);
+    },
+    onTokenReceived: (token) => {
+      storeAuthTokenOnGlobal(token, "oauth");
+    },
+  });
+
+  await session.tokenPromise;
+
+  const authInfo = getGlobalAuthInfo();
+  if (!authInfo) {
+    throw new Error("Authentication completed but no auth info was stored");
+  }
+
+  return {
+    success: true,
+    command: "login",
+    authInfo: redactAuthInfo(authInfo),
+  };
+}
 
 function exitCli(code: number): never {
   try {
@@ -36,16 +72,8 @@ authCommand
   .option("--backend-url <url>", "TensorFleet backend URL", DEFAULT_AUTH_BACKEND_URL)
   .action(async (options: { backendUrl: string }) => {
     try {
-      const result = await executeAuthTool("auth-login", {
-        command: "login",
-        backendUrl: options.backendUrl,
-      });
-
-      if (result?.content?.[0]?.text) {
-        console.log(result.content[0].text);
-      } else {
-        console.log("No auth data received");
-      }
+      const result = await runCliAuthLogin(options.backendUrl);
+      console.log(JSON.stringify(result, null, 2));
 
       exitCli(0);
     } catch (error) {
@@ -115,16 +143,8 @@ program
   .action(async (options: { backendUrl: string }) => {
     console.warn("Warning: 'test-auth' is deprecated. Use 'auth login' instead.");
     try {
-      const result = await executeAuthTool("test-auth", {
-        command: "login",
-        backendUrl: options.backendUrl,
-      });
-
-      if (result?.content?.[0]?.text) {
-        console.log(result.content[0].text);
-      } else {
-        console.log("No auth data received");
-      }
+      const result = await runCliAuthLogin(options.backendUrl);
+      console.log(JSON.stringify(result, null, 2));
 
       exitCli(0);
     } catch (error) {
@@ -135,29 +155,6 @@ program
       exitCli(1);
     }
   });
-
-function openBrowser(url: string): Promise<void> {
-  const command =
-    process.platform === "darwin"
-      ? "open"
-      : process.platform === "win32"
-        ? "cmd"
-        : "xdg-open";
-  const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
-
-  return new Promise((resolve, reject) => {
-    const child = execFile(command, args, (error) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-
-      resolve();
-    });
-
-    child.unref();
-  });
-}
 
 program
   .command("ros-connect")
@@ -387,7 +384,7 @@ program
   .option("--dev", "Include development-only regions for list-regions")
   .option("--do-auth", "Run OAuth authentication first")
   .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
-  .option("--no-open", "Print the login URL instead of opening a browser during --do-auth")
+  .option("--no-open", "Deprecated: login URLs are always printed during --do-auth")
   .action(async (action: string, options: { region?: string; vmId?: string; config?: string; timeout?: string; dev?: boolean; doAuth: boolean; backendUrl: string; open: boolean }) => {
     try {
       // Validate action
@@ -435,11 +432,7 @@ program
           backendUrl: options.backendUrl,
           createServer,
           openBrowser: async (url) => {
-            if (!options.open) {
-              console.log(`Open this URL to authenticate:\n${url}`);
-              return;
-            }
-            await openBrowser(url);
+            console.log(`Open this URL to authenticate:\n${url}`);
           },
           onTokenReceived: (token) => {
             storeAuthTokenOnGlobal(token, "oauth");
@@ -501,7 +494,7 @@ program
   .option("--region <id>", "Region (eu, asia, local)")
   .option("--do-auth", "Run OAuth authentication first")
   .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
-  .option("--no-open", "Print the login URL instead of opening a browser during --do-auth")
+  .option("--no-open", "Deprecated: login URLs are always printed during --do-auth")
   .option("--auto-state <json>", "Target state payload JSON for set-autopilot-state, containing exactly one of landed or airborne_position_local.")
   .action(async (action: string, options: {
     projectPath?: string;
@@ -541,11 +534,7 @@ program
           backendUrl: options.backendUrl,
           createServer,
           openBrowser: async (url) => {
-            if (!options.open) {
-              console.log(`Open this URL to authenticate:\n${url}`);
-              return;
-            }
-            await openBrowser(url);
+            console.log(`Open this URL to authenticate:\n${url}`);
           },
           onTokenReceived: (token) => {
             storeAuthTokenOnGlobal(token, "oauth");

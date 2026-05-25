@@ -2,13 +2,13 @@
   "name": "tensorfleet-openclaw-plugin",
   "version": "1.0.0",
   "description": "OpenClaw plugin for TensorFleet telemetry and auth tools",
-  "main": "dist/dist/index.js",
-  "module": "dist/dist/index.mjs",
-  "types": "dist/dist/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --clean && bun scripts/package-openclaw-plugin.mjs",
+    "build": "tsup src/index.ts --format esm --dts --clean && bun scripts/package-openclaw-plugin.mjs",
     "watch": "tsup src/index.ts --format esm,cjs --dts --watch --clean",
-    "start": "bun dist/dist/index.js"
+    "allow-tools": "node dist/allow-openclaw-tools.js",
+    "start": "bun dist/index.js"
   },
   "files": [
     "dist",
@@ -24,9 +24,12 @@
   "dependencies": {
     "tensorfleet-tools": "workspace:*"
   },
+  "peerDependencies": {
+    "openclaw": ">=2026.5.22"
+  },
   "openclaw": {
     "extensions": [
-      "./dist/dist/index.js"
+      "./dist/index.js"
     ]
   },
   "devDependencies": {

@@ -1,3 +1,4 @@
+import { defineToolPlugin } from "openclaw/plugin-sdk/tool-plugin";
 import { executeEntityRead, executeRosNodeRead, executeRosTopicRead, executeRosServiceRead, executeRosConnect, executeAuthTool, executeVmTool, executeDroneTool } from "tensorfleet-tools";
 
 // Import schema definitions from tensorfleet-tools
@@ -25,69 +26,77 @@ function withErrorHandling<T extends any[]>(
   };
 }
 
-interface ToolAPI {
-  registerTool(tool: {
-    name: string;
-    description: string;
-    parameters: any;
-    execute(id: string, params: any): Promise<{ content: Array<{ type: string; text: string }> }>;
-  }): void;
+async function runTensorFleetTool(
+  executor: (id: string, params: any) => Promise<{ content: Array<{ type: string; text: string }> }>,
+  toolCallId: string,
+  params: any
+) {
+  const result = await executor(toolCallId, params);
+  if (result.content.length === 1 && result.content[0]?.type === "text") {
+    return result.content[0].text;
+  }
+  return result;
 }
 
-export default function (api: ToolAPI) {
-  api.registerTool({
-    name: "tensorfleet-telemetry-entity-read",
-    description: "Read from the parameters of a tensorfleet entity",
-    parameters: entityReadSchema,
-    execute: withErrorHandling(executeEntityRead),
-  });
+export default defineToolPlugin({
+  id: "tensorfleet-openclaw-plugin",
+  name: "tensorfleet-openclaw-plugin",
+  description: "OpenClaw plugin for TensorFleet telemetry and auth tools",
+  tools: (tool: any) => [
+    tool({
+      name: "tensorfleet-telemetry-entity-read",
+      description: "Read from the parameters of a tensorfleet entity",
+      parameters: entityReadSchema,
+      execute: (params: any, _config: unknown, context: { toolCallId: string }) => runTensorFleetTool(withErrorHandling(executeEntityRead), context.toolCallId, params),
+    }),
 
-  api.registerTool({
-    name: "tensorfleet-telemetry-ros-node-read",
-    description: "Read from the parameters of an ros node",
-    parameters: rosNodeReadSchema,
-    execute: withErrorHandling(executeRosNodeRead),
-  });
+    tool({
+      name: "tensorfleet-telemetry-ros-node-read",
+      description: "Read from the parameters of an ros node",
+      parameters: rosNodeReadSchema,
+      execute: (params: any, _config: unknown, context: { toolCallId: string }) => runTensorFleetTool(withErrorHandling(executeRosNodeRead), context.toolCallId, params),
+    }),
 
-  api.registerTool({
-    name: "tensorfleet-telemetry-ros-topic-read",
-    description: "Subscribe to an ros topic and wait for a publication on the topic",
-    parameters: rosTopicReadSchema,
-    execute: withErrorHandling(executeRosTopicRead),
-  });
+    tool({
+      name: "tensorfleet-telemetry-ros-topic-read",
+      description: "Subscribe to an ros topic and wait for a publication on the topic",
+      parameters: rosTopicReadSchema,
+      execute: (params: any, _config: unknown, context: { toolCallId: string }) => runTensorFleetTool(withErrorHandling(executeRosTopicRead), context.toolCallId, params),
+    }),
 
-  api.registerTool({
-    name: "tensorfleet-telemetry-ros-service-read",
-    description: "Send a request and receive a response",
-    parameters: rosServiceReadSchema,
-    execute: withErrorHandling(executeRosServiceRead),
-  });
+    tool({
+      name: "tensorfleet-telemetry-ros-service-read",
+      description: "Send a request and receive a response",
+      parameters: rosServiceReadSchema,
+      execute: (params: any, _config: unknown, context: { toolCallId: string }) => runTensorFleetTool(withErrorHandling(executeRosServiceRead), context.toolCallId, params),
+    }),
 
-  api.registerTool({
-    name: "tensorfleet-telemetry-ros-connect",
-    description: "Connect to a ROS 2 network",
-    parameters: rosConnectSchema,
-    execute: withErrorHandling(executeRosConnect),
-  });
+    tool({
+      name: "tensorfleet-telemetry-ros-connect",
+      description: "Connect to a ROS 2 network",
+      parameters: rosConnectSchema,
+      execute: (params: any, _config: unknown, context: { toolCallId: string }) => runTensorFleetTool(withErrorHandling(executeRosConnect), context.toolCallId, params),
+    }),
 
-  api.registerTool({
-    name: "tensorfleet-auth",
-    description: "authenticate the user's tensorfleet account",
-    parameters: authSchema,
-    execute: withErrorHandling(executeAuthTool),
-  });
+    tool({
+      name: "tensorfleet-auth",
+      description: "Authenticate the user's TensorFleet account",
+      parameters: authSchema,
+      execute: (params: any, _config: unknown, context: { toolCallId: string }) => runTensorFleetTool(withErrorHandling(executeAuthTool), context.toolCallId, params),
+    }),
 
-  api.registerTool({
-    name: "tensorfleet-vm",
-    description: "Manage TensorFleet virtual machines",
-    parameters: vmSchema,
-    execute: withErrorHandling(executeVmTool),
-  });
+    tool({
+      name: "tensorfleet-vm",
+      description: "Manage TensorFleet virtual machines",
+      parameters: vmSchema,
+      execute: (params: any, _config: unknown, context: { toolCallId: string }) => runTensorFleetTool(withErrorHandling(executeVmTool), context.toolCallId, params),
+    }),
 
-  api.registerTool({
-    name: "tensorfleet-drone",
-    description: "Control a MAVROS-backed drone through the TensorFleet drone controller",
-    parameters: droneSchema,
-    execute: withErrorHandling(executeDroneTool),
-  });
-}
+    tool({
+      name: "tensorfleet-drone",
+      description: "Control a MAVROS-backed drone through the TensorFleet drone controller",
+      parameters: droneSchema,
+      execute: (params: any, _config: unknown, context: { toolCallId: string }) => runTensorFleetTool(withErrorHandling(executeDroneTool), context.toolCallId, params),
+    }),
+  ],
+});

@@ -1,13 +1,18 @@
 {
   "id": "tensorfleet-openclaw-plugin",
   "name": "tensorfleet-openclaw-plugin",
-  "description": "Test plugin with a single echo skill.",
-  "version": "0.0.2",
-  "skills": ["./skills"],
+  "description": "OpenClaw plugin for TensorFleet telemetry and auth tools",
+  "version": "1.0.0",
+  "skills": [
+    "./skills"
+  ],
   "configSchema": {
     "type": "object",
-    "additionalProperties": false,
-    "properties": {}
+    "properties": {},
+    "additionalProperties": false
+  },
+  "activation": {
+    "onStartup": true
   },
   "contracts": {
     "tools": [
@@ -20,8 +25,5 @@
       "tensorfleet-vm",
       "tensorfleet-drone"
     ]
-  },
-  "activation": {
-    "onStartup": true
   }
 }

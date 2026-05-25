@@ -20,8 +20,8 @@ You can use the authentication tool to log into the tensorfleet account
 - **can use when**: User needs to log in to TensorFleet, or when other TensorFleet tools return authentication errors. This tool must be run before any other TensorFleet operations if not already authenticated.
 - **parameters**:
   - `backendUrl` (optional): Custom backend URL for OAuth authentication. Defaults to https://app.tensorfleet.net/
-- **returns**: JSON object with authentication status and user profile. On success, the auth token is stored globally for all subsequent tool calls. Auth token will remain in memory till openclaw gateway is restarted.
-- **How it works**: When logging in, the tool opens a browser tab for logging in. after it's done your tool returns.
+- **returns**: JSON object with authentication status and user profile for `status`, or a pending login response with `authUrl` for `login`. After the user completes authentication in their browser, the auth token is stored globally for all subsequent tool calls. Auth token will remain in memory till openclaw gateway is restarted.
+- **How it works**: When logging in, the tool returns an authentication URL. Give this link to the user and ask them to continue after they finish authentication. Do not open a browser automatically from the AI workflow.
 
 # Virtual machine Tool
 Tensorfleet robotics simulations happen in a cloud virtual machine. This tool helps managing these machines.
@@ -34,7 +34,7 @@ auth tool and virtual machine tool are multipurpose and give us different action
 We need to use these automatically with the workflow shown below. Please don't pause in between unless you have a question from the user.
 
 1. User asks something. If you don't know about the auth status, run the auth status. 
-   1. If not logged in, Ask for permission to open the auth window. After you have the auth token proceed without pausing.
+   1. If not logged in, run the auth login command, give the returned `authUrl` to the user, and ask them to continue after authentication is finished. When they continue, run auth status again before proceeding.
 2. Assuming auth tokens are cached, We need to know if we have selected a running virtual machine. 
    1. Check the chat history, If user has not mentioned any region, list the regions and ASK THEM which region they want to use. Even if there is only one, Ask the user!. Note that the "local" region may not list but still exists for development.
    2. Get the virtual machine status for the desired region. If it's not running, Ask for permission then start it.
@@ -150,7 +150,6 @@ Each tool can have additional parameters passed to the input.
 If the response is suspected to be too big, Try filter params to prevent the Agent context from filling with useless information.
 
 - **regex-filter**: A smart regex filter that applies to the data. Can handle arrays, maps. If the resulting map has metadata and focused entries, it will apply to the focused entries only (for example a large dataset along with some statistics on the side)
-
 
 
 
