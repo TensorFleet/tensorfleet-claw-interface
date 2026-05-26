@@ -1,8 +1,8 @@
 import { defineToolPlugin } from "openclaw/plugin-sdk/tool-plugin";
-import { executeEntityRead, executeRosNodeRead, executeRosTopicRead, executeRosServiceRead, executeRosConnect, executeAuthTool, executeVmTool, executeDroneTool } from "tensorfleet-tools";
+import { executeEntityRead, executeRosNodeRead, executeRosTopicRead, executeRosServiceRead, executeRosConnect, executeRosDiagnostics, executeAuthTool, executeVmTool, executeDroneTool } from "tensorfleet-tools";
 
 // Import schema definitions from tensorfleet-tools
-import { entityReadSchema, rosNodeReadSchema, rosTopicReadSchema, rosServiceReadSchema, rosConnectSchema, authSchema, vmSchema, droneSchema } from "tensorfleet-tools";
+import { entityReadSchema, rosNodeReadSchema, rosTopicReadSchema, rosServiceReadSchema, rosConnectSchema, rosDiagnosticsSchema, authSchema, vmSchema, droneSchema } from "tensorfleet-tools";
 
 // Helper function to wrap executor with try-catch and return JSON error on failure
 function withErrorHandling<T extends any[]>(
@@ -76,6 +76,13 @@ export default defineToolPlugin({
       description: "Connect to a ROS 2 network",
       parameters: rosConnectSchema,
       execute: (params: any, _config: unknown, context: { toolCallId: string }) => runTensorFleetTool(withErrorHandling(executeRosConnect), context.toolCallId, params),
+    }),
+
+    tool({
+      name: "tensorfleet-ros-diagnostics",
+      description: "Inspect ROS connection internals, mutex state, timer state, and bridge connectivity diagnostics",
+      parameters: rosDiagnosticsSchema,
+      execute: (params: any, _config: unknown, context: { toolCallId: string }) => runTensorFleetTool(withErrorHandling(executeRosDiagnostics), context.toolCallId, params),
     }),
 
     tool({

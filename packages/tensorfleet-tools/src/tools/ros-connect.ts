@@ -4,7 +4,7 @@ import { TensorfleetLogger } from "tensorfleet-util";
 // Simple mutex implementation to prevent parallel ROS connections
 class SimpleMutex {
   private locked = false;
-  private waitQueue: Array<{ grant: () => void; reject: (error: Error) => void; timeout: ReturnType<typeof setTimeout> }> = [];
+  private waitQueue: Array<{ grant: () => void; reject: (error: Error) => void; timeout: ReturnType<typeof setTimeout>; settled: boolean }> = [];
 
   async acquire(timeoutMs = 15000): Promise<() => void> {
     return new Promise((resolve, reject) => {
@@ -14,18 +14,29 @@ class SimpleMutex {
       } else {
         const queued = {
           grant: () => {
+            if (queued.settled) {
+              return;
+            }
+            queued.settled = true;
             clearTimeout(queued.timeout);
             this.locked = true;
             resolve(() => this.release());
           },
-          reject,
+          reject: (error: Error) => {
+            if (queued.settled) {
+              return;
+            }
+            queued.settled = true;
+            reject(error);
+          },
           timeout: setTimeout(() => {
             const index = this.waitQueue.indexOf(queued);
             if (index >= 0) {
               this.waitQueue.splice(index, 1);
             }
-            reject(new Error(`Timed out waiting for ROS connection lock after ${timeoutMs}ms`));
+            queued.reject(new Error(`Timed out waiting for ROS connection lock after ${timeoutMs}ms`));
           }, timeoutMs),
+          settled: false,
         };
         this.waitQueue.push(queued);
       }
@@ -33,13 +44,26 @@ class SimpleMutex {
   }
 
   private release(): void {
-    const next = this.waitQueue.shift();
+    this.locked = false;
 
-    if (next) {
+    while (this.waitQueue.length > 0) {
+      const next = this.waitQueue.shift();
+
+      if (!next || next.settled) {
+        continue;
+      }
+
       next.grant();
-    } else {
-      this.locked = false;
+      return;
     }
+  }
+
+  getDiagnostics() {
+    return {
+      locked: this.locked,
+      waitQueueLength: this.waitQueue.length,
+      unsettledWaiters: this.waitQueue.filter((entry) => !entry.settled).length,
+    };
   }
 }
 
@@ -49,6 +73,16 @@ const logger = new TensorfleetLogger('Tools');
 // Global timer for auto-disconnect/reconnect
 let autoReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let lastRosConnectTime: number = 0;
+let activeRosOperations = 0;
+let rosConnectAttempts = 0;
+let rosConnectSuccesses = 0;
+let rosConnectFailures = 0;
+let lastRosConnectAttemptAt: string | null = null;
+let lastRosConnectSuccessAt: string | null = null;
+let lastRosConnectFailureAt: string | null = null;
+let lastRosConnectError: string | null = null;
+let lastRosOperationStartedAt: string | null = null;
+let lastRosOperationFinishedAt: string | null = null;
 const AUTO_RECONNECT_DELAY = 2 * 60 * 1000; // 2 minutes in milliseconds
 
 function pickConfigValue<T>(...values: Array<T | null | undefined>): T | undefined {
@@ -105,6 +139,9 @@ function pauseAutoReconnectTimer(): void {
 
 export async function ensureRosConnected(_id: string, params: any): Promise<void> {
   try {
+    rosConnectAttempts += 1;
+    lastRosConnectAttemptAt = new Date().toISOString();
+    lastRosConnectError = null;
     logger.debug('Starting ROS connection process...');
     
     // Hydrate config-store from optional project files or the in-memory auth/config layers.
@@ -138,6 +175,8 @@ export async function ensureRosConnected(_id: string, params: any): Promise<void
           logger.debug('ROS connection established successfully');
           // Update last connection time and reset auto-reconnect timer
           lastRosConnectTime = Date.now();
+          lastRosConnectSuccessAt = new Date().toISOString();
+          rosConnectSuccesses += 1;
           resetAutoReconnectTimer();
           resolve();
         } else {
@@ -150,6 +189,9 @@ export async function ensureRosConnected(_id: string, params: any): Promise<void
       checkConnection();
     });
   } catch (error) {
+    rosConnectFailures += 1;
+    lastRosConnectFailureAt = new Date().toISOString();
+    lastRosConnectError = error instanceof Error ? error.message : 'Unknown error occurred';
     logger.error('ROS connection failed:', error);
     throw error;
   }
@@ -158,6 +200,8 @@ export async function ensureRosConnected(_id: string, params: any): Promise<void
 export async function withRosConnection<T>(_id: string, params: any, fn: () => Promise<T>): Promise<T> {
   // Pause timer while an operation is actively acquiring/using the connection.
   pauseAutoReconnectTimer();
+  activeRosOperations += 1;
+  lastRosOperationStartedAt = new Date().toISOString();
 
   const releaseLock = await rosConnectionMutex.acquire();
   try {
@@ -165,6 +209,8 @@ export async function withRosConnection<T>(_id: string, params: any, fn: () => P
     return await fn();
   } finally {
     releaseLock();
+    activeRosOperations = Math.max(0, activeRosOperations - 1);
+    lastRosOperationFinishedAt = new Date().toISOString();
   }
 }
 
@@ -211,4 +257,63 @@ export async function rosConnectTool(_id: string, params: any) {
       }]
     };
   }
+}
+
+export async function getRosConnectionDiagnostics(params: any = {}) {
+  const authInfo = await loadTensorfleetConfig(params['tensorfleet-project-path']);
+  const env = authInfo?.env ?? {};
+
+  let rosBridgeDiagnostics: Record<string, unknown> = {
+    imported: false,
+    connected: false,
+  };
+
+  try {
+    const { ros2Bridge } = await import("tensorfleet-ros");
+    rosBridgeDiagnostics = {
+      imported: true,
+      connected: typeof ros2Bridge?.isConnected === "function" ? ros2Bridge.isConnected() : false,
+      hasDisconnect: typeof ros2Bridge?.disconnect === "function",
+      availableTopicsCount: typeof ros2Bridge?.getAvailableTopics === "function" ? ros2Bridge.getAvailableTopics().length : null,
+      availableServicesCount: typeof ros2Bridge?.getAvailableServices === "function" ? ros2Bridge.getAvailableServices().length : null,
+    };
+  } catch (error) {
+    rosBridgeDiagnostics = {
+      imported: false,
+      connected: false,
+      importError: error instanceof Error ? error.message : 'Unknown error occurred',
+    };
+  }
+
+  return {
+    success: true,
+    timestamp: new Date().toISOString(),
+    rosConnectInternals: {
+      mutex: rosConnectionMutex.getDiagnostics(),
+      activeRosOperations,
+      autoReconnectTimerActive: autoReconnectTimer !== null,
+      autoReconnectDelayMs: AUTO_RECONNECT_DELAY,
+      lastRosConnectTime,
+      lastRosConnectAttemptAt,
+      lastRosConnectSuccessAt,
+      lastRosConnectFailureAt,
+      lastRosConnectError,
+      lastRosOperationStartedAt,
+      lastRosOperationFinishedAt,
+      rosConnectAttempts,
+      rosConnectSuccesses,
+      rosConnectFailures,
+    },
+    config: {
+      tensorfleetProjectPath: params['tensorfleet-project-path'] ?? null,
+      envProxyUrl: env.TENSORFLEET_PROXY_URL ?? env.proxyUrl ?? null,
+      envVmManagerUrl: env.TENSORFLEET_VM_MANAGER_URL ?? env.vmManagerUrl ?? null,
+      envNodeId: env.TENSORFLEET_NODE_ID ?? env.nodeId ?? null,
+      storeProxyUrl: getConfig("TENSORFLEET_PROXY_URL") || null,
+      storeVmManagerUrl: getConfig("TENSORFLEET_VM_MANAGER_URL") || null,
+      storeNodeId: getConfig("TENSORFLEET_NODE_ID") || null,
+      hasStoredJwt: Boolean(getConfig("TENSORFLEET_JWT")),
+    },
+    rosBridge: rosBridgeDiagnostics,
+  };
 }

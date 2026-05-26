@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TensorfleetTelemetryRosDiagnostics",
+  "type": "object",
+  "properties": {
+    "tensorfleet-project-path": {
+      "type": "string",
+      "description": "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback. Omit when using in-memory auth and config-store values."
+    }
+  },
+  "additionalProperties": false
+}

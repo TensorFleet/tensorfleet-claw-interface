@@ -106,6 +106,11 @@ If things aren't working you can check
 - **returns**: A JSON object indicating connection success with details including node ID, proxy URL, and VM manager URL. On failure, returns an error message.
 - **additional notes**: This tool is primarily used for debugging and testing connectivity. It handles the connection mutex to prevent multiple simultaneous connections.
 
+### ROS diagnostics tool
+
+- **name**: `tensorfleet-ros-diagnostics`
+- **purpose**: Inspect the internals of the ROS connect path, including mutex state, queue depth, active operations, reconnect timer state, recent connect attempts, config values, and current ROS bridge connectivity. Use this when ROS behavior is ambiguous and you need to distinguish a lock/resource issue from an actual connect/timeout issue.
+
 
 
 
@@ -150,6 +155,5 @@ Each tool can have additional parameters passed to the input.
 If the response is suspected to be too big, Try filter params to prevent the Agent context from filling with useless information.
 
 - **regex-filter**: A smart regex filter that applies to the data. Can handle arrays, maps. If the resulting map has metadata and focused entries, it will apply to the focused entries only (for example a large dataset along with some statistics on the side)
-
 
 
