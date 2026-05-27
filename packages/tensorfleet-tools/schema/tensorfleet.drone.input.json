@@ -21,7 +21,7 @@
             "properties": {
                 "armed": {
                     "type": "boolean",
-                    "description": "Desired arm state after landing. true arms, false disarms. Omit armed to leave arm state unchanged; do not send null."
+                    "description": "Desired arm state after landing. false disarms, true remains armed. Omitted defaults to false; do not send null."
                 }
             }
         },

@@ -146,3 +146,4 @@ vite.config.ts.timestamp-*
 .turbo/
 .idea/*
 .codex
+.typia-build/

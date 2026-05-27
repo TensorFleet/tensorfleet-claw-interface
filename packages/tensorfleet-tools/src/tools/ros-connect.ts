@@ -108,8 +108,17 @@ function startAutoReconnectTimer(): void {
     autoReconnectTimer = null;
   }
 
+  if (activeRosOperations > 0) {
+    return;
+  }
+
   // Set new timer to disconnect after 2 minutes
   autoReconnectTimer = setTimeout(() => {
+    autoReconnectTimer = null;
+    if (activeRosOperations > 0) {
+      return;
+    }
+
     logger.debug('Auto-reconnect timer expired, disconnecting ROS2Bridge');
     const { ros2Bridge } = require("tensorfleet-ros");
     if (ros2Bridge && typeof ros2Bridge.disconnect === "function") {
@@ -173,11 +182,11 @@ export async function ensureRosConnected(_id: string, params: any): Promise<void
         
         if (ros2Bridge.isConnected()) {
           logger.debug('ROS connection established successfully');
-          // Update last connection time and reset auto-reconnect timer
+          // Update last connection time. The idle timer is started after the
+          // last active operation finishes.
           lastRosConnectTime = Date.now();
           lastRosConnectSuccessAt = new Date().toISOString();
           rosConnectSuccesses += 1;
-          resetAutoReconnectTimer();
           resolve();
         } else {
           // Continue polling
@@ -211,6 +220,9 @@ export async function withRosConnection<T>(_id: string, params: any, fn: () => P
     releaseLock();
     activeRosOperations = Math.max(0, activeRosOperations - 1);
     lastRosOperationFinishedAt = new Date().toISOString();
+    if (activeRosOperations === 0) {
+      resetAutoReconnectTimer();
+    }
   }
 }
 

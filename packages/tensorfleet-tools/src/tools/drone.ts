@@ -122,7 +122,7 @@ function buildTargetAutoState(params: DroneParams): TargetAutoState {
   let autoState: unknown = null;
 
   if (params.landed != null) {
-    autoState = { kind: "landed", armed: params.landed.armed ?? null };
+    autoState = { kind: "landed", armed: params.landed.armed ?? false };
   } else if (params.airborne != null) {
     const { altMeters, yawRad } = params.airborne;
     autoState = {

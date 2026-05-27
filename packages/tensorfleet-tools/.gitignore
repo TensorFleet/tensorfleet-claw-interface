@@ -143,3 +143,4 @@ vite.config.ts.timestamp-*
 
 # Generated schema types
 src/schema-types/
+.typia-build/

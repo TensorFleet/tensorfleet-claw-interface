@@ -115,7 +115,7 @@ Valid shape 1: landed
 ```
 
 - Use this when the user asks to land, stay landed, disarm after landing, or arm while landed.
-- `armed` is optional. If the user did not mention arming/disarming, omit `armed`.
+- `armed` is optional. If omitted, the tool lands and disarms by default.
 - If the user asks to disarm after landing, set `"armed": false`.
 - If the user asks to remain armed after landing or arm on the ground, set `"armed": true`.
 - Do not set `"armed": null`; omit the property instead.
