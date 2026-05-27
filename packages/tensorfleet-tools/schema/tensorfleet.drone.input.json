@@ -8,7 +8,7 @@
                 "get-state",
                 "set-autopilot-state"
             ],
-            "description": "Use get-state to read state. Use set-autopilot-state with one supported state object to request a drone autopilot state."
+            "description": "Use get-state to read state. Use set-autopilot-state with exactly one supported payload: landed OR airborne. Do not send null placeholders, mode, flightMode, target, or unsupported flight mode fields."
         },
         "tensorfleet-project-path": {
             "type": "string",
@@ -17,33 +17,22 @@
         "landed": {
             "type": "object",
             "additionalProperties": false,
-            "description": "Optional payload for action=set-autopilot-state. Produces autoState={kind:\"landed\",armed}.",
+            "description": "Payload for action=set-autopilot-state when requesting the landed state. Include this OR airborne, never both. Produces autoState={kind:\"landed\",armed}.",
             "properties": {
                 "armed": {
-                    "type": [
-                        "boolean",
-                        "null"
-                    ],
-                    "description": "Desired arm state after landing. true arms, false disarms, null or omitted leaves arm state unchanged."
+                    "type": "boolean",
+                    "description": "Desired arm state after landing. true arms, false disarms. Omit armed to leave arm state unchanged; do not send null."
                 }
             }
         },
-        "airborne_position_local": {
+        "airborne": {
             "type": "object",
             "additionalProperties": false,
-            "description": "Optional payload for action=set-autopilot-state. Local ENU frame target (East-North-Up): +x east, +y north, +z up. Produces autoState={kind:\"offboard\",target:{kind:\"position_local\",x,y,z,yawRad?}}.",
+            "description": "Payload for action=set-autopilot-state when requesting the airborne state. Include this OR landed, never both. Produces autoState={kind:\"airborne\",altMeters,yawRad?}. Do not send mode, flightMode, kind, target, local position, velocity, raw local, raw attitude, AUTO, GUIDED, LOITER, MANUAL, TAKEOFF, LAND, or null placeholders.",
             "properties": {
-                "x": {
+                "altMeters": {
                     "type": "number",
-                    "description": "Local X position target in meters. In the ENU frame, positive X is east."
-                },
-                "y": {
-                    "type": "number",
-                    "description": "Local Y position target in meters. In the ENU frame, positive Y is north."
-                },
-                "z": {
-                    "type": "number",
-                    "description": "Local Z position target in meters. In the ENU frame, positive Z is up."
+                    "description": "Requested airborne altitude in meters."
                 },
                 "yawRad": {
                     "type": "number",
@@ -51,9 +40,7 @@
                 }
             },
             "required": [
-                "x",
-                "y",
-                "z"
+                "altMeters"
             ]
         }
     },

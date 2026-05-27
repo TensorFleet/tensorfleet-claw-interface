@@ -23,7 +23,8 @@
       "tensorfleet-telemetry-ros-connect",
       "tensorfleet-auth",
       "tensorfleet-vm",
-      "tensorfleet-drone"
+      "tensorfleet-drone",
+      "tensorfleet-ros-diagnostics"
     ]
   }
 }

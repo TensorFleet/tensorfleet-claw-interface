@@ -108,28 +108,50 @@ function buildTargetAutoState(params: DroneParams): TargetAutoState {
     throw new Error(`Action does not set autopilot state: ${params.action}`);
   }
 
+  assertNoUnsupportedAutoStateFields(params);
+
   const requestedStates = [
     params.landed == null ? null : "landed",
-    params.airborne_position_local == null ? null : "airborne_position_local",
+    params.airborne == null ? null : "airborne",
   ].filter(Boolean);
 
   if (requestedStates.length !== 1) {
-    throw new Error("set-autopilot-state requires exactly one of landed or airborne_position_local");
+    throw new Error("set-autopilot-state requires exactly one of landed or airborne");
   }
 
   let autoState: unknown = null;
 
   if (params.landed != null) {
     autoState = { kind: "landed", armed: params.landed.armed ?? null };
-  } else if (params.airborne_position_local != null) {
+  } else if (params.airborne != null) {
+    const { altMeters, yawRad } = params.airborne;
     autoState = {
-      kind: "offboard",
-      target: {
-        kind: "position_local",
-        ...params.airborne_position_local,
-      },
+      kind: "airborne",
+      altMeters,
+      ...(yawRad === undefined ? {} : { yawRad }),
     };
   }
 
   return assertTargetAutoState(autoState);
+}
+
+function assertNoUnsupportedAutoStateFields(params: DroneParams): void {
+  const unsupportedTopLevelFields = ["mode", "flightMode", "kind", "target", "altMeters"] as const;
+  const unsupportedNestedFields = ["mode", "flightMode", "kind", "target", "vx", "vy", "vz", "yawRate"] as const;
+  const input = params as unknown as Record<string, unknown>;
+
+  for (const field of unsupportedTopLevelFields) {
+    if (input[field] !== undefined) {
+      throw new Error(`set-autopilot-state does not accept ${field}; use landed or airborne`);
+    }
+  }
+
+  const airborne = params.airborne as Record<string, unknown> | undefined;
+  if (airborne == null) return;
+
+  for (const field of unsupportedNestedFields) {
+    if (airborne[field] !== undefined) {
+      throw new Error(`airborne does not accept ${field}; only altMeters and yawRad are supported`);
+    }
+  }
 }

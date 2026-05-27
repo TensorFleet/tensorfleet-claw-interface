@@ -98,6 +98,47 @@ If things aren't working you can check
 - **can use when**: You need to verify that the ROS 2 connection is working properly, or when troubleshooting connection issues.
 - **additional notes**: For this tool we auto-detect the existing mavros drone, you don't need to specify it.
 
+#### `set-autopilot-state` request rules
+Use `set-autopilot-state` only when the user has asked to change the drone's autopilot/drone state. Do not invent extra state fields, do not set unsupported flight modes, and do not send `null` placeholders. There are only two supported request shapes in this tool.
+
+For any airborne command, use the `airborne` payload only. Never send or ask for a mode value, and never try `OFFBOARD`, `AUTO`, `GUIDED`, `LOITER`, `MANUAL`, `TAKEOFF`, `LAND`, or a `null` mode.
+
+Valid shape 1: landed
+
+```json
+{
+  "action": "set-autopilot-state",
+  "landed": {
+    "armed": false
+  }
+}
+```
+
+- Use this when the user asks to land, stay landed, disarm after landing, or arm while landed.
+- `armed` is optional. If the user did not mention arming/disarming, omit `armed`.
+- If the user asks to disarm after landing, set `"armed": false`.
+- If the user asks to remain armed after landing or arm on the ground, set `"armed": true`.
+- Do not set `"armed": null`; omit the property instead.
+
+Valid shape 2: airborne altitude target
+
+```json
+{
+  "action": "set-autopilot-state",
+  "airborne": {
+    "altMeters": 5
+  }
+}
+```
+
+- Use this when the user asks to take off, become airborne, or hold an airborne altitude.
+- `altMeters` is required and must be a number in meters.
+- `yawRad` is optional and must be a number in radians if provided.
+- Do not send `mode`, `flightMode`, `kind`, `target`, local position, velocity, raw local, raw attitude, or any field that is not shown in this shape.
+- If the user asks for local coordinates or another airborne mode, ask for an altitude instead.
+
+Exactly one of `landed` or `airborne` must be present. Never include both. Never include neither. If the user's requested drone state is not representable by one of these two shapes, explain that this tool only supports landing/arming and airborne altitude targets, then ask for a supported target.
+
 ### ROS connect tool
 
 - **name**: `tensorfleet-telemetry-ros-connect`
@@ -155,5 +196,3 @@ Each tool can have additional parameters passed to the input.
 If the response is suspected to be too big, Try filter params to prevent the Agent context from filling with useless information.
 
 - **regex-filter**: A smart regex filter that applies to the data. Can handle arrays, maps. If the resulting map has metadata and focused entries, it will apply to the focused entries only (for example a large dataset along with some statistics on the side)
-
-
