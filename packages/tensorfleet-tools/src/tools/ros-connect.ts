@@ -101,6 +101,72 @@ function hydrateConfigStoreFromEnv(env: Record<string, any>): void {
   if (token != null) setConfig("TENSORFLEET_JWT", token);
 }
 
+type RosConnectionSettings = {
+  useProxy: boolean;
+  proxyUrl: string;
+  vmManagerUrl: string;
+  nodeId: string;
+  token: string;
+  targetPort: number;
+};
+
+function buildRosConnectionSettings(env: Record<string, any>): RosConnectionSettings {
+  const proxyUrl = pickConfigValue(
+    env.TENSORFLEET_PROXY_URL,
+    env.proxyUrl,
+    getConfig("TENSORFLEET_PROXY_URL"),
+  );
+  const vmManagerUrl = pickConfigValue(
+    env.TENSORFLEET_VM_MANAGER_URL,
+    env.vmManagerUrl,
+    getConfig("TENSORFLEET_VM_MANAGER_URL"),
+  );
+  const nodeId = pickConfigValue(
+    env.TENSORFLEET_NODE_ID,
+    env.nodeId,
+    getConfig("TENSORFLEET_NODE_ID"),
+  );
+  const token = pickConfigValue(
+    env.TENSORFLEET_JWT,
+    env.token,
+    getConfig("TENSORFLEET_JWT"),
+  );
+
+  return {
+    useProxy: true,
+    proxyUrl: proxyUrl ?? "",
+    vmManagerUrl: vmManagerUrl ?? "",
+    nodeId: nodeId ?? "",
+    token: token ?? "",
+    targetPort: 8765,
+  };
+}
+
+async function waitForRosBridgeConnection(
+  ros2Bridge: { isConnected?: () => boolean },
+  timeoutMs: number,
+): Promise<boolean> {
+  const startTime = Date.now();
+
+  return await new Promise<boolean>((resolve) => {
+    const checkConnection = () => {
+      if (typeof ros2Bridge.isConnected === "function" && ros2Bridge.isConnected()) {
+        resolve(true);
+        return;
+      }
+
+      if (Date.now() - startTime > timeoutMs) {
+        resolve(false);
+        return;
+      }
+
+      setTimeout(checkConnection, 250);
+    };
+
+    checkConnection();
+  });
+}
+
 function startAutoReconnectTimer(): void {
   // Clear any existing timer
   if (autoReconnectTimer !== null) {
@@ -160,43 +226,60 @@ export async function ensureRosConnected(_id: string, params: any): Promise<void
     // Set up config store with proxy configuration for ROS2Bridge
     const env = config?.env ?? {};
     hydrateConfigStoreFromEnv(env);
+    const connectionSettings = buildRosConnectionSettings(env);
     logger.debug('Config store setup complete');
+
+    if (!connectionSettings.token) {
+      throw new Error("Missing TENSORFLEET_JWT for ROS connection");
+    }
+
+    if (!connectionSettings.proxyUrl && !connectionSettings.vmManagerUrl) {
+      throw new Error("Missing TENSORFLEET_PROXY_URL or TENSORFLEET_VM_MANAGER_URL for ROS connection");
+    }
 
     // Import and initialize ROS2Bridge
     const { ros2Bridge } = await import("tensorfleet-ros");
-    
-    // Wait for connection to be established
+
+    if (typeof (ros2Bridge as any).updateConnectionSettings === "function") {
+      logger.debug("Reconciling ROS2Bridge connection settings with config store");
+      (ros2Bridge as any).updateConnectionSettings(connectionSettings);
+    }
+
+    if (
+      !ros2Bridge.isConnected() &&
+      typeof (ros2Bridge as any).connect === "function"
+    ) {
+      logger.debug("ROS2Bridge is disconnected, starting explicit connect");
+      (ros2Bridge as any).connect("foxglove", undefined, connectionSettings);
+    }
+
     logger.debug('Waiting for ROS connection to be established...');
-    
-    const connectionTimeout = 10000; // 10 seconds timeout
-    const startTime = Date.now();
-    
-    await new Promise<void>((resolve, reject) => {
-      const checkConnection = () => {
-        const elapsed = Date.now() - startTime;
-        
-        if (elapsed > connectionTimeout) {
-          reject(new Error(`Connection timeout after ${connectionTimeout}ms. ROS2Bridge failed to connect.`));
-          return;
-        }
-        
-        if (ros2Bridge.isConnected()) {
-          logger.debug('ROS connection established successfully');
-          // Update last connection time. The idle timer is started after the
-          // last active operation finishes.
-          lastRosConnectTime = Date.now();
-          lastRosConnectSuccessAt = new Date().toISOString();
-          rosConnectSuccesses += 1;
-          resolve();
-        } else {
-          // Continue polling
-          setTimeout(checkConnection, 500);
-        }
-      };
-      
-      // Start checking connection status
-      checkConnection();
-    });
+
+    const initialTimeoutMs = 10000;
+    const recoveredWithoutReset = await waitForRosBridgeConnection(ros2Bridge, initialTimeoutMs);
+
+    if (!recoveredWithoutReset) {
+      logger.warn("ROS2Bridge stayed disconnected after initial wait, forcing a clean reconnect");
+      if (typeof ros2Bridge.disconnect === "function") {
+        ros2Bridge.disconnect();
+      }
+      if (typeof (ros2Bridge as any).connect === "function") {
+        (ros2Bridge as any).connect("foxglove", undefined, connectionSettings);
+      }
+    }
+
+    const recoveredAfterReset = recoveredWithoutReset
+      ? true
+      : await waitForRosBridgeConnection(ros2Bridge, 10000);
+
+    if (!recoveredAfterReset) {
+      throw new Error("Connection timeout after 20000ms. ROS2Bridge failed to connect after forced reconnect.");
+    }
+
+    logger.debug('ROS connection established successfully');
+    lastRosConnectTime = Date.now();
+    lastRosConnectSuccessAt = new Date().toISOString();
+    rosConnectSuccesses += 1;
   } catch (error) {
     rosConnectFailures += 1;
     lastRosConnectFailureAt = new Date().toISOString();
