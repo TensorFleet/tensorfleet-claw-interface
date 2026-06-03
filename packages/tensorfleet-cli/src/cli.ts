@@ -2,14 +2,50 @@
 
 import { Command } from "commander";
 import { createServer } from "node:http";
-import { execFile } from "node:child_process";
 import { version } from "../package.json";
-import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead, executeVmTool, executeAuthTool } from "tensorfleet-tools";
-import { getRegionById, startOAuthRedirectFlow } from "tensorfleet-auth";
+import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead, executeVmTool, executeAuthTool, executeDroneTool } from "tensorfleet-tools";
+import { fetchVmSnapshot, getRegionById, setConfig, startOAuthRedirectFlow } from "tensorfleet-auth";
 import { getGlobalAuthInfo, storeAuthTokenOnGlobal } from "tensorfleet-auth";
 
 const program = new Command();
 const DEFAULT_AUTH_BACKEND_URL = "https://app.tensorfleet.net/";
+
+function redactAuthInfo(authInfo: ReturnType<typeof getGlobalAuthInfo>) {
+  if (!authInfo) {
+    return null;
+  }
+
+  return {
+    ...authInfo,
+    token: `${authInfo.token.slice(0, 8)}...`,
+  };
+}
+
+async function runCliAuthLogin(backendUrl: string) {
+  const session = await startOAuthRedirectFlow({
+    backendUrl,
+    createServer,
+    openBrowser: async (url) => {
+      console.log(`Open this URL to authenticate:\n${url}`);
+    },
+    onTokenReceived: (token) => {
+      storeAuthTokenOnGlobal(token, "oauth");
+    },
+  });
+
+  await session.tokenPromise;
+
+  const authInfo = getGlobalAuthInfo();
+  if (!authInfo) {
+    throw new Error("Authentication completed but no auth info was stored");
+  }
+
+  return {
+    success: true,
+    command: "login",
+    authInfo: redactAuthInfo(authInfo),
+  };
+}
 
 function exitCli(code: number): never {
   try {
@@ -36,16 +72,8 @@ authCommand
   .option("--backend-url <url>", "TensorFleet backend URL", DEFAULT_AUTH_BACKEND_URL)
   .action(async (options: { backendUrl: string }) => {
     try {
-      const result = await executeAuthTool("auth-login", {
-        command: "login",
-        backendUrl: options.backendUrl,
-      });
-
-      if (result?.content?.[0]?.text) {
-        console.log(result.content[0].text);
-      } else {
-        console.log("No auth data received");
-      }
+      const result = await runCliAuthLogin(options.backendUrl);
+      console.log(JSON.stringify(result, null, 2));
 
       exitCli(0);
     } catch (error) {
@@ -115,16 +143,8 @@ program
   .action(async (options: { backendUrl: string }) => {
     console.warn("Warning: 'test-auth' is deprecated. Use 'auth login' instead.");
     try {
-      const result = await executeAuthTool("test-auth", {
-        command: "login",
-        backendUrl: options.backendUrl,
-      });
-
-      if (result?.content?.[0]?.text) {
-        console.log(result.content[0].text);
-      } else {
-        console.log("No auth data received");
-      }
+      const result = await runCliAuthLogin(options.backendUrl);
+      console.log(JSON.stringify(result, null, 2));
 
       exitCli(0);
     } catch (error) {
@@ -135,29 +155,6 @@ program
       exitCli(1);
     }
   });
-
-function openBrowser(url: string): Promise<void> {
-  const command =
-    process.platform === "darwin"
-      ? "open"
-      : process.platform === "win32"
-        ? "cmd"
-        : "xdg-open";
-  const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
-
-  return new Promise((resolve, reject) => {
-    const child = execFile(command, args, (error) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-
-      resolve();
-    });
-
-    child.unref();
-  });
-}
 
 program
   .command("ros-connect")
@@ -387,7 +384,7 @@ program
   .option("--dev", "Include development-only regions for list-regions")
   .option("--do-auth", "Run OAuth authentication first")
   .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
-  .option("--no-open", "Print the login URL instead of opening a browser during --do-auth")
+  .option("--no-open", "Deprecated: login URLs are always printed during --do-auth")
   .action(async (action: string, options: { region?: string; vmId?: string; config?: string; timeout?: string; dev?: boolean; doAuth: boolean; backendUrl: string; open: boolean }) => {
     try {
       // Validate action
@@ -435,11 +432,7 @@ program
           backendUrl: options.backendUrl,
           createServer,
           openBrowser: async (url) => {
-            if (!options.open) {
-              console.log(`Open this URL to authenticate:\n${url}`);
-              return;
-            }
-            await openBrowser(url);
+            console.log(`Open this URL to authenticate:\n${url}`);
           },
           onTokenReceived: (token) => {
             storeAuthTokenOnGlobal(token, "oauth");
@@ -484,6 +477,115 @@ program
     } catch (error) {
       console.error(
         `VM ${action} failed:`,
+        error instanceof Error ? error.message : String(error)
+      );
+      exitCli(1);
+    }
+  });
+
+program
+  .command("drone")
+  .description("Get drone state or set autopilot state")
+  .argument("<action>", "Action to perform: get-state, set-autopilot-state")
+  .option(
+    "-p, --project-path <path>",
+    "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback"
+  )
+  .option("--region <id>", "Region (eu, asia, local)")
+  .option("--do-auth", "Run OAuth authentication first")
+  .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
+  .option("--no-open", "Deprecated: login URLs are always printed during --do-auth")
+  .option("--auto-state <json>", "Target state payload JSON for set-autopilot-state, containing exactly one of landed or airborne_position_local.")
+  .action(async (action: string, options: {
+    projectPath?: string;
+    region?: string;
+    doAuth: boolean;
+    backendUrl: string;
+    open: boolean;
+    autoState?: string;
+  }) => {
+    try {
+      if (!["get-state", "set-autopilot-state"].includes(action)) {
+        console.error(`Invalid action: ${action}. Use: get-state or set-autopilot-state`);
+        exitCli(1);
+      }
+
+      if (!options.region) {
+        console.error("Error: --region is required for drone");
+        exitCli(1);
+      }
+
+      if (!options.projectPath && !options.doAuth) {
+        console.error("Error: provide either --project-path or --do-auth");
+        exitCli(1);
+      }
+
+      const region = getRegionById(options.region, true);
+      if (!region) {
+        console.error(`Invalid region: ${options.region}. Use \`tensorfleet vm list-regions --dev\` to view available regions.`);
+        exitCli(1);
+      }
+
+      setConfig("TENSORFLEET_REGION", region.id);
+      setConfig("TENSORFLEET_VM_MANAGER_URL", region.vmManagerUrl);
+
+      if (options.doAuth) {
+        const session = await startOAuthRedirectFlow({
+          backendUrl: options.backendUrl,
+          createServer,
+          openBrowser: async (url) => {
+            console.log(`Open this URL to authenticate:\n${url}`);
+          },
+          onTokenReceived: (token) => {
+            storeAuthTokenOnGlobal(token, "oauth");
+            setConfig("TENSORFLEET_JWT", token);
+          },
+        });
+        await session.tokenPromise;
+      }
+
+      const authInfo = getGlobalAuthInfo();
+      if (!options.projectPath) {
+        if (!authInfo) {
+          console.error("Not authenticated. Pass --do-auth or provide --project-path with legacy auth config");
+          exitCli(1);
+        }
+      }
+
+      let nodeId: string | undefined;
+      if (authInfo?.token) {
+        const snapshot = await fetchVmSnapshot({
+          baseUrl: region.vmManagerUrl,
+          token: authInfo.token,
+        });
+        nodeId = snapshot.nodeId ?? undefined;
+        if (nodeId) {
+          setConfig("TENSORFLEET_NODE_ID", nodeId);
+        }
+      }
+
+      const autoStatePayload = options.autoState ? JSON.parse(options.autoState) : {};
+
+      const result = await executeDroneTool(`drone-${action}`, {
+        action: action as any,
+        "tensorfleet-project-path": options.projectPath,
+        token: authInfo?.token,
+        vmManagerUrl: region.vmManagerUrl,
+        nodeId,
+        region: region.id,
+        ...(autoStatePayload as object),
+      });
+
+      if (result?.content?.[0]?.text) {
+        console.log(result.content[0].text);
+      } else {
+        console.log("No drone data received");
+      }
+
+      exitCli(0);
+    } catch (error) {
+      console.error(
+        `Drone ${action} failed:`,
         error instanceof Error ? error.message : String(error)
       );
       exitCli(1);

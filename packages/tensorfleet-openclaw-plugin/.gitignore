@@ -118,6 +118,7 @@ dist
 
 # DynamoDB Local files
 .dynamodb/
+.typia-build/
 
 # Firebase cache directory
 .firebase/

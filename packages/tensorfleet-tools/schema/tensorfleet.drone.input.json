@@ -1,0 +1,50 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "action": {
+            "type": "string",
+            "enum": [
+                "get-state",
+                "set-autopilot-state"
+            ],
+            "description": "Use get-state to read state. Use set-autopilot-state with exactly one supported payload: landed OR airborne. Do not send null placeholders, mode, flightMode, target, or unsupported flight mode fields."
+        },
+        "tensorfleet-project-path": {
+            "type": "string",
+            "description": "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback."
+        },
+        "landed": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Payload for action=set-autopilot-state when requesting the landed state. Include this OR airborne, never both. Produces autoState={kind:\"landed\",armed}.",
+            "properties": {
+                "armed": {
+                    "type": "boolean",
+                    "description": "Desired arm state after landing. false disarms, true remains armed. Omitted defaults to false; do not send null."
+                }
+            }
+        },
+        "airborne": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Payload for action=set-autopilot-state when requesting the airborne state. Include this OR landed, never both. Produces autoState={kind:\"airborne\",altMeters,yawRad?}. Do not send mode, flightMode, kind, target, local position, velocity, raw local, raw attitude, AUTO, GUIDED, LOITER, MANUAL, TAKEOFF, LAND, or null placeholders.",
+            "properties": {
+                "altMeters": {
+                    "type": "number",
+                    "description": "Requested airborne altitude in meters."
+                },
+                "yawRad": {
+                    "type": "number",
+                    "description": "Optional yaw target in radians."
+                }
+            },
+            "required": [
+                "altMeters"
+            ]
+        }
+    },
+    "required": [
+        "action"
+    ]
+}

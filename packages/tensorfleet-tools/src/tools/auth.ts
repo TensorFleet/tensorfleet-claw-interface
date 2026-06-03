@@ -6,7 +6,6 @@ import {
   clearGlobalAuthInfo,
 } from "tensorfleet-auth";
 import { createServer } from "node:http";
-import { execFile } from "node:child_process";
 
 const logger = new TensorfleetLogger("Tools");
 const DEFAULT_AUTH_BACKEND_URL = "https://app.tensorfleet.net/";
@@ -68,56 +67,28 @@ export async function authTool(_id: string, params: AuthParams) {
     // Default: login command
     const backendUrl = params.backendUrl ?? DEFAULT_AUTH_BACKEND_URL;
 
-    function openBrowser(url: string): Promise<void> {
-      const command =
-          process.platform === "darwin"
-              ? "open"
-              : process.platform === "win32"
-                  ? "cmd"
-                  : "xdg-open";
-
-      const args =
-          process.platform === "win32"
-              ? ["/c", "start", "", url]
-              : [url];
-
-      return new Promise((resolve, reject) => {
-        const child = execFile(command, args, (error) => {
-          if (error) {
-            reject(error);
-            return;
-          }
-
-          resolve();
-        });
-
-        child.unref();
-      });
-    }
-
     const session = await startOAuthRedirectFlow({
       backendUrl,
       createServer,
-      openBrowser: async (url) => {
-        await openBrowser(url);
-      },
+      openBrowser: async () => {},
       onTokenReceived: (token) => {
         storeAuthTokenOnGlobal(token, "oauth");
       },
     });
 
-    await session.tokenPromise;
-
-    const authInfo = getGlobalAuthInfo();
-
-    if (!authInfo) {
-      throw new Error("Authentication completed but no auth info was stored");
-    }
+    session.tokenPromise.catch((error) => {
+      logger.error(
+        "Auth callback failed:",
+        error instanceof Error ? error.message : String(error),
+      );
+    });
 
     return createTextResponse({
       success: true,
       command: "login",
-      authInfo: redactAuthInfo(authInfo),
+      status: "pending",
+      authUrl: session.finalAuthUrl,
+      message: "Open this URL to authenticate, then continue after authentication completes.",
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error occurred";

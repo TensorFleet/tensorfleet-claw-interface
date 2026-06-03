@@ -20,25 +20,27 @@ You can use the authentication tool to log into the tensorfleet account
 - **can use when**: User needs to log in to TensorFleet, or when other TensorFleet tools return authentication errors. This tool must be run before any other TensorFleet operations if not already authenticated.
 - **parameters**:
   - `backendUrl` (optional): Custom backend URL for OAuth authentication. Defaults to https://app.tensorfleet.net/
-- **returns**: JSON object with authentication status and user profile. On success, the auth token is stored globally for all subsequent tool calls. Auth token will remain in memory till openclaw gateway is restarted.
-- **How it works**: When logging in, the tool opens a browser tab for logging in. after it's done your tool returns.
+- **returns**: JSON object with authentication status and user profile for `status`, or a pending login response with `authUrl` for `login`. After the user completes authentication in their browser, the auth token is stored globally for all subsequent tool calls. Auth token will remain in memory till openclaw gateway is restarted.
+- **How it works**: When logging in, the tool returns an authentication URL. Give this link to the user and ask them to continue after they finish authentication. Do not open a browser automatically from the AI workflow.
 
 # Virtual machine Tool
 Tensorfleet robotics simulations happen in a cloud virtual machine. This tool helps managing these machines.
 - **name**: `tensorfleet-vm`
 - **purpose**: Select the virtual machine. that you want to use the virtual machine from. List virtual machines, stop or start your VM and.
+- **WHEN TO NOT USE**: The user never specified the region. Must be 100% sure of the region the user is referring to. DO NOT USE DEFAULT ASSUMPTIONS!
 
 # Auth + VM selection workflow
 auth tool and virtual machine tool are multipurpose and give us different actions to perform.
 We need to use these automatically with the workflow shown below. Please don't pause in between unless you have a question from the user.
-1- User asks something. If you don't know about the auth status, run the auth status.
-1.1- If not logged in, Ask for permission to open the auth window. After you have the auth token proceed without pausing.
-2- Assuming auth tokens are cached, We need to know if we have selected a running virtual machine.
-2.1- Check the chat history, If user has not mentioned any region, list the regions and ASK THEM which region they want to use. Even if there is only one, Ask the user!. Note that the "local" region may not list but still exists for development.
-2.2- Get the virtual machine status for the desired region. If it's not running, Ask for permission then start it.
-2.2.1- To start a vm you need a configuration. You have to know which configuration you're starting it. Use the `list-configs` action on `tensorfleet-vm` to get a list of possible configurations. The user must choose which to use. You can add description/notes to guide them.
-2.3- Run the `select-vm` action for the `tensorfleet-vm` tool to select the running virtual machine. if the status isn't running, inform the user to wait and retry in 30 seconds.
-3- You assume auth is done, vm is selected, proceed with drone operations.
+
+1. User asks something. If you don't know about the auth status, run the auth status. 
+   1. If not logged in, run the auth login command, give the returned `authUrl` to the user, and ask them to continue after authentication is finished. When they continue, run auth status again before proceeding.
+2. Assuming auth tokens are cached, We need to know if we have selected a running virtual machine. 
+   1. Check the chat history, If user has not mentioned any region, list the regions and ASK THEM which region they want to use. Even if there is only one, Ask the user!. Note that the "local" region may not list but still exists for development.
+   2. Get the virtual machine status for the desired region. If it's not running, Ask for permission then start it.
+      1. To start a vm you need a configuration. You have to know which configuration you're starting it. Use the `list-configs` action on `tensorfleet-vm` to get a list of possible configurations. The user must choose which to use. You can add description/notes to guide them. 
+   3. Run the `select-vm` action for the `tensorfleet-vm` tool to select the running virtual machine. if the status isn't running, inform the user to wait and retry in 30 seconds. 
+3. You assume auth is done, vm is selected, proceed with drone operations.
 
 
 ## Tensorfleet config file
@@ -61,31 +63,24 @@ We have a couple of tools we can use to perform a read operation.
 
 
 ## Usage protocol
-When a user asks for something that requires using any of the tools mentioned below, follow these steps in order (or the same time)
-1. Ensure you know the project path. Give an extremely short note to the user when asking them to ensure their virtual machine is started and vscode logged in to the tensorfleet account is open for it. Do not repeat this unless needed
-2. Default to the entity system for context (don’t announce the backend). Switch to raw ROS only if the user asks OR the entity system does not have what you need. Use the "Environment quick-reference" to speed up your understanding.
 
-## Operator preference
-- Do not ask the user to specify the query filters. They are there to make you more efficient automatically. You can derive filters and other arguments automatically unless specified otherwise.
-- Operator preference is in **Environment quick-reference**.
+### Drone interfacing
+When interfacing with drones first use our `tensorfleet-drone` tool unless you need lower level telemetry.
+For lower level telemetry a default drone will be available under the `/mavros/*` topic path if the virtual machine has spawned one. use `.*mavros.*` in your regex-filter (you can expand on that) to filter for this.
+
+### Other robot type interfacing
+Do not do anything unless the user asks for low level telemetry. Its still in development.
+
+### ROS access interfacing
+If the user provided filtering suggestions, make up your `regex-filter`. Otherwise do warn them that the output will be long and if they want to proceed with no filters
+
+## Generic tool guide
+- DO NOT try to use any tool other than tensorfleet-auth before ensuring login status is authenticated.
+- DO NOT try to use any tool other than tensorfleet-vm before ensuring vm is running, for the user-requested region. the user MUST specify the region!
+- When using regex filters in tool parameters do not ask the user to specify the query filters. They are there to make you more efficient automatically. You can derive filters and other arguments automatically unless specified otherwise.
 - When reading data from the drone, the operation is not expensive. Unless making direct service calls, there are no safety considerations.
-
-### If the user asks for
-do what's in front of ':'. (n) references are to the **Usage protocol**
-- **Data on a drone**: Just ensure (1), Then refer to **Common drone topics** section.
-- **Data on a robotics arm**: State that support is in development. Offer to perform raw ROS operations starting with a `.*arm.*` `regex-filter`.
-- **Data on a ground robotc (called simple-robot)** : State that support is in development and do not perform anything.
-- **Raw ROS access** : If they have provided filtering suggestions, make up your `regex-filter`. Otherwise do warn them that the output will be long and if they want to proceed with no filters
-
-Additional notes :
 - Parse the tool outputs in a way that's understandable for the user. Shorten them if needed. The user is a human.
 - `regex-filter` : It's mostly needed when you're giving the OUTPUT of a tool directly to the user. When using list functions in raw ROS `--list` functionality to list nodes, topics or services (property lists shouldn't be a concern either).Otherwise the output isn't that long and won't be long enough to be concerned. And as mentioned, If you're just reading the output of a tool and responding BASED on it, It won't fill the chat history with junk and is not a concern.
-
-
-### Environment quick-reference
-These are suggestions for ASSISTANT (you) and the USER.
-When a user asks for something. You can suggest a quick list from Environment quick-reference
-- **Drones** : A default drone will be available under the `/mavros/*` topic path if the virtual machine has spawned one. use `.*mavros.*` in your regex-filter (you can expand on that) to filter for this. 
 
 
 ## Troubleshooting
@@ -95,6 +90,54 @@ If things aren't working you can check
 
 
 # Available tools
+---- DO NOT TRY TO USE THESE BEFORE YOU ARE 100% SURE which region the user is refering to!!!! AND HAVE IT SELECTED! USING THE `tensorfleet-vm` REGION SELECTION! and ENSURE VM IS RUNNING!!!!!! ---
+
+### Drone tool
+- **name**: `tensorfleet-drone`
+- **purpose**: get the drone state or command the drone. returns after drone reaches desired state. Which might take a while depending on the request and current state.
+- **can use when**: You need to verify that the ROS 2 connection is working properly, or when troubleshooting connection issues.
+- **additional notes**: For this tool we auto-detect the existing mavros drone, you don't need to specify it.
+
+#### `set-autopilot-state` request rules
+Use `set-autopilot-state` only when the user has asked to change the drone's autopilot/drone state. Do not invent extra state fields, do not set unsupported flight modes, and do not send `null` placeholders. There are only two supported request shapes in this tool.
+
+For any airborne command, use the `airborne` payload only. Never send or ask for a mode value, and never try `OFFBOARD`, `AUTO`, `GUIDED`, `LOITER`, `MANUAL`, `TAKEOFF`, `LAND`, or a `null` mode.
+
+Valid shape 1: landed
+
+```json
+{
+  "action": "set-autopilot-state",
+  "landed": {
+    "armed": false
+  }
+}
+```
+
+- Use this when the user asks to land, stay landed, disarm after landing, or arm while landed.
+- `armed` is optional. If omitted, the tool lands and disarms by default.
+- If the user asks to disarm after landing, set `"armed": false`.
+- If the user asks to remain armed after landing or arm on the ground, set `"armed": true`.
+- Do not set `"armed": null`; omit the property instead.
+
+Valid shape 2: airborne altitude target
+
+```json
+{
+  "action": "set-autopilot-state",
+  "airborne": {
+    "altMeters": 5
+  }
+}
+```
+
+- Use this when the user asks to take off, become airborne, or hold an airborne altitude.
+- `altMeters` is required and must be a number in meters.
+- `yawRad` is optional and must be a number in radians if provided.
+- Do not send `mode`, `flightMode`, `kind`, `target`, local position, velocity, raw local, raw attitude, or any field that is not shown in this shape.
+- If the user asks for local coordinates or another airborne mode, ask for an altitude instead.
+
+Exactly one of `landed` or `airborne` must be present. Never include both. Never include neither. If the user's requested drone state is not representable by one of these two shapes, explain that this tool only supports landing/arming and airborne altitude targets, then ask for a supported target.
 
 ### ROS connect tool
 
@@ -103,6 +146,11 @@ If things aren't working you can check
 - **can use when**: You need to verify that the ROS 2 connection is working properly, or when troubleshooting connection issues.
 - **returns**: A JSON object indicating connection success with details including node ID, proxy URL, and VM manager URL. On failure, returns an error message.
 - **additional notes**: This tool is primarily used for debugging and testing connectivity. It handles the connection mutex to prevent multiple simultaneous connections.
+
+### ROS diagnostics tool
+
+- **name**: `tensorfleet-ros-diagnostics`
+- **purpose**: Inspect the internals of the ROS connect path, including mutex state, queue depth, active operations, reconnect timer state, recent connect attempts, config values, and current ROS bridge connectivity. Use this when ROS behavior is ambiguous and you need to distinguish a lock/resource issue from an actual connect/timeout issue.
 
 
 
@@ -148,7 +196,3 @@ Each tool can have additional parameters passed to the input.
 If the response is suspected to be too big, Try filter params to prevent the Agent context from filling with useless information.
 
 - **regex-filter**: A smart regex filter that applies to the data. Can handle arrays, maps. If the resulting map has metadata and focused entries, it will apply to the focused entries only (for example a large dataset along with some statistics on the side)
-
-
-
-

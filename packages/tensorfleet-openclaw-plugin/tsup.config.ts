@@ -7,11 +7,14 @@ const typesDir = resolve(rootDir, "./packages/@types");
 
 export default defineConfig({
   entry: ["src/index.ts"],
-  format: ["esm", "cjs"],
+  format: ["esm"],
   dts: true,
   clean: true,
   target: "esnext",
   outDir: "dist/dist",
+  outExtension() {
+    return { js: ".js" };
+  },
   noExternal: ["tensorfleet-tools"],
 
   external: [

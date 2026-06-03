@@ -6,7 +6,7 @@ import { builtinModules } from "node:module";
 const rootDir = __dirname;
 const packagesDir = path.resolve(rootDir, "./packages");
 const typesDir = path.resolve(rootDir, "./packages/@types");
-const tensorfleetUtilDir = path.resolve(rootDir, "./packages/tensorfleet-util/src");
+
 const tensorfleetRosDir = path.resolve(rootDir, "./packages/tensorfleet-ros/src");
 const tensorfleetAuthDir = path.resolve(rootDir, "./packages/tensorfleet-auth/src");
 
@@ -63,13 +63,8 @@ function viteLikeAliasPlugin() {
         };
       });
 
-      build.onResolve({ filter: /^tensorfleet-util(\/.*)?$/ }, (args: any) => {
-        const match = args.path.match(/^tensorfleet-util(\/.*)?$/);
-        const subpath = match?.[1] ?? "";
-        return {
-          path: resolvePackageEntry(tensorfleetUtilDir, subpath),
-        };
-      });
+      // DO NOT alias tensorfleet-util to ./packages/tensorfleet-util/src.
+      // Let esbuild resolve it as a real package through package.json exports.
 
       build.onResolve({ filter: /^tensorfleet-ros(\/.*)?$/ }, (args: any) => {
         const match = args.path.match(/^tensorfleet-ros(\/.*)?$/);
@@ -88,25 +83,25 @@ function viteLikeAliasPlugin() {
       });
 
       build.onResolve(
-        {
-          filter:
-            /^@lichtblick\/(suite-base|log|suite|hooks|mcap-support|theme|message-path|typescript-transformers|comlink-transfer-handlers)(\/.*)?$/,
-        },
-        (args: any) => {
-          const match = args.path.match(
-            /^@lichtblick\/(suite-base|log|suite|hooks|mcap-support|theme|message-path|typescript-transformers|comlink-transfer-handlers)(\/.*)?$/,
-          );
+          {
+            filter:
+                /^@lichtblick\/(suite-base|log|suite|hooks|mcap-support|theme|message-path|typescript-transformers|comlink-transfer-handlers)(\/.*)?$/,
+          },
+          (args: any) => {
+            const match = args.path.match(
+                /^@lichtblick\/(suite-base|log|suite|hooks|mcap-support|theme|message-path|typescript-transformers|comlink-transfer-handlers)(\/.*)?$/,
+            );
 
-          if (!match) {
-            return null;
-          }
+            if (!match) {
+              return null;
+            }
 
-          const [, pkg, subpath = ""] = match;
+            const [, pkg, subpath = ""] = match;
 
-          return {
-            path: resolvePackageEntry(path.resolve(packagesDir, pkg, "src"), subpath),
-          };
-        },
+            return {
+              path: resolvePackageEntry(path.resolve(packagesDir, pkg, "src"), subpath),
+            };
+          },
       );
 
       build.onResolve({ filter: /^@lichtblick\/den(\/.*)?$/ }, (args: any) => {

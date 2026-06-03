@@ -1,2 +1,3 @@
 # Webpack build output
 /assets
+.typia-build/
