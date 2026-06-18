@@ -1,8 +1,8 @@
 import { defineToolPlugin } from "openclaw/plugin-sdk/tool-plugin";
-import { executeEntityRead, executeRosNodeRead, executeRosTopicRead, executeRosServiceRead, executeRosConnect, executeRosDiagnostics, executeAuthTool, executeVmTool, executeDroneTool } from "tensorfleet-tools";
+import { executeEntityRead, executeRosNodeRead, executeRosTopicRead, executeRosServiceRead, executeRosConnect, executeRosDiagnostics, executeAuthTool, executeVmTool, executeDroneTool, executeDroneLogsTool } from "tensorfleet-tools";
 
 // Import schema definitions from tensorfleet-tools
-import { entityReadSchema, rosNodeReadSchema, rosTopicReadSchema, rosServiceReadSchema, rosConnectSchema, rosDiagnosticsSchema, authSchema, vmSchema, droneSchema } from "tensorfleet-tools";
+import { entityReadSchema, rosNodeReadSchema, rosTopicReadSchema, rosServiceReadSchema, rosConnectSchema, rosDiagnosticsSchema, authSchema, vmSchema, droneSchema, droneLogsSchema } from "tensorfleet-tools";
 
 // Helper function to wrap executor with try-catch and return JSON error on failure
 function withErrorHandling<T extends any[]>(
@@ -104,6 +104,13 @@ export default defineToolPlugin({
       description: "Control a MAVROS-backed drone through the TensorFleet drone controller",
       parameters: droneSchema,
       execute: (params: any, _config: unknown, context: { toolCallId: string }) => runTensorFleetTool(withErrorHandling(executeDroneTool), context.toolCallId, params),
+    }),
+
+    tool({
+      name: "tensorfleet-drone-logs",
+      description: "Read the drone controller's internal request and state-change history",
+      parameters: droneLogsSchema,
+      execute: (params: any, _config: unknown, context: { toolCallId: string }) => runTensorFleetTool(withErrorHandling(executeDroneLogsTool), context.toolCallId, params),
     }),
   ],
 });

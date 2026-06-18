@@ -2,7 +2,7 @@ import { assertTargetAutoState, DroneController, DroneStateModel, TensorfleetLog
 import type { TargetAutoState } from "tensorfleet-util";
 import { ros2Bridge } from "tensorfleet-ros";
 import { withRosConnection } from "./ros-connect";
-import { setConfig } from "tensorfleet-auth";
+import { getConfig, setConfig } from "tensorfleet-auth";
 import type { TensorfleetDrone } from "../schema-types/tensorfleet.drone.input";
 
 const logger = new TensorfleetLogger("Tools");
@@ -93,7 +93,6 @@ async function runDroneAction(controller: DroneController, model: DroneStateMode
         reached: controller.isInRequestedAutoState(),
       };
     }
-
     default:
       throw new Error(`Unknown drone action: ${(params as { action: string }).action}`);
   }

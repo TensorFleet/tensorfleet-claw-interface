@@ -7,6 +7,7 @@ export { executeRosDiagnostics } from "./tools/ros-diagnostics-executor";
 export { executeVmTool } from "./tools/vm-executor";
 export { executeAuthTool } from "./tools/auth-executor";
 export { executeDroneTool } from "./tools/drone-executor";
+export { executeDroneLogsTool } from "./tools/drone-logs-executor";
 export type { ToolAPI, ToolDefinition, ToolParameters, ToolExecutionResult } from "./tool-api";
 
 // Export schema definitions
@@ -19,6 +20,7 @@ import rosDiagnosticsSchema from "../schema/tensorfleet-telemetry.ros-diagnostic
 import authSchema from "../schema/tensorfleet.auth.input.json";
 import vmSchema from "../schema/tensorfleet.vm.input.json";
 import droneSchema from "../schema/tensorfleet.drone.input.json";
+import droneLogsSchema from "../schema/tensorfleet.drone-logs.input.json";
 
 
-export { entityReadSchema, rosNodeReadSchema, rosTopicReadSchema, rosServiceReadSchema, rosConnectSchema, rosDiagnosticsSchema, authSchema, vmSchema, droneSchema };
+export { entityReadSchema, rosNodeReadSchema, rosTopicReadSchema, rosServiceReadSchema, rosConnectSchema, rosDiagnosticsSchema, authSchema, vmSchema, droneSchema, droneLogsSchema };
