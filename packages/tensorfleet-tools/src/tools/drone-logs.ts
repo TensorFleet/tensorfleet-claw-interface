@@ -1,6 +1,6 @@
 import { DroneController, DroneStateModel, TensorfleetLogger } from "tensorfleet-util";
 import { ros2Bridge } from "tensorfleet-ros";
-import { getConfig, setConfig } from "tensorfleet-auth";
+import { getConfig } from "tensorfleet-auth";
 import { withRosConnection } from "./ros-connect";
 import type { TensorfleetDroneLogs } from "../schema-types/tensorfleet.drone-logs.input";
 
@@ -15,8 +15,6 @@ export type DroneLogsParams = TensorfleetDroneLogs & {
 
 export async function droneLogsTool(_id: string, params: DroneLogsParams) {
   try {
-    hydrateDroneLogsConfig(params);
-
     return await withRosConnection(_id, params, async () => {
       const model = new DroneStateModel();
       const controller = new DroneController(model, ros2Bridge, {
@@ -63,13 +61,6 @@ export async function droneLogsTool(_id: string, params: DroneLogsParams) {
       content: [{ type: "text", text: errorText || "" }],
     };
   }
-}
-
-function hydrateDroneLogsConfig(params: DroneLogsParams): void {
-  if (params.token != null) setConfig("TENSORFLEET_JWT", params.token);
-  if (params.vmManagerUrl != null) setConfig("TENSORFLEET_VM_MANAGER_URL", params.vmManagerUrl);
-  if (params.proxyUrl != null) setConfig("TENSORFLEET_PROXY_URL", params.proxyUrl);
-  if (params.nodeId != null) setConfig("TENSORFLEET_NODE_ID", params.nodeId);
 }
 
 function getDroneLogDestinationKey(params: DroneLogsParams): string {

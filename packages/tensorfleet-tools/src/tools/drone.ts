@@ -2,7 +2,6 @@ import { assertTargetAutoState, DroneController, DroneStateModel, TensorfleetLog
 import type { TargetAutoState } from "tensorfleet-util";
 import { ros2Bridge } from "tensorfleet-ros";
 import { withRosConnection } from "./ros-connect";
-import { getConfig, setConfig } from "tensorfleet-auth";
 import type { TensorfleetDrone } from "../schema-types/tensorfleet.drone.input";
 
 const logger = new TensorfleetLogger("Tools");
@@ -19,8 +18,6 @@ export type DroneParams = TensorfleetDrone & {
 
 export async function droneTool(_id: string, params: DroneParams) {
   try {
-    hydrateDroneConfig(params);
-
     return await withRosConnection(_id, params, async () => {
       const model = new DroneStateModel();
       const controller = new DroneController(model, ros2Bridge, {
@@ -67,14 +64,6 @@ export async function droneTool(_id: string, params: DroneParams) {
       content: [{ type: "text", text: errorText || "" }],
     };
   }
-}
-
-function hydrateDroneConfig(params: DroneParams): void {
-  if (params.token != null) setConfig("TENSORFLEET_JWT", params.token);
-  if (params.vmManagerUrl != null) setConfig("TENSORFLEET_VM_MANAGER_URL", params.vmManagerUrl);
-  if (params.proxyUrl != null) setConfig("TENSORFLEET_PROXY_URL", params.proxyUrl);
-  if (params.nodeId != null) setConfig("TENSORFLEET_NODE_ID", params.nodeId);
-  if (params.region != null) setConfig("TENSORFLEET_REGION", params.region);
 }
 
 async function runDroneAction(controller: DroneController, model: DroneStateModel, params: DroneParams) {

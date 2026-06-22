@@ -94,11 +94,31 @@ function hydrateConfigStoreFromEnv(env: Record<string, any>): void {
   const vmManagerUrl = pickConfigValue(env.TENSORFLEET_VM_MANAGER_URL, env.vmManagerUrl);
   const nodeId = pickConfigValue(env.TENSORFLEET_NODE_ID, env.nodeId);
   const token = pickConfigValue(env.TENSORFLEET_JWT, env.token);
+  const region = pickConfigValue(env.TENSORFLEET_REGION, env.region);
 
   if (proxyUrl != null) setConfig("TENSORFLEET_PROXY_URL", proxyUrl);
   if (vmManagerUrl != null) setConfig("TENSORFLEET_VM_MANAGER_URL", vmManagerUrl);
   if (nodeId != null) setConfig("TENSORFLEET_NODE_ID", nodeId);
   if (token != null) setConfig("TENSORFLEET_JWT", token);
+  if (region != null) setConfig("TENSORFLEET_REGION", region);
+}
+
+function buildRosConfigInput(fileEnv: Record<string, any>, params: Record<string, any>): Record<string, any> {
+  const input = { ...fileEnv, ...params };
+
+  return {
+    ...input,
+    TENSORFLEET_PROXY_URL: pickConfigValue(params.TENSORFLEET_PROXY_URL, params.proxyUrl, input.TENSORFLEET_PROXY_URL, input.proxyUrl),
+    TENSORFLEET_VM_MANAGER_URL: pickConfigValue(
+      params.TENSORFLEET_VM_MANAGER_URL,
+      params.vmManagerUrl,
+      input.TENSORFLEET_VM_MANAGER_URL,
+      input.vmManagerUrl,
+    ),
+    TENSORFLEET_NODE_ID: pickConfigValue(params.TENSORFLEET_NODE_ID, params.nodeId, input.TENSORFLEET_NODE_ID, input.nodeId),
+    TENSORFLEET_JWT: pickConfigValue(params.TENSORFLEET_JWT, params.token, input.TENSORFLEET_JWT, input.token),
+    TENSORFLEET_REGION: pickConfigValue(params.TENSORFLEET_REGION, params.region, input.TENSORFLEET_REGION, input.region),
+  };
 }
 
 type RosConnectionSettings = {
@@ -224,7 +244,7 @@ export async function ensureRosConnected(_id: string, params: any): Promise<void
     logger.debug('Configuration loaded successfully');
 
     // Set up config store with proxy configuration for ROS2Bridge
-    const env = config?.env ?? {};
+    const env = buildRosConfigInput(config?.env ?? {}, params);
     hydrateConfigStoreFromEnv(env);
     const connectionSettings = buildRosConnectionSettings(env);
     logger.debug('Config store setup complete');
