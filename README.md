@@ -20,11 +20,21 @@ bun run watch
 
 ## CLI usage
 
-If you have the vscode with the tensorfleet extension up, with the tensorfleet project open and the VM started, you can use the cli to test `tensorfleet-tools` functionalities :
+- For the new authentication mode : use `--do-auth --region local` to set region and request auth to be opened in browser.
+- For the legacy authentication : If you have the vscode with the tensorfleet extension up, with the tensorfleet project open and the VM started, you can use the cli to test `tensorfleet-tools` functionalities :
 
 ```bash
 # Test the connection
 bun run cli ros-connect -p [path-to-your-project-folder]
+# Or
+ bun run cli -- ros-connect --do-auth --region local
+$ cd packages/tensorfleet-cli && bun dist/cli.mjs ros-connect --do-auth --region local
+# Then login in the opened browser tab
+
+# Result example
+{"level":"ERROR","time":"2026-06-22T05:23:14.227Z","msg":"[Tensorfleet][Tools] ROS connection failed: \"Error: Missing TENSORFLEET_PROXY_URL or TENSORFLEET_VM_MANAGER_URL for ROS connection\""}
+{"level":"ERROR","time":"2026-06-22T05:23:14.228Z","msg":"[Tensorfleet][Tools] ROS connection failed: \"Error: Missing TENSORFLEET_PROXY_URL or TENSORFLEET_VM_MANAGER_URL for ROS connection\""}
+ROS connection test completed successfully
 ```
 
 ### CLI - `ros-topic-read` command

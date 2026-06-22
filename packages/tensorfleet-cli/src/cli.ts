@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { spawn } from "node:child_process";
 import { Command } from "commander";
 import { createServer } from "node:http";
 import { version } from "../package.json";
@@ -9,6 +10,59 @@ import { getGlobalAuthInfo, storeAuthTokenOnGlobal } from "tensorfleet-auth";
 
 const program = new Command();
 const DEFAULT_AUTH_BACKEND_URL = "https://app.tensorfleet.net/";
+
+function setRuntimeConfigValue(key: string, value: string | undefined): void {
+  if (value == undefined || value === "") {
+    return;
+  }
+
+  setConfig(key, value);
+  (globalThis as Record<string, unknown>)[key] = value;
+}
+
+async function openUrlInBrowser(url: string): Promise<void> {
+  const platform = process.platform;
+
+  let command: string;
+  let args: string[];
+
+  if (platform === "darwin") {
+    command = "open";
+    args = [url];
+  } else if (platform === "win32") {
+    command = "cmd";
+    args = ["/c", "start", "", url];
+  } else {
+    command = "xdg-open";
+    args = [url];
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(command, args, {
+      detached: true,
+      stdio: "ignore",
+    });
+
+    child.once("error", reject);
+    child.once("spawn", () => {
+      child.unref();
+      resolve();
+    });
+  });
+}
+
+async function handleOAuthBrowserOpen(url: string, shouldOpen: boolean): Promise<void> {
+  if (!shouldOpen) {
+    console.log(`Open this URL to authenticate:\n${url}`);
+    return;
+  }
+
+  try {
+    await openUrlInBrowser(url);
+  } catch {
+    console.log(`Open this URL to authenticate:\n${url}`);
+  }
+}
 
 function redactAuthInfo(authInfo: ReturnType<typeof getGlobalAuthInfo>) {
   if (!authInfo) {
@@ -21,12 +75,12 @@ function redactAuthInfo(authInfo: ReturnType<typeof getGlobalAuthInfo>) {
   };
 }
 
-async function runCliAuthLogin(backendUrl: string) {
+async function runCliAuthLogin(backendUrl: string, open = true) {
   const session = await startOAuthRedirectFlow({
     backendUrl,
     createServer,
     openBrowser: async (url) => {
-      console.log(`Open this URL to authenticate:\n${url}`);
+      await handleOAuthBrowserOpen(url, open);
     },
     onTokenReceived: (token) => {
       storeAuthTokenOnGlobal(token, "oauth");
@@ -44,6 +98,96 @@ async function runCliAuthLogin(backendUrl: string) {
     success: true,
     command: "login",
     authInfo: redactAuthInfo(authInfo),
+  };
+}
+
+type CliConnectionOptions = {
+  projectPath?: string;
+  region?: string;
+  doAuth?: boolean;
+  backendUrl: string;
+  open: boolean;
+};
+
+async function authenticateForCli(options: {
+  backendUrl: string;
+  open: boolean;
+}): Promise<void> {
+  const session = await startOAuthRedirectFlow({
+    backendUrl: options.backendUrl,
+    createServer,
+    openBrowser: async (url) => {
+      await handleOAuthBrowserOpen(url, options.open);
+    },
+    onTokenReceived: (token) => {
+      storeAuthTokenOnGlobal(token, "oauth");
+      setRuntimeConfigValue("TENSORFLEET_JWT", token);
+    },
+  });
+  await session.tokenPromise;
+}
+
+async function prepareCliRosContext(options: CliConnectionOptions): Promise<void> {
+  if (options.doAuth) {
+    await authenticateForCli({
+      backendUrl: options.backendUrl,
+      open: options.open,
+    });
+  }
+
+  if (options.projectPath) {
+    return;
+  }
+
+  if (!options.region) {
+    console.error("Error: --region is required unless --project-path is provided");
+    exitCli(1);
+  }
+
+  const region = getRegionById(options.region, true);
+  if (!region) {
+    console.error(`Invalid region: ${options.region}. Use \`tensorfleet vm list-regions --dev\` to view available regions.`);
+    exitCli(1);
+  }
+
+  setRuntimeConfigValue("TENSORFLEET_REGION", region.id);
+  setRuntimeConfigValue("TENSORFLEET_VM_MANAGER_URL", region.vmManagerUrl);
+
+  const authInfo = getGlobalAuthInfo();
+  if (!authInfo) {
+    console.error("Not authenticated. Pass --do-auth or provide --project-path with legacy auth config");
+    exitCli(1);
+  }
+
+  const statusResult = await executeVmTool("vm-status", {
+    action: "status",
+    token: authInfo.token,
+    region: region.id,
+  });
+
+  const statusText = statusResult?.content?.[0]?.text;
+  const statusPayload = statusText ? JSON.parse(statusText) : undefined;
+  if (!statusPayload?.success) {
+    throw new Error(statusPayload?.error ?? "Failed to resolve VM status for ROS command");
+  }
+
+  const nodeId = statusPayload?.snapshot?.nodeId;
+  if (!nodeId) {
+    throw new Error("Unable to determine VM node id for ROS command");
+  }
+
+  setRuntimeConfigValue("TENSORFLEET_NODE_ID", nodeId);
+
+  const selectVmResult = await executeVmTool("vm-select-vm", {
+    action: "select-vm",
+    region: region.id,
+    nodeId,
+  });
+
+  const selectVmText = selectVmResult?.content?.[0]?.text;
+  const selectVmPayload = selectVmText ? JSON.parse(selectVmText) : undefined;
+  if (!selectVmPayload?.success) {
+    throw new Error(selectVmPayload?.error ?? "Failed to select VM for ROS command");
   };
 }
 
@@ -70,9 +214,10 @@ authCommand
   .command("login")
   .description("Perform OAuth authentication and store credentials")
   .option("--backend-url <url>", "TensorFleet backend URL", DEFAULT_AUTH_BACKEND_URL)
-  .action(async (options: { backendUrl: string }) => {
+  .option("--no-open", "Print the login URL instead of opening a browser tab")
+  .action(async (options: { backendUrl: string; open: boolean }) => {
     try {
-      const result = await runCliAuthLogin(options.backendUrl);
+      const result = await runCliAuthLogin(options.backendUrl, options.open);
       console.log(JSON.stringify(result, null, 2));
 
       exitCli(0);
@@ -140,10 +285,11 @@ program
   .command("test-auth")
   .description("Deprecated: Use 'tensorfleet auth login' instead")
   .option("--backend-url <url>", "TensorFleet backend URL", DEFAULT_AUTH_BACKEND_URL)
-  .action(async (options: { backendUrl: string }) => {
+  .option("--no-open", "Print the login URL instead of opening a browser tab")
+  .action(async (options: { backendUrl: string; open: boolean }) => {
     console.warn("Warning: 'test-auth' is deprecated. Use 'auth login' instead.");
     try {
-      const result = await runCliAuthLogin(options.backendUrl);
+      const result = await runCliAuthLogin(options.backendUrl, options.open);
       console.log(JSON.stringify(result, null, 2));
 
       exitCli(0);
@@ -163,8 +309,20 @@ program
     "-p, --project-path <path>",
     "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback"
   )
-  .action(async (options: { projectPath?: string }) => {
+  .option("--region <id>", "Region (eu, asia, local)")
+  .option("--do-auth", "Run OAuth authentication first")
+  .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
+  .option("--no-open", "Print the login URL instead of opening a browser tab")
+  .action(async (options: {
+    projectPath?: string;
+    region?: string;
+    doAuth: boolean;
+    backendUrl: string;
+    open: boolean;
+  }) => {
     try {
+      await prepareCliRosContext(options);
+
       await executeRosConnect("ros-connect", {
         "tensorfleet-project-path": options.projectPath,
       });
@@ -199,6 +357,10 @@ program
     "--regex-filter <regex>",
     "Regex filter to apply to the output"
   )
+  .option("--region <id>", "Region (eu, asia, local)")
+  .option("--do-auth", "Run OAuth authentication first")
+  .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
+  .option("--no-open", "Print the login URL instead of opening a browser tab")
   .argument(
     "[parameters...]",
     'List of parameters to read from the topic. Use "--list" to return the full message'
@@ -211,6 +373,10 @@ program
         topicId?: string;
         returnType: string;
         regexFilter?: string;
+        region?: string;
+        doAuth: boolean;
+        backendUrl: string;
+        open: boolean;
       }
     ) => {
       if (!options.topicId) {
@@ -219,6 +385,8 @@ program
       }
 
       try {
+        await prepareCliRosContext(options);
+
         const result = await executeRosTopicRead("ros-topic-read", {
           topic_id: options.topicId,
           return_type: options.returnType,
@@ -267,6 +435,10 @@ program
     "--regex-filter <regex>",
     "Regex filter to apply to the output"
   )
+  .option("--region <id>", "Region (eu, asia, local)")
+  .option("--do-auth", "Run OAuth authentication first")
+  .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
+  .option("--no-open", "Print the login URL instead of opening a browser tab")
   .action(
     async (options: {
       projectPath?: string;
@@ -274,12 +446,18 @@ program
       returnType: string;
       parameters?: string[];
       regexFilter?: string;
+      region?: string;
+      doAuth: boolean;
+      backendUrl: string;
+      open: boolean;
     }) => {
       const finalParameters = options.parameters && options.parameters.length > 0 
         ? options.parameters 
         : ["--list"];
 
       try {
+        await prepareCliRosContext(options);
+
         const result = await executeEntityRead("entity-read", {
           entity_id: options.entityId,
           parameters: finalParameters,
@@ -325,6 +503,10 @@ program
     "--regex-filter <regex>",
     "Regex filter to apply to the output"
   )
+  .option("--region <id>", "Region (eu, asia, local)")
+  .option("--do-auth", "Run OAuth authentication first")
+  .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
+  .option("--no-open", "Print the login URL instead of opening a browser tab")
   .argument(
     "[arguments...]",
     'List of arguments to pass to the service. Use "--list" to return the full service schema'
@@ -337,6 +519,10 @@ program
         serviceId: string;
         returnType: string;
         regexFilter?: string;
+        region?: string;
+        doAuth: boolean;
+        backendUrl: string;
+        open: boolean;
       }
     ) => {
       if (!options.serviceId) {
@@ -348,6 +534,8 @@ program
       const finalArguments = args.length > 0 && args[0] === "--list" ? ["--list"] : args;
 
       try {
+        await prepareCliRosContext(options);
+
         const result = await executeRosServiceRead("ros-service-read", {
           service_id: options.serviceId,
           arguments: finalArguments,
@@ -384,7 +572,7 @@ program
   .option("--dev", "Include development-only regions for list-regions")
   .option("--do-auth", "Run OAuth authentication first")
   .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
-  .option("--no-open", "Deprecated: login URLs are always printed during --do-auth")
+  .option("--no-open", "Print the login URL instead of opening a browser tab")
   .action(async (action: string, options: { region?: string; vmId?: string; config?: string; timeout?: string; dev?: boolean; doAuth: boolean; backendUrl: string; open: boolean }) => {
     try {
       // Validate action
@@ -428,17 +616,10 @@ program
 
       // Run OAuth if requested
       if (options.doAuth) {
-        const session = await startOAuthRedirectFlow({
+        await authenticateForCli({
           backendUrl: options.backendUrl,
-          createServer,
-          openBrowser: async (url) => {
-            console.log(`Open this URL to authenticate:\n${url}`);
-          },
-          onTokenReceived: (token) => {
-            storeAuthTokenOnGlobal(token, "oauth");
-          },
+          open: options.open,
         });
-        await session.tokenPromise;
       }
 
       // Check for stored auth
@@ -494,7 +675,7 @@ program
   .option("--region <id>", "Region (eu, asia, local)")
   .option("--do-auth", "Run OAuth authentication first")
   .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
-  .option("--no-open", "Deprecated: login URLs are always printed during --do-auth")
+  .option("--no-open", "Print the login URL instead of opening a browser tab")
   .option("--auto-state <json>", "Target state payload JSON for set-autopilot-state, containing exactly one of landed or airborne_position_local.")
   .action(async (action: string, options: {
     projectPath?: string;
@@ -526,22 +707,14 @@ program
         exitCli(1);
       }
 
-      setConfig("TENSORFLEET_REGION", region.id);
-      setConfig("TENSORFLEET_VM_MANAGER_URL", region.vmManagerUrl);
+      setRuntimeConfigValue("TENSORFLEET_REGION", region.id);
+      setRuntimeConfigValue("TENSORFLEET_VM_MANAGER_URL", region.vmManagerUrl);
 
       if (options.doAuth) {
-        const session = await startOAuthRedirectFlow({
+        await authenticateForCli({
           backendUrl: options.backendUrl,
-          createServer,
-          openBrowser: async (url) => {
-            console.log(`Open this URL to authenticate:\n${url}`);
-          },
-          onTokenReceived: (token) => {
-            storeAuthTokenOnGlobal(token, "oauth");
-            setConfig("TENSORFLEET_JWT", token);
-          },
+          open: options.open,
         });
-        await session.tokenPromise;
       }
 
       const authInfo = getGlobalAuthInfo();
@@ -560,7 +733,7 @@ program
         });
         nodeId = snapshot.nodeId ?? undefined;
         if (nodeId) {
-          setConfig("TENSORFLEET_NODE_ID", nodeId);
+          setRuntimeConfigValue("TENSORFLEET_NODE_ID", nodeId);
         }
       }
 
