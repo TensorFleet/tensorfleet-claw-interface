@@ -11,15 +11,6 @@ import { getGlobalAuthInfo, storeAuthTokenOnGlobal } from "tensorfleet-auth";
 const program = new Command();
 const DEFAULT_AUTH_BACKEND_URL = "https://app.tensorfleet.net/";
 
-function setRuntimeConfigValue(key: string, value: string | undefined): void {
-  if (value == undefined || value === "") {
-    return;
-  }
-
-  setConfig(key, value);
-  (globalThis as Record<string, unknown>)[key] = value;
-}
-
 async function openUrlInBrowser(url: string): Promise<void> {
   const platform = process.platform;
 
@@ -121,7 +112,6 @@ async function authenticateForCli(options: {
     },
     onTokenReceived: (token) => {
       storeAuthTokenOnGlobal(token, "oauth");
-      setRuntimeConfigValue("TENSORFLEET_JWT", token);
     },
   });
   await session.tokenPromise;
@@ -150,9 +140,6 @@ async function prepareCliRosContext(options: CliConnectionOptions): Promise<void
     exitCli(1);
   }
 
-  setRuntimeConfigValue("TENSORFLEET_REGION", region.id);
-  setRuntimeConfigValue("TENSORFLEET_VM_MANAGER_URL", region.vmManagerUrl);
-
   const authInfo = getGlobalAuthInfo();
   if (!authInfo) {
     console.error("Not authenticated. Pass --do-auth or provide --project-path with legacy auth config");
@@ -175,8 +162,6 @@ async function prepareCliRosContext(options: CliConnectionOptions): Promise<void
   if (!nodeId) {
     throw new Error("Unable to determine VM node id for ROS command");
   }
-
-  setRuntimeConfigValue("TENSORFLEET_NODE_ID", nodeId);
 
   const selectVmResult = await executeVmTool("vm-select-vm", {
     action: "select-vm",
@@ -707,8 +692,8 @@ program
         exitCli(1);
       }
 
-      setRuntimeConfigValue("TENSORFLEET_REGION", region.id);
-      setRuntimeConfigValue("TENSORFLEET_VM_MANAGER_URL", region.vmManagerUrl);
+      setConfig("TENSORFLEET_REGION", region.id);
+      setConfig("TENSORFLEET_VM_MANAGER_URL", region.vmManagerUrl);
 
       if (options.doAuth) {
         await authenticateForCli({
@@ -733,7 +718,7 @@ program
         });
         nodeId = snapshot.nodeId ?? undefined;
         if (nodeId) {
-          setRuntimeConfigValue("TENSORFLEET_NODE_ID", nodeId);
+          setConfig("TENSORFLEET_NODE_ID", nodeId);
         }
       }
 
