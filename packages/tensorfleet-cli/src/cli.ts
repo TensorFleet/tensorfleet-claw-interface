@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { Command } from "commander";
 import { createServer } from "node:http";
 import { version } from "../package.json";
-import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead, executeVmTool, executeAuthTool, executeDroneTool } from "tensorfleet-tools";
+import { executeRosConnect, executeRosTopicRead, executeEntityRead, executeRosServiceRead, executeVmTool, executeAuthTool, executeDroneTool, executeDroneMissionTool } from "tensorfleet-tools";
 import { fetchVmSnapshot, getRegionById, setConfig, startOAuthRedirectFlow } from "tensorfleet-auth";
 import { getGlobalAuthInfo, storeAuthTokenOnGlobal } from "tensorfleet-auth";
 
@@ -116,6 +116,7 @@ type VmDiscoveryAction = "list-configs" | "list-regions" | "select-vm";
 const VM_ACTIONS = ["status", "start", "stop", "list-configs", "list-regions", "select-vm"] as const;
 const VM_DISCOVERY_ACTIONS = ["list-configs", "list-regions", "select-vm"] as const;
 const DRONE_ACTIONS = ["get-state", "set-autopilot-state"] as const;
+const DRONE_MISSION_ACTIONS = ["status", "set-local", "set-go-to", "set-takeoff", "set-land", "set-return-to-launch"] as const;
 
 function addAuthOptions(command: Command): Command {
   return command
@@ -738,6 +739,79 @@ addConnectionOptions(program
     } catch (error) {
       console.error(
         `Drone ${action} failed:`,
+        error instanceof Error ? error.message : String(error)
+      );
+      exitCli(1);
+    }
+  });
+
+addConnectionOptions(program
+  .command("drone-mission")
+  .description("Read or set the MAVROS drone mission")
+  .requiredOption("--action <action>", "Action to perform: status, set-local, set-go-to, set-takeoff, set-land, set-return-to-launch")
+  .option("--points <points>", "Mission sequence: x1,y1,z1;x2,y2,z2;...;return-to-launch"))
+  .action(async (options: {
+    projectPath?: string;
+    region?: string;
+    doAuth: boolean;
+    backendUrl: string;
+    open: boolean;
+    action: string;
+    points?: string;
+  }) => {
+    try {
+      const action = options.action;
+      if (!isOneOf(action, DRONE_MISSION_ACTIONS)) {
+        console.error(`Invalid action: ${action}. Use: status, set-local, set-go-to, set-takeoff, set-land, or set-return-to-launch`);
+        exitCli(1);
+      }
+
+      const region = requireRegion(options, "for drone-mission");
+
+      if (!options.projectPath && !options.doAuth) {
+        console.error("Error: provide either --project-path or --do-auth");
+        exitCli(1);
+      }
+
+      setConfig("TENSORFLEET_REGION", region.id);
+      setConfig("TENSORFLEET_VM_MANAGER_URL", region.vmManagerUrl);
+
+      await runRequestedAuth(options);
+
+      const authInfo = getGlobalAuthInfo();
+      if (!options.projectPath && !authInfo) {
+        console.error("Not authenticated. Pass --do-auth or provide --project-path with legacy auth config");
+        exitCli(1);
+      }
+
+      let nodeId: string | undefined;
+      if (authInfo?.token) {
+        const snapshot = await fetchVmSnapshot({
+          baseUrl: region.vmManagerUrl,
+          token: authInfo.token,
+        });
+        nodeId = snapshot.nodeId ?? undefined;
+        if (nodeId) {
+          setConfig("TENSORFLEET_NODE_ID", nodeId);
+        }
+      }
+
+      const result = await executeDroneMissionTool(`drone-mission-${action}`, {
+        action,
+        points: options.points,
+        "tensorfleet-project-path": options.projectPath,
+        token: authInfo?.token,
+        vmManagerUrl: region.vmManagerUrl,
+        nodeId,
+        region: region.id,
+      });
+
+      printToolText(result, "No drone mission data received");
+
+      exitCli(0);
+    } catch (error) {
+      console.error(
+        "Drone mission failed:",
         error instanceof Error ? error.message : String(error)
       );
       exitCli(1);

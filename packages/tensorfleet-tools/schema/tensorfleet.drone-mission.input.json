@@ -1,0 +1,29 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "action": {
+            "type": "string",
+            "enum": [
+                "status",
+                "set-local",
+                "set-go-to",
+                "set-takeoff",
+                "set-land",
+                "set-return-to-launch"
+            ],
+            "description": "Use status to read mission state. Use set-local or set-go-to with coordinate triples. Use set-takeoff, set-land, or set-return-to-launch for mission items matching the controller-supported MAVROS waypoint commands."
+        },
+        "tensorfleet-project-path": {
+            "type": "string",
+            "description": "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback."
+        },
+        "points": {
+            "type": "string",
+            "description": "Mission sequence as semicolon-separated items. Bare coordinate items use x,y,z and default to go-to. Type-prefixed items are also supported: go-to:x,y,z, takeoff:x,y,z, land:x,y,z, return-to-launch."
+        }
+    },
+    "required": [
+        "action"
+    ]
+}
