@@ -18,9 +18,78 @@
             "type": "string",
             "description": "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback."
         },
-        "points": {
-            "type": "string",
-            "description": "Mission sequence as semicolon-separated items. Bare coordinate items use x,y,z and default to go-to. Type-prefixed items are also supported: go-to:x,y,z, takeoff:x,y,z, land:x,y,z, return-to-launch."
+        "mission": {
+            "type": "array",
+            "description": "High-level mission item inputs. The tool converts these through MavrosMissionWaypoint before calling DroneController.sendMissionRequest(). Bare CLI point shorthand is parsed only by tensorfleet-cli.",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "One high-level mission item. Provide exactly one of goTo, takeoff, land, or returnToLaunch.",
+                "properties": {
+                    "goTo": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Go-to mission item constructor args.",
+                        "properties": {
+                            "latitude": { "type": "number", "description": "Target latitude in degrees." },
+                            "longitude": { "type": "number", "description": "Target longitude in degrees." },
+                            "altitude": { "type": "number", "description": "Target altitude in meters." },
+                            "frame": { "type": "number", "description": "Optional MAVROS mission frame. Defaults to GLOBAL_RELATIVE_ALT." },
+                            "isCurrent": { "type": "boolean", "description": "Whether this item should initially be marked current." },
+                            "autocontinue": { "type": "boolean", "description": "Whether the mission should automatically continue to the next item." },
+                            "holdSeconds": { "type": "number", "description": "Time to remain at the target before continuing." },
+                            "acceptanceRadiusMeters": { "type": "number", "description": "Distance at which the target may be considered reached." },
+                            "passRadiusMeters": { "type": "number", "description": "Pass-through radius in meters." },
+                            "yawDegrees": { "type": "number", "description": "Optional yaw target in degrees. Omit to leave yaw unspecified." }
+                        },
+                        "required": ["latitude", "longitude", "altitude"]
+                    },
+                    "takeoff": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Takeoff mission item constructor args.",
+                        "properties": {
+                            "latitude": { "type": "number", "description": "Takeoff latitude in degrees." },
+                            "longitude": { "type": "number", "description": "Takeoff longitude in degrees." },
+                            "altitude": { "type": "number", "description": "Target takeoff altitude in meters." },
+                            "frame": { "type": "number", "description": "Optional MAVROS mission frame. Defaults to GLOBAL_RELATIVE_ALT." },
+                            "isCurrent": { "type": "boolean", "description": "Whether this item should initially be marked current." },
+                            "autocontinue": { "type": "boolean", "description": "Whether the mission should automatically continue to the next item." },
+                            "minimumPitchDegrees": { "type": "number", "description": "Minimum requested pitch during takeoff." },
+                            "flags": { "type": "number", "description": "Additional takeoff behavior flags." },
+                            "yawDegrees": { "type": "number", "description": "Optional yaw target in degrees. Omit to leave yaw unspecified." }
+                        },
+                        "required": ["latitude", "longitude", "altitude"]
+                    },
+                    "land": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Land mission item constructor args.",
+                        "properties": {
+                            "latitude": { "type": "number", "description": "Landing latitude in degrees." },
+                            "longitude": { "type": "number", "description": "Landing longitude in degrees." },
+                            "altitude": { "type": "number", "description": "Optional landing altitude in meters. Defaults to 0." },
+                            "frame": { "type": "number", "description": "Optional MAVROS mission frame. Defaults to GLOBAL_RELATIVE_ALT." },
+                            "isCurrent": { "type": "boolean", "description": "Whether this item should initially be marked current." },
+                            "autocontinue": { "type": "boolean", "description": "Whether the mission should automatically continue to the next item." },
+                            "abortAltitudeMeters": { "type": "number", "description": "Altitude at which an aborted landing should stop descending." },
+                            "precisionLandMode": { "type": "number", "description": "Precision landing mode." },
+                            "yawDegrees": { "type": "number", "description": "Optional landing yaw in degrees. Omit to leave yaw unspecified." }
+                        },
+                        "required": ["latitude", "longitude"]
+                    },
+                    "returnToLaunch": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Return-to-launch mission item constructor args.",
+                        "properties": {
+                            "frame": { "type": "number", "description": "Optional MAVROS mission frame. Defaults to GLOBAL_RELATIVE_ALT." },
+                            "isCurrent": { "type": "boolean", "description": "Whether this item should initially be marked current." },
+                            "autocontinue": { "type": "boolean", "description": "Whether the mission should automatically continue to the next item." }
+                        }
+                    }
+                }
+            }
         }
     },
     "required": [

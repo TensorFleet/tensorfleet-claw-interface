@@ -5,12 +5,43 @@ import {
   MavrosMissionWaypoint,
   TensorfleetLogger,
 } from "tensorfleet-util";
-import type { MavrosMissionWaypointInput } from "tensorfleet-util";
+import type { MavrosMissionWaypointInput, MavrosMsgsWaypoint } from "tensorfleet-util";
 import { ros2Bridge } from "tensorfleet-ros";
 import { withRosConnection } from "./ros-connect";
 import type { TensorfleetDroneMission } from "../schema-types/tensorfleet.drone-mission.input";
 
 const logger = new TensorfleetLogger("Tools");
+const MISSION_ITEM_KEYS = ["goTo", "takeoff", "land", "returnToLaunch"] as const;
+const COMMON_MISSION_FIELDS = ["frame", "isCurrent", "autocontinue"] as const;
+const GO_TO_FIELDS = [
+  "latitude",
+  "longitude",
+  "altitude",
+  ...COMMON_MISSION_FIELDS,
+  "holdSeconds",
+  "acceptanceRadiusMeters",
+  "passRadiusMeters",
+  "yawDegrees",
+] as const;
+const TAKEOFF_FIELDS = [
+  "latitude",
+  "longitude",
+  "altitude",
+  ...COMMON_MISSION_FIELDS,
+  "minimumPitchDegrees",
+  "flags",
+  "yawDegrees",
+] as const;
+const LAND_FIELDS = [
+  "latitude",
+  "longitude",
+  "altitude",
+  ...COMMON_MISSION_FIELDS,
+  "abortAltitudeMeters",
+  "precisionLandMode",
+  "yawDegrees",
+] as const;
+const RETURN_TO_LAUNCH_FIELDS = [...COMMON_MISSION_FIELDS] as const;
 
 export type DroneMissionAction = TensorfleetDroneMission["action"];
 
@@ -91,7 +122,7 @@ async function runDroneMissionAction(
     case "set-takeoff":
     case "set-land":
     case "set-return-to-launch": {
-      const mission = buildMissionWaypoints(params);
+      const mission = getMission(params);
 
       await controller.initialize();
       await controller.sendMissionRequest(mission);
@@ -108,101 +139,94 @@ async function runDroneMissionAction(
   }
 }
 
-function buildMissionWaypoints(params: DroneMissionParams) {
-  const inputs = parseMissionInputs(params);
-  return inputs.map((input) => new MavrosMissionWaypoint(input));
+function getMission(params: DroneMissionParams): MavrosMsgsWaypoint[] {
+  const mission = params.mission;
+  if (!Array.isArray(mission) || mission.length === 0) {
+    throw new Error(`${params.action} requires a non-empty mission array`);
+  }
+
+  return mission.map((item) => new MavrosMissionWaypoint(normalizeMissionItem(item)));
 }
 
-function parseMissionInputs(params: DroneMissionParams): MavrosMissionWaypointInput[] {
-  if (params.action === "set-return-to-launch" && isBlank(params.points)) {
-    return [{ command: MavrosMissionCommand.RETURN_TO_LAUNCH }];
+function normalizeMissionItem(item: NonNullable<DroneMissionParams["mission"]>[number]): MavrosMissionWaypointInput {
+  if (!isPlainObject(item)) {
+    throw new Error("Each mission item must be an object");
   }
 
-  const points = params.points;
-  if (points == null || points.trim() === "") {
-    throw new Error(`${params.action} requires --points`);
+  const itemRecord = item as Record<string, unknown>;
+  const providedKeys = MISSION_ITEM_KEYS.filter((key) => itemRecord[key] != null);
+
+  if (providedKeys.length !== 1) {
+    throw new Error("Each mission item must provide exactly one of goTo, takeoff, land, or returnToLaunch");
   }
 
-  return points
-    .split(";")
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .map((item) => parseMissionItem(params.action, item));
+  assertOnlyFields(itemRecord, MISSION_ITEM_KEYS, "mission item");
+
+  if (item.goTo != null) {
+    assertMissionPayload("goTo", item.goTo, GO_TO_FIELDS, ["latitude", "longitude", "altitude"]);
+    return { command: MavrosMissionCommand.GO_TO, ...item.goTo };
+  }
+
+  if (item.takeoff != null) {
+    assertMissionPayload("takeoff", item.takeoff, TAKEOFF_FIELDS, ["latitude", "longitude", "altitude"]);
+    return { command: MavrosMissionCommand.TAKEOFF, ...item.takeoff };
+  }
+
+  if (item.land != null) {
+    assertMissionPayload("land", item.land, LAND_FIELDS, ["latitude", "longitude"]);
+    return { command: MavrosMissionCommand.LAND, ...item.land };
+  }
+
+  assertMissionPayload("returnToLaunch", item.returnToLaunch ?? {}, RETURN_TO_LAUNCH_FIELDS, []);
+  return { command: MavrosMissionCommand.RETURN_TO_LAUNCH, ...(item.returnToLaunch ?? {}) };
 }
 
-function parseMissionItem(action: DroneMissionAction, item: string): MavrosMissionWaypointInput {
-  const normalized = item.toLowerCase();
-
-  switch (normalized) {
-    case "return-to-launch":
-    case "rtl":
-      return { command: MavrosMissionCommand.RETURN_TO_LAUNCH };
+function assertMissionPayload(
+  name: string,
+  value: unknown,
+  allowedFields: readonly string[],
+  requiredFields: readonly string[],
+): asserts value is Record<string, unknown> {
+  if (!isPlainObject(value)) {
+    throw new Error(`${name} mission item must be an object`);
   }
 
-  const prefixed = parsePrefixedMissionItem(normalized, item);
-  const pointText = prefixed?.pointText ?? item;
-  const [x, y, z] = parseCoordinateTriple(pointText);
-  const command = prefixed?.command ?? actionToCoordinateCommand(action);
+  assertOnlyFields(value, allowedFields, name);
 
-  switch (command) {
-    case MavrosMissionCommand.GO_TO:
-      return { command, latitude: x, longitude: y, altitude: z };
-    case MavrosMissionCommand.TAKEOFF:
-      return { command, latitude: x, longitude: y, altitude: z };
-    case MavrosMissionCommand.LAND:
-      return { command, latitude: x, longitude: y, altitude: z };
-    default:
-      throw new Error(`Action ${action} does not accept coordinate item: ${item}`);
+  for (const field of requiredFields) {
+    if (value[field] == null) {
+      throw new Error(`${name}.${field} is required`);
+    }
   }
-}
 
-function parsePrefixedMissionItem(
-  normalized: string,
-  original: string,
-): { command: MavrosMissionCommand; pointText: string } | undefined {
-  const separatorIndex = normalized.indexOf(":");
-  if (separatorIndex < 0) return undefined;
+  for (const field of Object.keys(value)) {
+    const fieldValue = value[field];
+    if (fieldValue == null) {
+      throw new Error(`${name}.${field} must be omitted instead of null`);
+    }
 
-  const prefix = normalized.slice(0, separatorIndex).trim();
-  const pointText = original.slice(separatorIndex + 1).trim();
+    if (field === "isCurrent" || field === "autocontinue") {
+      if (typeof fieldValue !== "boolean") {
+        throw new Error(`${name}.${field} must be a boolean`);
+      }
+      continue;
+    }
 
-  switch (prefix) {
-    case "go-to":
-    case "goto":
-    case "local":
-      return { command: MavrosMissionCommand.GO_TO, pointText };
-    case "takeoff":
-      return { command: MavrosMissionCommand.TAKEOFF, pointText };
-    case "land":
-      return { command: MavrosMissionCommand.LAND, pointText };
-    default:
-      throw new Error(`Unsupported mission item type: ${prefix}`);
-  }
-}
-
-function actionToCoordinateCommand(action: DroneMissionAction): MavrosMissionCommand {
-  switch (action) {
-    case "set-local":
-    case "set-go-to":
-      return MavrosMissionCommand.GO_TO;
-    case "set-takeoff":
-      return MavrosMissionCommand.TAKEOFF;
-    case "set-land":
-      return MavrosMissionCommand.LAND;
-    default:
-      return MavrosMissionCommand.RETURN_TO_LAUNCH;
+    if (typeof fieldValue !== "number" || !Number.isFinite(fieldValue)) {
+      throw new Error(`${name}.${field} must be a finite number`);
+    }
   }
 }
 
-function parseCoordinateTriple(value: string): [number, number, number] {
-  const parts = value.split(",").map((part) => Number(part.trim()));
-  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
-    throw new Error(`Invalid mission point "${value}". Use x,y,z or a supported named item.`);
+function assertOnlyFields(value: Record<string, unknown>, allowedFields: readonly string[], context: string): void {
+  const allowed = new Set(allowedFields);
+  for (const field of Object.keys(value)) {
+    if (!allowed.has(field)) {
+      throw new Error(`${context} does not support field: ${field}`);
+    }
   }
-
-  return [parts[0]!, parts[1]!, parts[2]!];
 }
 
-function isBlank(value: string | undefined): boolean {
-  return value == null || value.trim() === "";
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value != null && !Array.isArray(value);
 }

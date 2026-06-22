@@ -118,6 +118,24 @@ const VM_DISCOVERY_ACTIONS = ["list-configs", "list-regions", "select-vm"] as co
 const DRONE_ACTIONS = ["get-state", "set-autopilot-state"] as const;
 const DRONE_MISSION_ACTIONS = ["status", "set-local", "set-go-to", "set-takeoff", "set-land", "set-return-to-launch"] as const;
 
+type DroneMissionAction = (typeof DRONE_MISSION_ACTIONS)[number];
+type DroneMissionWaypoint = {
+  goTo?: DroneMissionPoint;
+  takeoff?: DroneMissionPoint;
+  land?: DroneMissionPoint;
+  returnToLaunch?: Record<string, never>;
+};
+type DroneMissionPoint = {
+  latitude: number;
+  longitude: number;
+  altitude: number;
+};
+
+const MAVROS_MISSION_COMMAND_GO_TO = 16;
+const MAVROS_MISSION_COMMAND_RETURN_TO_LAUNCH = 20;
+const MAVROS_MISSION_COMMAND_LAND = 21;
+const MAVROS_MISSION_COMMAND_TAKEOFF = 22;
+
 function addAuthOptions(command: Command): Command {
   return command
     .option("--do-auth", "Run OAuth authentication first")
@@ -213,6 +231,113 @@ function printToolText(result: any, fallback: string): void {
   }
 
   console.log(fallback);
+}
+
+function buildCliMission(action: DroneMissionAction, points?: string): DroneMissionWaypoint[] | undefined {
+  if (action === "status") {
+    return undefined;
+  }
+
+  if (action === "set-return-to-launch" && (points == null || points.trim() === "")) {
+    return [createMissionWaypoint(MAVROS_MISSION_COMMAND_RETURN_TO_LAUNCH)];
+  }
+
+  if (points == null || points.trim() === "") {
+    throw new Error(`${action} requires --points`);
+  }
+
+  return points
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((item) => parseCliMissionItem(action, item));
+}
+
+function parseCliMissionItem(action: DroneMissionAction, item: string): DroneMissionWaypoint {
+  const normalized = item.toLowerCase();
+  if (normalized === "return-to-launch" || normalized === "rtl") {
+    return createMissionWaypoint(MAVROS_MISSION_COMMAND_RETURN_TO_LAUNCH);
+  }
+
+  const prefixed = parseCliMissionItemPrefix(normalized, item);
+  const command = prefixed?.command ?? actionToCliMissionCommand(action);
+  const pointText = prefixed?.pointText ?? item;
+
+  if (command === MAVROS_MISSION_COMMAND_RETURN_TO_LAUNCH) {
+    throw new Error(`Action ${action} does not accept coordinate item: ${item}`);
+  }
+
+  const [x, y, z] = parseCliCoordinateTriple(pointText);
+  return createMissionWaypoint(command, x, y, z);
+}
+
+function parseCliMissionItemPrefix(
+  normalized: string,
+  original: string,
+): { command: number; pointText: string } | undefined {
+  const separatorIndex = normalized.indexOf(":");
+  if (separatorIndex < 0) return undefined;
+
+  const prefix = normalized.slice(0, separatorIndex).trim();
+  const pointText = original.slice(separatorIndex + 1).trim();
+
+  switch (prefix) {
+    case "go-to":
+    case "goto":
+    case "local":
+      return { command: MAVROS_MISSION_COMMAND_GO_TO, pointText };
+    case "takeoff":
+      return { command: MAVROS_MISSION_COMMAND_TAKEOFF, pointText };
+    case "land":
+      return { command: MAVROS_MISSION_COMMAND_LAND, pointText };
+    default:
+      throw new Error(`Unsupported mission item type: ${prefix}`);
+  }
+}
+
+function actionToCliMissionCommand(action: DroneMissionAction): number {
+  switch (action) {
+    case "set-local":
+    case "set-go-to":
+      return MAVROS_MISSION_COMMAND_GO_TO;
+    case "set-takeoff":
+      return MAVROS_MISSION_COMMAND_TAKEOFF;
+    case "set-land":
+      return MAVROS_MISSION_COMMAND_LAND;
+    default:
+      return MAVROS_MISSION_COMMAND_RETURN_TO_LAUNCH;
+  }
+}
+
+function parseCliCoordinateTriple(value: string): [number, number, number] {
+  const parts = value.split(",").map((part) => Number(part.trim()));
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
+    throw new Error(`Invalid mission point "${value}". Use x,y,z or a supported named item.`);
+  }
+
+  return [parts[0]!, parts[1]!, parts[2]!];
+}
+
+function createMissionWaypoint(command: number, x = 0, y = 0, z = 0): DroneMissionWaypoint {
+  if (command === MAVROS_MISSION_COMMAND_RETURN_TO_LAUNCH) {
+    return { returnToLaunch: {} };
+  }
+
+  const point = {
+    latitude: x,
+    longitude: y,
+    altitude: z,
+  };
+
+  if (command === MAVROS_MISSION_COMMAND_TAKEOFF) {
+    return { takeoff: point };
+  }
+
+  if (command === MAVROS_MISSION_COMMAND_LAND) {
+    return { land: point };
+  }
+
+  return { goTo: point };
 }
 
 async function resolveAndSelectVm(regionId: string, token: string, errorContext: string): Promise<string> {
@@ -766,6 +891,7 @@ addConnectionOptions(program
         exitCli(1);
       }
 
+      const mission = buildCliMission(action, options.points);
       const region = requireRegion(options, "for drone-mission");
 
       if (!options.projectPath && !options.doAuth) {
@@ -798,7 +924,7 @@ addConnectionOptions(program
 
       const result = await executeDroneMissionTool(`drone-mission-${action}`, {
         action,
-        points: options.points,
+        mission,
         "tensorfleet-project-path": options.projectPath,
         token: authInfo?.token,
         vmManagerUrl: region.vmManagerUrl,
