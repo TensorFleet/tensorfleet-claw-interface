@@ -100,6 +100,53 @@ type CliConnectionOptions = {
   open: boolean;
 };
 
+type CliAuthOptions = {
+  doAuth?: boolean;
+  backendUrl: string;
+  open: boolean;
+};
+
+type CliRegionOptions = {
+  region?: string;
+};
+
+type VmAction = "status" | "start" | "stop";
+type VmDiscoveryAction = "list-configs" | "list-regions" | "select-vm";
+
+const VM_ACTIONS = ["status", "start", "stop", "list-configs", "list-regions", "select-vm"] as const;
+const VM_DISCOVERY_ACTIONS = ["list-configs", "list-regions", "select-vm"] as const;
+const DRONE_ACTIONS = ["get-state", "set-autopilot-state"] as const;
+
+function addAuthOptions(command: Command): Command {
+  return command
+    .option("--do-auth", "Run OAuth authentication first")
+    .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
+    .option("--no-open", "Print the login URL instead of opening a browser tab");
+}
+
+function addRegionOption(command: Command): Command {
+  return command.option("--region <id>", "Region (eu, asia, local)");
+}
+
+function addProjectPathOption(command: Command): Command {
+  return command.option(
+    "-p, --project-path <path>",
+    "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback"
+  );
+}
+
+function addConnectionOptions(command: Command): Command {
+  return addAuthOptions(addRegionOption(addProjectPathOption(command)));
+}
+
+function addRegionalAuthOptions(command: Command): Command {
+  return addAuthOptions(addRegionOption(command));
+}
+
+function isOneOf<const T extends readonly string[]>(value: string, values: T): value is T[number] {
+  return values.includes(value as T[number]);
+}
+
 async function authenticateForCli(options: {
   backendUrl: string;
   open: boolean;
@@ -117,20 +164,30 @@ async function authenticateForCli(options: {
   await session.tokenPromise;
 }
 
-async function prepareCliRosContext(options: CliConnectionOptions): Promise<void> {
-  if (options.doAuth) {
-    await authenticateForCli({
-      backendUrl: options.backendUrl,
-      open: options.open,
-    });
-  }
-
-  if (options.projectPath) {
+async function runRequestedAuth(options: CliAuthOptions): Promise<void> {
+  if (!options.doAuth) {
     return;
   }
 
+  await authenticateForCli({
+    backendUrl: options.backendUrl,
+    open: options.open,
+  });
+}
+
+function requireAuthInfo(message: string): NonNullable<ReturnType<typeof getGlobalAuthInfo>> {
+  const authInfo = getGlobalAuthInfo();
+  if (!authInfo) {
+    console.error(message);
+    exitCli(1);
+  }
+
+  return authInfo;
+}
+
+function requireRegion(options: CliRegionOptions, usage: string) {
   if (!options.region) {
-    console.error("Error: --region is required unless --project-path is provided");
+    console.error(`Error: --region is required ${usage}`);
     exitCli(1);
   }
 
@@ -140,40 +197,64 @@ async function prepareCliRosContext(options: CliConnectionOptions): Promise<void
     exitCli(1);
   }
 
-  const authInfo = getGlobalAuthInfo();
-  if (!authInfo) {
-    console.error("Not authenticated. Pass --do-auth or provide --project-path with legacy auth config");
-    exitCli(1);
+  return region;
+}
+
+function parseToolPayload<T = any>(result: any): T | undefined {
+  const text = result?.content?.[0]?.text;
+  return text ? JSON.parse(text) : undefined;
+}
+
+function printToolText(result: any, fallback: string): void {
+  if (result?.content?.[0]?.text) {
+    console.log(result.content[0].text);
+    return;
   }
 
+  console.log(fallback);
+}
+
+async function resolveAndSelectVm(regionId: string, token: string, errorContext: string): Promise<string> {
   const statusResult = await executeVmTool("vm-status", {
     action: "status",
-    token: authInfo.token,
-    region: region.id,
+    token,
+    region: regionId,
   });
 
-  const statusText = statusResult?.content?.[0]?.text;
-  const statusPayload = statusText ? JSON.parse(statusText) : undefined;
+  const statusPayload = parseToolPayload(statusResult);
   if (!statusPayload?.success) {
-    throw new Error(statusPayload?.error ?? "Failed to resolve VM status for ROS command");
+    throw new Error(statusPayload?.error ?? `Failed to resolve VM status for ${errorContext}`);
   }
 
   const nodeId = statusPayload?.snapshot?.nodeId;
   if (!nodeId) {
-    throw new Error("Unable to determine VM node id for ROS command");
+    throw new Error(`Unable to determine VM node id for ${errorContext}`);
   }
 
   const selectVmResult = await executeVmTool("vm-select-vm", {
     action: "select-vm",
-    region: region.id,
+    region: regionId,
     nodeId,
   });
 
-  const selectVmText = selectVmResult?.content?.[0]?.text;
-  const selectVmPayload = selectVmText ? JSON.parse(selectVmText) : undefined;
+  const selectVmPayload = parseToolPayload(selectVmResult);
   if (!selectVmPayload?.success) {
-    throw new Error(selectVmPayload?.error ?? "Failed to select VM for ROS command");
-  };
+    throw new Error(selectVmPayload?.error ?? `Failed to select VM for ${errorContext}`);
+  }
+
+  return nodeId;
+}
+
+async function prepareCliRosContext(options: CliConnectionOptions): Promise<void> {
+  await runRequestedAuth(options);
+
+  if (options.projectPath) {
+    return;
+  }
+
+  const region = requireRegion(options, "unless --project-path is provided");
+  const authInfo = requireAuthInfo("Not authenticated. Pass --do-auth or provide --project-path with legacy auth config");
+  await resolveAndSelectVm(region.id, authInfo.token, "ROS command");
 }
 
 function exitCli(code: number): never {
@@ -287,17 +368,9 @@ program
     }
   });
 
-program
+addConnectionOptions(program
   .command("ros-connect")
-  .description("Test ROS connection using in-memory config or an optional tensorfleet project directory")
-  .option(
-    "-p, --project-path <path>",
-    "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback"
-  )
-  .option("--region <id>", "Region (eu, asia, local)")
-  .option("--do-auth", "Run OAuth authentication first")
-  .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
-  .option("--no-open", "Print the login URL instead of opening a browser tab")
+  .description("Test ROS connection using in-memory config or an optional tensorfleet project directory"))
   .action(async (options: {
     projectPath?: string;
     region?: string;
@@ -322,13 +395,9 @@ program
     }
   });
 
-program
+addConnectionOptions(program
   .command("ros-topic-read")
-  .description("Read from a ROS topic and wait for one publication")
-  .option(
-    "-p, --project-path <path>",
-    "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback"
-  )
+  .description("Read from a ROS topic and wait for one publication"))
   .option(
     "--topic-id <topic>",
     "ROS global topic path to read from"
@@ -342,10 +411,6 @@ program
     "--regex-filter <regex>",
     "Regex filter to apply to the output"
   )
-  .option("--region <id>", "Region (eu, asia, local)")
-  .option("--do-auth", "Run OAuth authentication first")
-  .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
-  .option("--no-open", "Print the login URL instead of opening a browser tab")
   .argument(
     "[parameters...]",
     'List of parameters to read from the topic. Use "--list" to return the full message'
@@ -396,13 +461,9 @@ program
     }
   );
 
-program
+addConnectionOptions(program
   .command("entity-read")
-  .description("Read from a featured entity in the ROS environment")
-  .option(
-    "-p, --project-path <path>",
-    "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback"
-  )
+  .description("Read from a featured entity in the ROS environment"))
   .requiredOption(
     "--entity-id <entity>",
     "Entity ID to read from. Use --list to get available entities"
@@ -420,10 +481,6 @@ program
     "--regex-filter <regex>",
     "Regex filter to apply to the output"
   )
-  .option("--region <id>", "Region (eu, asia, local)")
-  .option("--do-auth", "Run OAuth authentication first")
-  .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
-  .option("--no-open", "Print the login URL instead of opening a browser tab")
   .action(
     async (options: {
       projectPath?: string;
@@ -468,13 +525,9 @@ program
     }
   );
 
-program
+addConnectionOptions(program
   .command("ros-service-read")
-  .description("Read from a ROS service by calling it with arguments")
-  .option(
-    "-p, --project-path <path>",
-    "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback"
-  )
+  .description("Read from a ROS service by calling it with arguments"))
   .requiredOption(
     "--service-id <service>",
     "ROS service path to call. Use --list to get available services"
@@ -488,10 +541,6 @@ program
     "--regex-filter <regex>",
     "Regex filter to apply to the output"
   )
-  .option("--region <id>", "Region (eu, asia, local)")
-  .option("--do-auth", "Run OAuth authentication first")
-  .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
-  .option("--no-open", "Print the login URL instead of opening a browser tab")
   .argument(
     "[arguments...]",
     'List of arguments to pass to the service. Use "--list" to return the full service schema'
@@ -546,27 +595,22 @@ program
     }
   );
 
-program
+addRegionalAuthOptions(program
   .command("vm")
   .description("Manage VMs: status, start, stop, list-configs, list-regions, select-vm. Uses stored auth token or runs OAuth flow.")
-  .argument("<action>", "Action to perform: status, start, stop, list-configs, list-regions, select-vm")
-  .option("--region <id>", "Region (eu, asia, local)")
+  .argument("<action>", "Action to perform: status, start, stop, list-configs, list-regions, select-vm"))
   .option("--vm-id <id>", "VM/node id for select-vm")
   .option("--config <id>", "VM config for start: px4, ardupilot, simple_robot, lerobot")
   .option("--timeout <seconds>", "Optional wait timeout in seconds for start/stop to reach the target state")
   .option("--dev", "Include development-only regions for list-regions")
-  .option("--do-auth", "Run OAuth authentication first")
-  .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
-  .option("--no-open", "Print the login URL instead of opening a browser tab")
   .action(async (action: string, options: { region?: string; vmId?: string; config?: string; timeout?: string; dev?: boolean; doAuth: boolean; backendUrl: string; open: boolean }) => {
     try {
-      // Validate action
-      if (!["status", "start", "stop", "list-configs", "list-regions", "select-vm"].includes(action)) {
+      if (!isOneOf(action, VM_ACTIONS)) {
         console.error(`Invalid action: ${action}. Use: status, start, stop, list-configs, list-regions, or select-vm`);
         exitCli(1);
       }
 
-      if (action === "list-configs" || action === "list-regions" || action === "select-vm") {
+      if (isOneOf(action, VM_DISCOVERY_ACTIONS)) {
         if (action === "select-vm" && !options.region) {
           console.error("Error: --region is required for select-vm");
           exitCli(1);
@@ -577,17 +621,13 @@ program
         }
 
         const result = await executeVmTool(`vm-${action}`, {
-          action: action as "list-configs" | "list-regions" | "select-vm",
+          action: action as VmDiscoveryAction,
           includeDev: options.dev ?? false,
           region: options.region,
           nodeId: options.vmId,
         });
 
-        if (result?.content?.[0]?.text) {
-          console.log(result.content[0].text);
-        } else {
-          console.log("No VM discovery data received");
-        }
+        printToolText(result, "No VM discovery data received");
 
         exitCli(0);
       }
@@ -599,33 +639,17 @@ program
         exitCli(1);
       }
 
-      // Run OAuth if requested
-      if (options.doAuth) {
-        await authenticateForCli({
-          backendUrl: options.backendUrl,
-          open: options.open,
-        });
-      }
-
-      // Check for stored auth
-      const authInfo = getGlobalAuthInfo();
-      if (!authInfo) {
-        console.error("Not authenticated. Run `tensorfleet test-auth` first or pass --do-auth");
-        exitCli(1);
-      }
+      await runRequestedAuth(options);
+      const authInfo = requireAuthInfo("Not authenticated. Run `tensorfleet test-auth` first or pass --do-auth");
 
       let vmManagerUrl: string | undefined;
       if (options.region) {
-        const region = getRegionById(options.region, true);
-        if (!region) {
-          console.error(`Invalid region: ${options.region}. Use \`tensorfleet vm list-regions --dev\` to view available regions.`);
-          exitCli(1);
-        }
+        const region = requireRegion(options, "for this VM action");
         vmManagerUrl = region.vmManagerUrl;
       }
 
       const result = await executeVmTool(`vm-${action}`, {
-        action: action as "status" | "start" | "stop",
+        action: action as VmAction,
         token: authInfo.token,
         vmManagerUrl,
         region: options.region,
@@ -633,11 +657,7 @@ program
         timeout,
       });
 
-      if (result?.content?.[0]?.text) {
-        console.log(result.content[0].text);
-      } else {
-        console.log("No data received");
-      }
+      printToolText(result, "No data received");
 
       exitCli(0);
     } catch (error) {
@@ -649,18 +669,10 @@ program
     }
   });
 
-program
+addConnectionOptions(program
   .command("drone")
   .description("Get drone state or set autopilot state")
-  .argument("<action>", "Action to perform: get-state, set-autopilot-state")
-  .option(
-    "-p, --project-path <path>",
-    "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback"
-  )
-  .option("--region <id>", "Region (eu, asia, local)")
-  .option("--do-auth", "Run OAuth authentication first")
-  .option("--backend-url <url>", "TensorFleet backend URL for OAuth", DEFAULT_AUTH_BACKEND_URL)
-  .option("--no-open", "Print the login URL instead of opening a browser tab")
+  .argument("<action>", "Action to perform: get-state, set-autopilot-state"))
   .option("--auto-state <json>", "Target state payload JSON for set-autopilot-state, containing exactly one of landed or airborne_position_local.")
   .action(async (action: string, options: {
     projectPath?: string;
@@ -671,36 +683,22 @@ program
     autoState?: string;
   }) => {
     try {
-      if (!["get-state", "set-autopilot-state"].includes(action)) {
+      if (!isOneOf(action, DRONE_ACTIONS)) {
         console.error(`Invalid action: ${action}. Use: get-state or set-autopilot-state`);
         exitCli(1);
       }
 
-      if (!options.region) {
-        console.error("Error: --region is required for drone");
-        exitCli(1);
-      }
+      const region = requireRegion(options, "for drone");
 
       if (!options.projectPath && !options.doAuth) {
         console.error("Error: provide either --project-path or --do-auth");
         exitCli(1);
       }
 
-      const region = getRegionById(options.region, true);
-      if (!region) {
-        console.error(`Invalid region: ${options.region}. Use \`tensorfleet vm list-regions --dev\` to view available regions.`);
-        exitCli(1);
-      }
-
       setConfig("TENSORFLEET_REGION", region.id);
       setConfig("TENSORFLEET_VM_MANAGER_URL", region.vmManagerUrl);
 
-      if (options.doAuth) {
-        await authenticateForCli({
-          backendUrl: options.backendUrl,
-          open: options.open,
-        });
-      }
+      await runRequestedAuth(options);
 
       const authInfo = getGlobalAuthInfo();
       if (!options.projectPath) {
@@ -725,7 +723,7 @@ program
       const autoStatePayload = options.autoState ? JSON.parse(options.autoState) : {};
 
       const result = await executeDroneTool(`drone-${action}`, {
-        action: action as any,
+        action: action as (typeof DRONE_ACTIONS)[number],
         "tensorfleet-project-path": options.projectPath,
         token: authInfo?.token,
         vmManagerUrl: region.vmManagerUrl,
@@ -734,11 +732,7 @@ program
         ...(autoStatePayload as object),
       });
 
-      if (result?.content?.[0]?.text) {
-        console.log(result.content[0].text);
-      } else {
-        console.log("No drone data received");
-      }
+      printToolText(result, "No drone data received");
 
       exitCli(0);
     } catch (error) {

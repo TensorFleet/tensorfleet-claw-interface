@@ -32,8 +32,6 @@ $ cd packages/tensorfleet-cli && bun dist/cli.mjs ros-connect --do-auth --region
 # Then login in the opened browser tab
 
 # Result example
-{"level":"ERROR","time":"2026-06-22T05:23:14.227Z","msg":"[Tensorfleet][Tools] ROS connection failed: \"Error: Missing TENSORFLEET_PROXY_URL or TENSORFLEET_VM_MANAGER_URL for ROS connection\""}
-{"level":"ERROR","time":"2026-06-22T05:23:14.228Z","msg":"[Tensorfleet][Tools] ROS connection failed: \"Error: Missing TENSORFLEET_PROXY_URL or TENSORFLEET_VM_MANAGER_URL for ROS connection\""}
 ROS connection test completed successfully
 ```
 
@@ -41,6 +39,8 @@ ROS connection test completed successfully
 ```bash
 # Get a list of the available topics
 bun run cli ros-topic-read  -p [path-to-your-project-folder] --topic-id=--list
+# or
+bun run cli ros-topic-read --do-auth --region local --topic-id=--list
 # Result example
 # {
 #   "topic_type_map": {
