@@ -1,0 +1,81 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "type": "string",
+      "enum": [
+        "get-health",
+        "get-snapshot",
+        "get-capabilities",
+        "get-map-summary",
+        "get-map-targets",
+        "get-mission-state",
+        "send-command"
+      ],
+      "description": "Vacuum action to execute. Read actions return product-level vacuum state. send-command dispatches a backend-supported command after checking current runtime availability."
+    },
+    "backend": {
+      "type": "string",
+      "enum": ["simulation", "real_vacuum", "turtlebot4_nav2", "valetudo"],
+      "default": "simulation",
+      "description": "Vacuum backend. Use simulation for the TurtleBot4/Nav2 VM backend, or real_vacuum for the Valetudo-backed real-vacuum integration. turtlebot4_nav2 and valetudo are accepted compatibility aliases."
+    },
+    "token": {
+      "type": "string",
+      "description": "Optional TensorFleet JWT auth token. Defaults to the token stored by tensorfleet-auth login or TENSORFLEET_JWT config."
+    },
+    "vmManagerUrl": {
+      "type": "string",
+      "description": "Optional VM Manager API base URL override. Used with routeMode=vm-manager."
+    },
+    "runtimeUrl": {
+      "type": "string",
+      "description": "Optional direct real-vacuum runtime base URL override. Used with routeMode=direct."
+    },
+    "routeMode": {
+      "type": "string",
+      "enum": ["vm-manager", "direct"],
+      "description": "Use vm-manager to call the backend runtime through the VM Manager, or direct to call the runtime host."
+    },
+    "timeoutMs": {
+      "type": "number",
+      "minimum": 1,
+      "description": "Optional HTTP timeout in milliseconds. Defaults to 5000."
+    },
+    "includeDiagnostics": {
+      "type": "boolean",
+      "description": "Include normalized diagnostics in snapshot-style responses. Raw diagnostics remain omitted unless includeRawDiagnostics is also true."
+    },
+    "includeRawDiagnostics": {
+      "type": "boolean",
+      "description": "Include raw backend diagnostics. Use only for debugging; product-facing callers should leave this false."
+    },
+    "includePreview": {
+      "type": "boolean",
+      "description": "For map summary, include lightweight layered preview counts and optionally preview content."
+    },
+    "includeGeometry": {
+      "type": "boolean",
+      "description": "For map targets, include normalized target geometry. Defaults to false to keep responses compact."
+    },
+    "command": {
+      "type": "string",
+      "enum": [
+        "start_cleaning",
+        "pause",
+        "resume",
+        "stop",
+        "return_to_dock",
+        "set_fan_speed",
+        "set_water_usage"
+      ],
+      "description": "Vacuum command for action=send-command. Basic commands are dispatched for the real-vacuum backend when the runtime advertises them; unsupported simulation commands return an explicit command-level unsupported response."
+    },
+    "value": {
+      "type": "string",
+      "description": "Required for command=set_fan_speed and command=set_water_usage. Must match a currently advertised option when options are present."
+    }
+  },
+  "required": ["action"]
+}

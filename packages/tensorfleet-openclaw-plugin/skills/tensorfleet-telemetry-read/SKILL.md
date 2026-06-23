@@ -68,6 +68,26 @@ We have a couple of tools we can use to perform a read operation.
 When interfacing with drones first use our `tensorfleet-drone` tool unless you need lower level telemetry.
 For lower level telemetry a default drone will be available under the `/mavros/*` topic path if the virtual machine has spawned one. use `.*mavros.*` in your regex-filter (you can expand on that) to filter for this.
 
+### Vacuum interfacing
+When interfacing with product-level robot vacuum state or controls, use `tensorfleet-vacuum` before raw ROS tools. This tool is shaped around the extension's `vacuum_adapter` boundary: callers choose a backend, then receive normalized vacuum state, capabilities, map summaries, map targets, mission state, and command results.
+
+Use the `simulation` backend by default. It represents the TurtleBot4/Nav2 simulation backend that runs in the selected TensorFleet VM and is the current default in the extension. The Node tool delegates simulation read actions to the ROS bridge and returns normalized product-level health, state, capabilities, map, target, and mission responses; use raw ROS tools only for low-level simulation inspection when needed.
+
+Use the `real_vacuum` backend only when the user asks about the real-vacuum / Valetudo runtime path. This path currently talks to the Valetudo-backed integration runtime and may still be mock-backed until real robot integration is enabled.
+
+For hosted TensorFleet VMs, follow the auth + VM selection workflow first, then call `tensorfleet-vacuum` with the default `routeMode` of `vm-manager`. For local or direct real-vacuum runtime debugging, use `routeMode: "direct"` with `runtimeUrl` only when the user has provided the runtime URL or the development context makes it explicit.
+
+Read before write:
+- Use `get-snapshot` or `get-capabilities` before sending commands when the current state is not already known.
+- Use `get-map-summary` and `get-map-targets` for map inspection. Targeted room, segment, or zone cleaning is intentionally not exposed by this tool yet.
+- Use `get-mission-state` for a compact answer about whether the vacuum is actively cleaning, paused, returning, docked, or idle.
+
+Command rules:
+- Use `send-command` only for explicit user requests to control the vacuum.
+- Current Node-side real-vacuum commands are `start_cleaning`, `pause`, `resume`, `stop`, `return_to_dock`, `set_fan_speed`, and `set_water_usage`.
+- For `set_fan_speed` and `set_water_usage`, first read capabilities or snapshot settings and send only a currently advertised option as `value`.
+- If the command response reports `invalid_state`, explain the current state and choose a state-appropriate command rather than retrying the same command.
+
 ### Other robot type interfacing
 Do not do anything unless the user asks for low level telemetry. Its still in development.
 

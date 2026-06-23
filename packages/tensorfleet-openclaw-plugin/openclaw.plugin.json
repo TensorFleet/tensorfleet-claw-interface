@@ -24,6 +24,7 @@
       "tensorfleet-auth",
       "tensorfleet-vm",
       "tensorfleet-drone",
+      "tensorfleet-vacuum",
       "tensorfleet-ros-diagnostics"
     ]
   }
