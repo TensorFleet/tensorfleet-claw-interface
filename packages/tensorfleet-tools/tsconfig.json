@@ -11,7 +11,13 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "tensorfleet-util/vacuum/node-runtime": [
+        "packages/tensorfleet-util/src/vacuum/node-runtime.ts"
+      ]
+    }
   },
   "include": [
     "src/**/*",
