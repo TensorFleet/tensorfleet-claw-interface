@@ -1,6 +1,5 @@
 import { DroneController, DroneStateModel, TensorfleetLogger } from "tensorfleet-util";
 import { ros2Bridge } from "tensorfleet-ros";
-import { getConfig } from "tensorfleet-auth";
 import { withRosConnection } from "./ros-connect";
 import type { TensorfleetDroneLogs } from "../schema-types/tensorfleet.drone-logs.input";
 
@@ -17,9 +16,7 @@ export async function droneLogsTool(_id: string, params: DroneLogsParams) {
   try {
     return await withRosConnection(_id, params, async () => {
       const model = new DroneStateModel();
-      const controller = new DroneController(model, ros2Bridge, {
-        internalLogDestinationKey: getDroneLogDestinationKey(params),
-      });
+      const controller = new DroneController(model, ros2Bridge);
 
       model.connect(ros2Bridge);
 
@@ -61,8 +58,4 @@ export async function droneLogsTool(_id: string, params: DroneLogsParams) {
       content: [{ type: "text", text: errorText || "" }],
     };
   }
-}
-
-function getDroneLogDestinationKey(params: DroneLogsParams): string {
-  return params.nodeId ?? getConfig("TENSORFLEET_NODE_ID") ?? "__unknown__";
 }

@@ -45,6 +45,21 @@ const RETURN_TO_LAUNCH_FIELDS = [...COMMON_MISSION_FIELDS] as const;
 
 export type DroneMissionAction = TensorfleetDroneMission["action"];
 
+type HighLevelMissionWaypoint = {
+  index: number;
+  current: boolean;
+} & (
+  | NonNullable<TensorfleetDroneMission["mission"]>[number]
+  | {
+      unknown: {
+        command: number;
+        frame: number;
+        isCurrent: boolean;
+        autocontinue: boolean;
+      };
+    }
+);
+
 export type DroneMissionParams = TensorfleetDroneMission & {
   token?: string;
   vmManagerUrl?: string;
@@ -110,10 +125,14 @@ async function runDroneMissionAction(
     case "status": {
       await controller.initialize();
       const pullResult = await controller.mavrosMissionPull();
+      const mission = model.getCurrentState().mission ?? null;
 
       return {
-        pullResult,
-        mission: model.getCurrentState().mission ?? null,
+        pull: {
+          success: pullResult?.success === true,
+          receivedWaypointCount: pullResult?.wp_received ?? 0,
+        },
+        mission: formatMissionStatus(mission),
       };
     }
 
@@ -146,6 +165,122 @@ function getMission(params: DroneMissionParams): MavrosMsgsWaypoint[] {
   }
 
   return mission.map((item) => new MavrosMissionWaypoint(normalizeMissionItem(item)));
+}
+
+function formatMissionStatus(mission: DroneStateModel["state"]["mission"] | null) {
+  if (!mission) {
+    return null;
+  }
+
+  const waypoints = mission.waypoints.map(formatMissionWaypoint);
+  const currentIndex = mission.current_seq ?? 0;
+  const currentWaypoint = waypoints.find((waypoint) => waypoint.current) ?? waypoints[currentIndex] ?? null;
+
+  return {
+    summary: {
+      completed: mission.completed,
+      waypointCount: mission.waypoint_count,
+      currentIndex,
+      currentWaypoint,
+      lastPull: {
+        success: mission.last_pull_success,
+        waypointCount: mission.last_pull_waypoint_count,
+        at: mission.last_pull_at,
+      },
+    },
+    waypoints,
+  };
+}
+
+function formatMissionWaypoint(waypoint: MavrosMsgsWaypoint, index: number): HighLevelMissionWaypoint {
+  const base = {
+    index,
+    current: waypoint.is_current,
+  };
+
+  switch (waypoint.command) {
+    case MavrosMissionCommand.GO_TO:
+      return withDefined({
+        ...base,
+        goTo: withDefined({
+          ...getWaypointCoordinates(waypoint),
+          frame: waypoint.frame,
+          isCurrent: waypoint.is_current,
+          autocontinue: waypoint.autocontinue,
+          holdSeconds: waypoint.param1,
+          acceptanceRadiusMeters: waypoint.param2,
+          passRadiusMeters: waypoint.param3,
+          yawDegrees: normalizeOptionalNumber(waypoint.param4),
+        }),
+      });
+
+    case MavrosMissionCommand.TAKEOFF:
+      return withDefined({
+        ...base,
+        takeoff: withDefined({
+          ...getWaypointCoordinates(waypoint),
+          frame: waypoint.frame,
+          isCurrent: waypoint.is_current,
+          autocontinue: waypoint.autocontinue,
+          minimumPitchDegrees: waypoint.param1,
+          flags: waypoint.param3,
+          yawDegrees: normalizeOptionalNumber(waypoint.param4),
+        }),
+      });
+
+    case MavrosMissionCommand.LAND:
+      return withDefined({
+        ...base,
+        land: withDefined({
+          ...getWaypointCoordinates(waypoint),
+          frame: waypoint.frame,
+          isCurrent: waypoint.is_current,
+          autocontinue: waypoint.autocontinue,
+          abortAltitudeMeters: waypoint.param1,
+          precisionLandMode: waypoint.param2,
+          yawDegrees: normalizeOptionalNumber(waypoint.param4),
+        }),
+      });
+
+    case MavrosMissionCommand.RETURN_TO_LAUNCH:
+      return {
+        ...base,
+        returnToLaunch: {
+          frame: waypoint.frame,
+          isCurrent: waypoint.is_current,
+          autocontinue: waypoint.autocontinue,
+        },
+      };
+
+    default:
+      return {
+        ...base,
+        unknown: {
+          command: waypoint.command,
+          frame: waypoint.frame,
+          isCurrent: waypoint.is_current,
+          autocontinue: waypoint.autocontinue,
+        },
+      };
+  }
+}
+
+function getWaypointCoordinates(waypoint: MavrosMsgsWaypoint) {
+  return {
+    latitude: waypoint.x_lat,
+    longitude: waypoint.y_long,
+    altitude: waypoint.z_alt,
+  };
+}
+
+function normalizeOptionalNumber(value: number): number | undefined {
+  return Number.isFinite(value) ? value : undefined;
+}
+
+function withDefined<T extends Record<string, unknown>>(value: T): T {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, fieldValue]) => fieldValue !== undefined),
+  ) as T;
 }
 
 function normalizeMissionItem(item: NonNullable<DroneMissionParams["mission"]>[number]): MavrosMissionWaypointInput {
