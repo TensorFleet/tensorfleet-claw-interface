@@ -5,13 +5,16 @@ import {
   VACUUM_COMMAND_NAMES,
   type VacuumAdapterSnapshot,
   type VacuumCommand,
+  type VacuumCommandResult,
   type VacuumCommandName,
 } from "tensorfleet-util";
 import {
   createVacuumAdapter,
   normalizeVacuumBackend,
   normalizeVacuumTimeout,
+  readVacuumRuntimeHealth,
   type VacuumBackendInput,
+  type VacuumRuntimeHealthSnapshot,
   type VacuumRuntimeConfig,
 } from "tensorfleet-util/vacuum/node-runtime";
 import type { TensorfleetVacuum } from "../schema-types/tensorfleet.vacuum.input";
@@ -30,6 +33,10 @@ export async function vacuumTool(id: string, params: VacuumParams) {
   try {
     hydrateVacuumConfig(params);
     const config = resolveRuntimeConfig(params);
+    if (params.action === "get-health" && config.backend === "valetudo") {
+      return textResult(buildVacuumHealthResponse(params, config, await readVacuumRuntimeHealth(config)));
+    }
+
     const adapter = await createVacuumAdapter(config, {
       rosBridge: ros2Bridge,
       withRosConnection: <T>(fn: () => Promise<T>) => withRosConnection(id, params, fn),
@@ -91,7 +98,7 @@ async function runVacuumAction(
   params: VacuumParams,
   config: VacuumRuntimeConfig,
   snapshot: VacuumAdapterSnapshot,
-  sendCommand: () => Promise<unknown>,
+  sendCommand: () => Promise<VacuumCommandResult>,
 ) {
   const timestamp = new Date().toISOString();
   const base = {
@@ -144,9 +151,12 @@ async function runVacuumAction(
         readiness: snapshot.readiness,
       };
     case "send-command":
+      const result = await sendCommand();
       return {
         ...base,
-        result: await sendCommand(),
+        success: result.ok,
+        ...(result.ok ? {} : { error: result.error }),
+        result,
       };
     default:
       throw new Error(`Unknown vacuum action: ${(params as { action: string }).action}`);
@@ -220,6 +230,26 @@ function backendResponse(backend: VacuumRuntimeConfig["backend"]) {
     backend: "simulation",
     backendAdapter: "turtlebot4_nav2",
     backendLabel: "Simulation",
+  };
+}
+
+function buildVacuumHealthResponse(
+  params: VacuumParams,
+  config: VacuumRuntimeConfig,
+  health: VacuumRuntimeHealthSnapshot,
+) {
+  return {
+    success: true,
+    action: params.action,
+    ...backendResponse(config.backend),
+    timestamp: new Date().toISOString(),
+    health: {
+      availability: health.availability,
+      runtime: health.health,
+      source: health.source,
+      readiness: health.readiness,
+      fault: health.fault,
+    },
   };
 }
 
