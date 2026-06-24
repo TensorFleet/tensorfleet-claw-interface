@@ -41,7 +41,7 @@ async function runTensorFleetTool(
 export default defineToolPlugin({
   id: "tensorfleet-openclaw-plugin",
   name: "tensorfleet-openclaw-plugin",
-  description: "OpenClaw plugin for TensorFleet telemetry and auth tools",
+  description: "OpenClaw plugin for TensorFleet telemetry, auth, and product-level vacuum discovery tools",
   tools: (tool: any) => [
     tool({
       name: "tensorfleet-telemetry-entity-read",
