@@ -97,11 +97,20 @@ If things aren't working you can check
 - **purpose**: get the drone state or command the drone. returns after drone reaches desired state. Which might take a while depending on the request and current state.
 - **can use when**: You need to verify that the ROS 2 connection is working properly, or when troubleshooting connection issues.
 - **can use when**: You need to verify that the ROS 2 connection is working properly, or when troubleshooting connection issues.
+- **don't use when**: You need mission data. For mission data refer to `tensorfleet-drone-mission`
 - **additional notes**: For this tool we auto-detect the existing mavros drone, you don't need to specify it.
+
+
+### Drone mission tool
+- **name**: `tensorfleet-drone-mission`
+- **purpose**: get or set the drone mission data. drone state is also bundled in the mission data. If the mode isn't MISSION.AUTO in armed mode, it means the drone is not following a mission right now.
+- **can use when**: Same as `tensorfleet-drone`. If drone isn't armed, `tensorfleet-dron` will be used in the background to transition the drone to airborne.
+- **additional notes**: We can use the `tensorfleet-drone` tool to request one target, or this tool to request a sequence of targets with automatic advance.
+
 
 ### Drone logs tool
 - **name**: `tensorfleet-drone-logs`
-- **purpose**: Read the drone controller's bounded internal history of outside requests and high-signal drone state changes.
+- **purpose**: High level logs of the drone's internal state and requested actions.
 - **can use when**: You need the controller's internal request/state-change history for debugging, auditing, or explaining recent controller behavior.
 - **returns**: A JSON object with `success`, `log`, and `timestamp`. `log` is an array of entries. Each entry includes `at`, `type`, `event`, and optional `data`.
 - **additional notes**: The tool accepts an optional `type` filter (`request` or `state_change`) and an optional `count` filter for the most recent N entries. The log is in-memory, scoped to the selected VM/node destination, and is cleared automatically when that destination changes.

@@ -125,6 +125,7 @@ async function runDroneMissionAction(
     case "status": {
       await controller.initialize();
       const pullResult = await controller.mavrosMissionPull();
+      const state = await model.getState();
       const mission = model.getCurrentState().mission ?? null;
 
       return {
@@ -132,6 +133,7 @@ async function runDroneMissionAction(
           success: pullResult?.success === true,
           receivedWaypointCount: pullResult?.wp_received ?? 0,
         },
+        state,
         mission: formatMissionStatus(mission),
       };
     }
