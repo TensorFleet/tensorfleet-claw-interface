@@ -80,7 +80,7 @@ export async function droneMissionTool(_id: string, params: DroneMissionParams) 
         const result = await runDroneMissionAction(controller, model, params);
         const responseText = JSON.stringify(
           {
-            success: true,
+            success: getActionSuccess(result),
             action: params.action,
             ...result,
             timestamp: new Date().toISOString(),
@@ -155,6 +155,16 @@ async function runDroneMissionAction(
       };
     }
 
+    case "wait-for": {
+      const mission = getMission(params);
+      const index = getMissionIndex(params, mission.length);
+
+      await controller.initialize();
+      const wait = await controller.wait_for_mission_index(mission, index);
+
+      return wait;
+    }
+
     default:
       throw new Error(`Unknown drone mission action: ${(params as { action: string }).action}`);
   }
@@ -167,6 +177,34 @@ function getMission(params: DroneMissionParams): MavrosMsgsWaypoint[] {
   }
 
   return mission.map((item) => new MavrosMissionWaypoint(normalizeMissionItem(item)));
+}
+
+function getMissionIndex(params: DroneMissionParams, missionLength: number): number {
+  const index = params.index;
+
+  if (!Number.isInteger(index)) {
+    throw new Error("wait-for requires an integer index");
+  }
+
+  const missionIndex = index as number;
+
+  if (missionIndex < 0 || missionIndex >= missionLength) {
+    throw new Error(`wait-for index must be between 0 and ${missionLength - 1}`);
+  }
+
+  return missionIndex;
+}
+
+function getActionSuccess(result: Awaited<ReturnType<typeof runDroneMissionAction>>): boolean {
+  if (isSuccessResult(result)) {
+    return result.success;
+  }
+
+  return true;
+}
+
+function isSuccessResult(result: unknown): result is { success: boolean } {
+  return isPlainObject(result) && typeof result.success === "boolean";
 }
 
 function formatMissionStatus(mission: DroneStateModel["state"]["mission"] | null) {

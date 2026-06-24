@@ -10,9 +10,10 @@
                 "set-go-to",
                 "set-takeoff",
                 "set-land",
-                "set-return-to-launch"
+                "set-return-to-launch",
+                "wait-for"
             ],
-            "description": "Use status to read mission state. Use set-local or set-go-to with coordinate triples. Use set-takeoff, set-land, or set-return-to-launch for mission items matching the controller-supported MAVROS waypoint commands."
+            "description": "Use status to read mission state. Use set-local or set-go-to with coordinate triples. Use set-takeoff, set-land, or set-return-to-launch for mission items matching the controller-supported MAVROS waypoint commands. Use wait-for with mission and index to wait until that mission index is reached, or until the mission/mode changes."
         },
         "tensorfleet-project-path": {
             "type": "string",
@@ -90,6 +91,10 @@
                     }
                 }
             }
+        },
+        "index": {
+            "type": "number",
+            "description": "Mission waypoint index to wait for when action is wait-for. Keep in mind for this to work the entire mission data must be identical "
         }
     },
     "required": [
