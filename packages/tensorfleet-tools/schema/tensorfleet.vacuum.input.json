@@ -11,15 +11,15 @@
         "get-map-summary",
         "get-map-targets",
         "get-mission-state",
+        "get-supported-actions",
         "send-command"
       ],
-      "description": "Vacuum action to execute. Read actions return product-level vacuum state. send-command dispatches a backend-supported command after checking current runtime availability."
+      "description": "Vacuum action to execute. get-supported-actions is a read-only discovery action that does not contact ROS or hardware. Other read actions return product-level vacuum state. send-command dispatches a backend-supported command after checking current runtime availability."
     },
     "backend": {
       "type": "string",
       "enum": ["simulation", "real_vacuum", "turtlebot4_nav2", "valetudo"],
-      "default": "simulation",
-      "description": "Vacuum backend. Use simulation for the TurtleBot4/Nav2 VM backend, or real_vacuum for the Valetudo-backed real-vacuum integration. turtlebot4_nav2 and valetudo are accepted compatibility aliases."
+      "description": "Vacuum backend. Pass simulation for the TurtleBot4/Nav2 VM backend, or real_vacuum for the Valetudo-backed real-vacuum integration. turtlebot4_nav2 and valetudo are accepted compatibility aliases."
     },
     "token": {
       "type": "string",

@@ -71,19 +71,25 @@ For lower level telemetry a default drone will be available under the `/mavros/*
 ### Vacuum interfacing
 When interfacing with product-level robot vacuum state or controls, use `tensorfleet-vacuum` before raw ROS tools. This tool is shaped around the extension's `vacuum_adapter` boundary: callers choose a backend, then receive normalized vacuum state, capabilities, map summaries, map targets, mission state, and command results.
 
-Use the `simulation` backend by default. It represents the TurtleBot4/Nav2 simulation backend that runs in the selected TensorFleet VM and is the current default in the extension. The Node tool delegates simulation read actions to the ROS bridge and returns normalized product-level health, state, capabilities, map, target, and mission responses; use raw ROS tools only for low-level simulation inspection when needed.
+Always pass an explicit `backend`. Use `backend: "simulation"` for the TurtleBot4/Nav2 simulation backend that runs in the selected TensorFleet VM. Use `backend: "real_vacuum"` only when the user asks about the real-vacuum / Valetudo integration runtime path.
 
-Use the `real_vacuum` backend only when the user asks about the real-vacuum / Valetudo runtime path. This path currently talks to the Valetudo-backed integration runtime and may still be mock-backed until real robot integration is enabled.
+First discovery step:
+- Call `tensorfleet-vacuum` with `action: "get-supported-actions"` and the explicit backend to learn which actions are read-only, write-capable but gated, deferred, unsupported, and currently unavailable.
+- Use the response's `canMoveVacuumNow` boolean to answer whether the agent can move/start the vacuum right now. In the Step 0 + Step 1 rollout this is expected to be `false`.
+- If the response reports `invalid_state`, ask for or select a supported backend instead of guessing silently.
+- If the response reports `not_authenticated` or `unavailable`, follow the auth + VM selection workflow or ask for the missing direct runtime config. Do not invent URLs or tokens.
 
 For hosted TensorFleet VMs, follow the auth + VM selection workflow first, then call `tensorfleet-vacuum` with the default `routeMode` of `vm-manager`. For local or direct real-vacuum runtime debugging, use `routeMode: "direct"` with `runtimeUrl` only when the user has provided the runtime URL or the development context makes it explicit.
 
 Read before write:
+- Use `get-supported-actions` before `get-snapshot` or `get-capabilities` when the current backend/runtime readiness is not already known.
 - Use `get-snapshot` or `get-capabilities` before sending commands when the current state is not already known.
 - Use `get-map-summary` and `get-map-targets` for map inspection. Targeted room, segment, or zone cleaning is intentionally not exposed by this tool yet.
 - Use `get-mission-state` for a compact answer about whether the vacuum is actively cleaning, paused, returning, docked, or idle.
 
 Command rules:
-- Use `send-command` only for explicit user requests to control the vacuum.
+- Step 0 + Step 1 is discovery/readiness only; do not start new movement behavior from discovery.
+- Use `send-command` only for explicit user requests to control the vacuum and only after discovery/readiness and live capability checks allow it.
 - Current Node-side real-vacuum commands are `start_cleaning`, `pause`, `resume`, `stop`, `return_to_dock`, `set_fan_speed`, and `set_water_usage`.
 - For `set_fan_speed` and `set_water_usage`, first read capabilities or snapshot settings and send only a currently advertised option as `value`.
 - If the command response reports `invalid_state`, explain the current state and choose a state-appropriate command rather than retrying the same command.

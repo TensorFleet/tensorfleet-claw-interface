@@ -108,7 +108,7 @@ export default defineToolPlugin({
 
     tool({
       name: "tensorfleet-vacuum",
-      description: "Read product-level TensorFleet vacuum state through the simulation backend by default, or the real-vacuum runtime when selected",
+      description: "Discover and read product-level TensorFleet vacuum capabilities/state through an explicitly selected simulation or real-vacuum backend",
       parameters: vacuumSchema,
       execute: (params: any, _config: unknown, context: { toolCallId: string }) => runTensorFleetTool(withErrorHandling(executeVacuumTool), context.toolCallId, params),
     }),
