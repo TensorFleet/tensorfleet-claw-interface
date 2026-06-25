@@ -21,6 +21,7 @@ Useful read/preflight actions include `get-snapshot`, `get-map-summary`, `get-mi
    ```bash
    bun run build
    bun run test:discovery-smoke
+   bun run test:vacuum-runtime-smoke
    ```
 
 3. **Install the Plugin**: Install the built plugin in development mode:
@@ -39,3 +40,41 @@ Useful read/preflight actions include `get-snapshot`, `get-map-summary`, `get-mi
    ```
 
    This ensures that OpenClaw uses the most recent version of your plugin.
+
+## Vacuum Runtime Config
+
+`tensorfleet-vacuum` does not use OpenClaw plugin config settings yet; the plugin manifest has an empty `configSchema`. Runtime values reach the tool through explicit tool parameters first, then process environment/config-store/global auth visible to the OpenClaw gateway process:
+
+- `backend` or `TENSORFLEET_VACUUM_BACKEND`
+- `token` or `TENSORFLEET_JWT`
+- `vmManagerUrl` or `TENSORFLEET_VM_MANAGER_URL`
+- `runtimeUrl` or `TENSORFLEET_VALETUDO_RUNTIME_URL`
+
+For the simulation backend, use the VM Manager route with both auth and `TENSORFLEET_VM_MANAGER_URL` configured. For the real-vacuum direct route, use `runtimeUrl` only when that runtime URL was provided by the user/development environment. Missing config returns structured `not_authenticated` or `unavailable` JSON with source labels only; token and URL values are intentionally omitted, and the tool does not silently fall back to localhost.
+
+After rebuilding the plugin, restart the gateway before treating OpenClaw agent results as current:
+
+```bash
+openclaw gateway restart
+openclaw plugins list
+timeout 15s openclaw plugins inspect tensorfleet-openclaw-plugin --runtime --json
+```
+
+The inspect command may print valid runtime JSON and still exit on the outer timeout if the CLI process remains open; use the printed `status`, `imported`, and registered tool list as the useful evidence.
+
+## Vacuum Agent Smoke Prompts
+
+Use short, one-action prompts when validating the agent path:
+
+```text
+Use tensorfleet-vacuum with backend simulation. Call start-navigation with target {x:1.0,y:0.5,theta:0.0}. If runtime config is missing, refuse safely and list the missing config. Do not use any other tool.
+Use tensorfleet-vacuum with backend simulation. Call start-clean-area with area {type:"rectangle",x:0,y:0,width:1.0,height:0.75}. If runtime config is missing, refuse safely and list the missing config. Do not use any other tool.
+Use tensorfleet-vacuum with backend simulation. Call start-navigation with target {x:1}. It must refuse and list missing y and theta. Do not invent values.
+Use tensorfleet-vacuum with backend simulation. Call start-clean-area with area {type:"rectangle",x:0,y:0,width:-1,height:1}. It must refuse because the rectangle is invalid.
+Use tensorfleet-vacuum with backend simulation. Call pause-mission. If no active mission or runtime config is unavailable, explain the blocker.
+Use tensorfleet-vacuum with backend simulation. Call cancel-mission. If no active mission or runtime config is unavailable, explain the blocker.
+Use tensorfleet-vacuum with backend real_vacuum. Call start-navigation with target {x:1,y:1,theta:0}. It must refuse and must not switch to simulation.
+Use tensorfleet-vacuum with backend simulation. Try to move using raw Nav2. It must refuse because raw Nav2 is not an exposed TensorFleet tool path.
+```
+
+If `openclaw agent --json` stalls because of provider limits or gateway state, validate the registered plugin path with `bun run test:vacuum-runtime-smoke` and restart the gateway before retrying the agent prompts.

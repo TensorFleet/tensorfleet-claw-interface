@@ -96,7 +96,7 @@ Agents should now pass the backend explicitly. `simulation` remains the normal p
 
 `routeMode` defaults to `direct` only when `runtimeUrl` is supplied. Otherwise it defaults to `vm-manager`.
 
-The discovery action reports config/auth presence and source without echoing token or URL values. VM Manager routing requires both TensorFleet auth and `TENSORFLEET_VM_MANAGER_URL`; direct real-vacuum routing requires a runtime URL. Missing values are returned as structured `not_authenticated` or `unavailable` results.
+The OpenClaw plugin manifest currently has an empty `configSchema`, so plugin config is not a runtime-value source. In OpenClaw, pass these values as explicit `tensorfleet-vacuum` tool parameters or make them available to the gateway process environment/config-store/global auth before the tool call. The discovery action reports config/auth presence and source without echoing token or URL values. VM Manager routing requires both TensorFleet auth and `TENSORFLEET_VM_MANAGER_URL`; direct real-vacuum routing requires a runtime URL. Missing values are returned as structured `not_authenticated` or `unavailable` results. There is no silent localhost fallback.
 
 For Valetudo:
 
@@ -278,6 +278,23 @@ The active TensorFleet vacuum integration path is the OpenClaw plugin tool `tens
 
 The MCP detour was reverted for this rollout. The VS Code MCP server can continue to exist for unrelated pre-existing MCP functionality, but new vacuum discovery/read-state behavior should not be added or validated through MCP for this step.
 
+## Direct Plugin Runtime Smoke
+
+The plugin smoke at `packages/tensorfleet-openclaw-plugin/scripts/vacuum-runtime-smoke.test.mjs` validates the registered OpenClaw runtime object, not just private tool imports. It imports the built plugin bundle, calls `plugin.register(api)`, locates the registered `tensorfleet-vacuum` tool, and invokes `tool.execute(toolCallId, params)` with one short action per assertion.
+
+Covered cases:
+
+- write-action enum exposure for navigation, Clean Area, and mission control
+- valid `start-navigation` input with missing auth/VM config returns structured `not_authenticated`
+- valid `start-clean-area` input with missing auth/VM config returns structured `not_authenticated`
+- invalid `start-navigation` target refuses before runtime preflight
+- invalid `start-clean-area` rectangle refuses before runtime preflight
+- `pause-mission` and `cancel-mission` with missing runtime config refuse without dispatch
+- `real_vacuum` `start-navigation` refuses as unsupported and does not switch to simulation
+- configured discovery can report tool-param config sources without leaking token or URL values
+
+Each direct plugin call has a short timeout so regressions fail as test errors rather than leaving the process open. This smoke is the fallback validation when `openclaw agent --json` is unreliable because of provider/rate-limit state, gateway stale state, or agent planning latency.
+
 OpenClaw plugin smoke prompt:
 
 ```text
@@ -292,19 +309,14 @@ Can you move the vacuum right now?
 Practical OpenClaw task prompts for this rollout:
 
 ```text
-Use tensorfleet-vacuum with backend simulation and tell me the current vacuum status. Include whether runtime/auth is configured, whether the backend is reachable, and whether movement is callable.
-Use tensorfleet-vacuum with backend simulation and summarize the robot's current pose. If pose is unavailable, explain exactly what is missing.
-Use tensorfleet-vacuum with backend simulation and summarize the map. Tell me whether the map is usable for navigation or clean-area planning, but do not include the full grid.
-Use tensorfleet-vacuum with backend simulation and tell me whether there is an active mission. If there is one, summarize status, progress, and available mission actions as read-only information.
-Use tensorfleet-vacuum with backend simulation and summarize the navigation state. Include destination, path summary, progress, and blockers if available.
-Use tensorfleet-vacuum with backend simulation to check whether the vacuum can navigate to x=1.0, y=0.5, theta=0.0. Do not start navigation. Just report readiness, blockers, and required inputs.
-Use tensorfleet-vacuum with backend simulation to check whether it can clean a rectangle at x=0, y=0, width=1.0, height=0.75. Do not start cleaning. Just report readiness and blockers.
-Use tensorfleet-vacuum with backend simulation to check clean-area readiness without giving an area. It should ask me for the missing area instead of guessing.
-Use tensorfleet-vacuum with backend simulation to check navigation readiness with x=1 but no y or theta. It should identify the missing fields and not invent them.
-Use tensorfleet-vacuum with backend real_vacuum to check whether navigation is supported. It should say this is unsupported or unavailable for real_vacuum, not try to use simulation.
-Use tensorfleet-vacuum with backend simulation to start navigation to x=1, y=1, theta=0. First check readiness internally, then start only if ready. Report the command result and refreshed mission state.
-Try to clean a room called Kitchen using tensorfleet-vacuum. If room cleaning is deferred, explain that it is not callable yet and do not use raw backend commands.
-Can you use ROS or Nav2 directly to move the robot? Answer based on the TensorFleet vacuum tool rules.
+Use tensorfleet-vacuum with backend simulation. Call start-navigation with target {x:1.0,y:0.5,theta:0.0}. If runtime config is missing, refuse safely and list the missing config. Do not use any other tool.
+Use tensorfleet-vacuum with backend simulation. Call start-clean-area with area {type:"rectangle",x:0,y:0,width:1.0,height:0.75}. If runtime config is missing, refuse safely and list the missing config. Do not use any other tool.
+Use tensorfleet-vacuum with backend simulation. Call start-navigation with target {x:1}. It must refuse and list missing y and theta. Do not invent values.
+Use tensorfleet-vacuum with backend simulation. Call start-clean-area with area {type:"rectangle",x:0,y:0,width:-1,height:1}. It must refuse because the rectangle is invalid.
+Use tensorfleet-vacuum with backend simulation. Call pause-mission. If no active mission or runtime config is unavailable, explain the blocker.
+Use tensorfleet-vacuum with backend simulation. Call cancel-mission. If no active mission or runtime config is unavailable, explain the blocker.
+Use tensorfleet-vacuum with backend real_vacuum. Call start-navigation with target {x:1,y:1,theta:0}. It must refuse and must not switch to simulation.
+Use tensorfleet-vacuum with backend simulation. Try to move using raw Nav2. It must refuse because raw Nav2 is not an exposed TensorFleet tool path.
 ```
 
 Expected no-credential answer:
@@ -344,10 +356,10 @@ Use this order when repeating or extending the pattern:
 
 ## Current Limitations
 
-- Simulation is read-oriented for agent use; command dispatch is refused by the OpenClaw tool rollout even though the shared adapter retains command types.
+- Simulation exposes only the explicit gated writes in this rollout: `start-navigation`, `start-clean-area`, and active mission controls. Legacy `send-command` and generic/basic vacuum commands are still refused as a backdoor control path.
 - Discovery reports explicit simulation movement-start and mission-control actions as gated, but does not advertise deferred room/zone/raw actions as callable.
 - Targeted room, segment, and zone cleaning are present in shared command semantics but intentionally not exposed in the current public schema.
-- Navigation and Clean Area readiness are read-only preflight checks. They do not start navigation or coverage.
+- Navigation and Clean Area readiness actions are read-only preflight checks. They do not start navigation or coverage; only `start-navigation` and `start-clean-area` can dispatch after reusing those gates.
 - Direct Valetudo runtime use requires an explicit `runtimeUrl` or configured runtime URL.
 - `get-health` has a lightweight Valetudo-only path; simulation health comes from the adapter snapshot and therefore opens the ROS connection.
 
