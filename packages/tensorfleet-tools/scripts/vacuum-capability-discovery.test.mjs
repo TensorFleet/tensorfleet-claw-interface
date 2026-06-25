@@ -44,8 +44,14 @@ async function testSimulationDiscoveryWithMissingRuntime() {
   assert.equal(response.runtime.vmManagerUrl.available, false);
   assert.equal(response.canMoveVacuumNow, false);
   assert.deepEqual(response.actions.stateChangingCallableTools, []);
-  assert.deepEqual(response.actions.movementStartCallableTools, []);
+  assert.ok(response.actions.movementStartCallableTools.some((entry) => entry.action === "start-navigation"));
+  assert.ok(response.actions.movementStartCallableTools.some((entry) => entry.action === "start-clean-area"));
+  assert.ok(response.actions.missionControlCallableTools.some((entry) => entry.action === "pause-mission"));
   assert.ok(response.actions.readOnlyCallableTools.some((entry) => entry.action === "get-supported-actions"));
+  assert.ok(response.actions.readOnlyActions.some((entry) => entry.action === "get-navigation-state"));
+  assert.ok(response.actions.readOnlyActions.some((entry) => entry.action === "get-pose"));
+  assert.ok(response.actions.readOnlyActions.some((entry) => entry.action === "check-navigation-readiness"));
+  assert.ok(response.actions.readOnlyActions.some((entry) => entry.action === "check-clean-area-readiness"));
   assert.ok(response.actions.supportedButCurrentlyUnavailableActions.some((entry) => entry.action === "send-command"));
   assert.ok(response.actions.unsupportedActions.some((entry) => entry.command === "start_cleaning"));
 }
@@ -69,7 +75,8 @@ async function testRealVacuumDirectDiscovery() {
   assert.equal(response.runtime.auth.available, false);
   assert.equal(response.canMoveVacuumNow, false);
   assert.deepEqual(response.actions.movementStartCallableTools, []);
-  assert.ok(response.actions.writeCapableButGatedActions.some((entry) => entry.action === "send-command"));
+  assert.deepEqual(response.actions.writeCapableButGatedActions, []);
+  assert.ok(response.actions.supportedButCurrentlyUnavailableActions.some((entry) => entry.action === "send-command"));
 }
 
 async function testVmManagerConfigReporting() {
@@ -123,7 +130,10 @@ async function testForbiddenToolsAreNotAdvertised() {
   assert.ok(fullResponse.includes("deferredActions"));
   assert.ok(response.actions.deferredActions.every((entry) => entry.callable === false));
   assert.ok(response.actions.readOnlyActions.every((entry) => entry.tool === "tensorfleet-vacuum"));
-  assert.ok(response.actions.writeActions.every((entry) => entry.tool === "tensorfleet-vacuum"));
+  assert.deepEqual(response.actions.writeActions, []);
+  assert.ok(response.actions.compatibilityOnlyActions.every((entry) => entry.callable === false));
+  assert.deepEqual(response.actions.missionControlCallableTools, []);
+  assert.deepEqual(response.actions.movementStartCallableTools, []);
 }
 
 async function callVacuum(params) {

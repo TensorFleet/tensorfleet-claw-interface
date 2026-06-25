@@ -2,13 +2,15 @@
 
 This plugin provides integration between OpenClaw and the ROS environment in the Tensorfleet runtime. It also assists users by controlling the VS Code extension's UI.
 
-For product-level vacuum discovery and read-only state inspection, use the OpenClaw plugin tool `tensorfleet-vacuum` with:
+For product-level vacuum discovery, state inspection, readiness preflight, and gated simulation-only writes, use the OpenClaw plugin tool `tensorfleet-vacuum` with:
 
 ```json
 { "action": "get-supported-actions", "backend": "simulation" }
 ```
 
 This vacuum surface is intentionally a thin facade over `tensorfleet-tools` and the shared vacuum adapter/node runtime. The OpenClaw-managed MCP server is not the primary vacuum integration path for this plugin rollout.
+
+Useful read/preflight actions include `get-snapshot`, `get-map-summary`, `get-mission-state`, `get-navigation-state`, `get-pose`, `check-navigation-readiness`, and `check-clean-area-readiness`. Simulation-only write actions are `start-navigation`, `start-clean-area`, `pause-mission`, `resume-mission`, `cancel-mission`, `retry-mission-step`, and `skip-mission-step`; all are gated by runtime/config/readiness/capability/active-mission checks. Real-vacuum writes, room/zone starts, map edits, raw ROS/Nav2/Foxglove/Valetudo, shell, filesystem, arbitrary HTTP, and MCP vacuum control remain unsupported.
 
 ## Getting Started
 

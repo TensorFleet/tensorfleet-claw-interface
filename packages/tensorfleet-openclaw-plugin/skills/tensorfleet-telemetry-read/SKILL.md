@@ -69,14 +69,14 @@ When interfacing with drones first use our `tensorfleet-drone` tool unless you n
 For lower level telemetry a default drone will be available under the `/mavros/*` topic path if the virtual machine has spawned one. use `.*mavros.*` in your regex-filter (you can expand on that) to filter for this.
 
 ### Vacuum interfacing
-When interfacing with product-level robot vacuum state or controls, use `tensorfleet-vacuum` before raw ROS tools. This tool is shaped around the extension's `vacuum_adapter` boundary: callers choose a backend, then receive normalized vacuum state, capabilities, map summaries, map targets, mission state, and command results.
+When interfacing with product-level robot vacuum state, readiness, or the explicitly supported simulation writes, use `tensorfleet-vacuum` before raw ROS tools. This tool is shaped around the extension's `vacuum_adapter` boundary: callers choose a backend, then receive normalized vacuum state, capabilities, map summaries, map targets, mission state, navigation state, pose state, readiness preflight results, and gated simulation-only command results.
 
 Always pass an explicit `backend`. Use `backend: "simulation"` for the TurtleBot4/Nav2 simulation backend that runs in the selected TensorFleet VM. Use `backend: "real_vacuum"` only when the user asks about the real-vacuum / Valetudo integration runtime path.
 
 First discovery step:
 - Call `tensorfleet-vacuum` with `action: "get-supported-actions"` and the explicit backend to learn which actions are read-only, write-capable but gated, deferred, unsupported, and currently unavailable.
 - Do not bypass `tensorfleet-vacuum` with OpenClaw-managed MCP, raw ROS/Nav2/Foxglove, raw Valetudo, shell, filesystem, arbitrary HTTP, or private endpoint tools for product-level vacuum answers.
-- Use the response's `canMoveVacuumNow` boolean to answer whether the agent can move/start the vacuum right now. In the Step 0 through Step 2 rollout this is expected to be `false`.
+- Use the response's `canMoveVacuumNow` boolean to answer whether the agent can move/start the vacuum right now. The action can exist while `canMoveVacuumNow` is still `false` because runtime/config/readiness/snapshot blockers are current-state dependent.
 - If the response reports `invalid_state`, ask for or select a supported backend instead of guessing silently.
 - If the response reports `not_authenticated` or `unavailable`, follow the auth + VM selection workflow or ask for the missing direct runtime config. Do not invent URLs or tokens.
 
@@ -84,16 +84,22 @@ For hosted TensorFleet VMs, follow the auth + VM selection workflow first, then 
 
 Read before write:
 - Use `get-supported-actions` before `get-snapshot` or `get-capabilities` when the current backend/runtime readiness is not already known.
-- Use `get-snapshot` or `get-capabilities` before sending commands when the current state is not already known.
+- Use `get-snapshot` or `get-capabilities` for compact product-level state and normalized capability descriptors.
 - Use `get-map-summary` and `get-map-targets` for map inspection. Targeted room, segment, or zone cleaning is intentionally not exposed by this tool yet.
 - Use `get-mission-state` for a compact answer about whether the vacuum is actively cleaning, paused, returning, docked, or idle.
+- Use `get-navigation-state` for current destination, path summary, navigation progress, and blockers.
+- Use `get-pose` for compact pose/localization state. If pose is unavailable, explain the normalized missing reason.
+- Use `check-navigation-readiness` with `target: { "x": number, "y": number, "theta": number }` to check whether navigation appears ready without side effects.
+- Use `check-clean-area-readiness` with `area: { "type": "rectangle", "x": number, "y": number, "width": positive number, "height": positive number }` to check whether Clean Area appears ready without side effects.
+- If a readiness input is missing or malformed, report the missing/invalid fields and ask for them. Do not invent coordinates, headings, dimensions, labels, or frame ids.
 
 Command rules:
-- Step 0 + Step 1 is discovery/readiness only; do not start new movement behavior from discovery.
-- Use `send-command` only for explicit user requests to control the vacuum and only after discovery/readiness and live capability checks allow it.
-- Current Node-side real-vacuum commands are `start_cleaning`, `pause`, `resume`, `stop`, `return_to_dock`, `set_fan_speed`, and `set_water_usage`.
-- For `set_fan_speed` and `set_water_usage`, first read capabilities or snapshot settings and send only a currently advertised option as `value`.
-- If the command response reports `invalid_state`, explain the current state and choose a state-appropriate command rather than retrying the same command.
+- Simulation-only writes currently exposed are `start-navigation`, `start-clean-area`, `pause-mission`, `resume-mission`, `cancel-mission`, `retry-mission-step`, and `skip-mission-step`.
+- For `start-navigation`, pass `backend: "simulation"` and `target: { "x": number, "y": number, "theta": number, "frameId"?: string, "label"?: string }`. The tool internally reuses the navigation readiness gate and dispatches only if ready.
+- For `start-clean-area`, pass `backend: "simulation"` and `area: { "type": "rectangle", "x": number, "y": number, "width": positive number, "height": positive number, "frameId"?: string, "label"?: string }`. The tool internally reuses the Clean Area readiness gate and dispatches only if ready.
+- Mission-control writes require an active mission whose `activeMission.availableActions` includes the matching normalized action. If unavailable, report the blocker and do not try another tool.
+- Real-vacuum writes, room/zone starts, map edits, arbitrary waypoints, raw Nav2/ROS/Foxglove/Valetudo/private endpoints, arbitrary HTTP, shell, filesystem, and MCP vacuum tools are not allowed as fallbacks for product-level vacuum control.
+- `send-command` remains in the schema only for compatibility and is not a callable control path in this rollout.
 
 ### Other robot type interfacing
 Do not do anything unless the user asks for low level telemetry. Its still in development.

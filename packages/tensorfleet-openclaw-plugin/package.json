@@ -1,7 +1,7 @@
 {
   "name": "tensorfleet-openclaw-plugin",
   "version": "1.0.0",
-  "description": "OpenClaw plugin for TensorFleet telemetry, auth, and product-level vacuum discovery tools",
+  "description": "OpenClaw plugin for TensorFleet telemetry, auth, and product-level vacuum read/preflight plus gated simulation write tools",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {

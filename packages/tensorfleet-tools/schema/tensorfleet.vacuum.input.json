@@ -11,10 +11,21 @@
         "get-map-summary",
         "get-map-targets",
         "get-mission-state",
+        "get-navigation-state",
+        "get-pose",
+        "check-navigation-readiness",
+        "check-clean-area-readiness",
+        "start-navigation",
+        "start-clean-area",
+        "pause-mission",
+        "resume-mission",
+        "cancel-mission",
+        "retry-mission-step",
+        "skip-mission-step",
         "get-supported-actions",
         "send-command"
       ],
-      "description": "Vacuum action to execute. get-supported-actions is a read-only discovery action that does not contact ROS or hardware. Other read actions return product-level vacuum state. send-command dispatches a backend-supported command after checking current runtime availability."
+      "description": "Vacuum action to execute. get-supported-actions is a read-only discovery action that does not contact ROS or hardware. Read and readiness actions return product-level vacuum state. start-navigation, start-clean-area, and mission-control actions are simulation-only writes with strict runtime/readiness/capability/active-mission gates. send-command is retained for compatibility but is not a backdoor control path."
     },
     "backend": {
       "type": "string",
@@ -70,7 +81,72 @@
         "set_fan_speed",
         "set_water_usage"
       ],
-      "description": "Vacuum command for action=send-command. Basic commands are dispatched for the real-vacuum backend when the runtime advertises them; unsupported simulation commands return an explicit command-level unsupported response."
+      "description": "Compatibility command field for action=send-command. send-command is refused as a control backdoor; use explicit gated actions for supported simulation writes."
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Navigation target. Used with action=check-navigation-readiness for read-only preflight and action=start-navigation for gated simulation dispatch.",
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "Target x coordinate in the normalized map frame."
+        },
+        "y": {
+          "type": "number",
+          "description": "Target y coordinate in the normalized map frame."
+        },
+        "theta": {
+          "type": "number",
+          "description": "Target heading/yaw in radians."
+        },
+        "frameId": {
+          "type": "string",
+          "description": "Optional normalized frame id for the target."
+        },
+        "label": {
+          "type": "string",
+          "description": "Optional human label for the target."
+        }
+      }
+    },
+    "area": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Clean-area rectangle. Used with action=check-clean-area-readiness for read-only preflight and action=start-clean-area for gated simulation dispatch.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["rectangle"],
+          "description": "Area shape. Only rectangle is accepted in this rollout."
+        },
+        "x": {
+          "type": "number",
+          "description": "Rectangle origin x coordinate in the normalized map frame."
+        },
+        "y": {
+          "type": "number",
+          "description": "Rectangle origin y coordinate in the normalized map frame."
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Rectangle width in meters; must be positive."
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Rectangle height in meters; must be positive."
+        },
+        "frameId": {
+          "type": "string",
+          "description": "Optional normalized frame id for the area."
+        },
+        "label": {
+          "type": "string",
+          "description": "Optional human label for the area."
+        }
+      }
     },
     "value": {
       "type": "string",

@@ -8,6 +8,7 @@ export { executeVmTool } from "./tools/vm-executor";
 export { executeAuthTool } from "./tools/auth-executor";
 export { executeDroneTool } from "./tools/drone-executor";
 export { executeVacuumTool } from "./tools/vacuum-executor";
+export { __setVacuumRuntimeContextForTests } from "./tools/vacuum";
 export type { ToolAPI, ToolDefinition, ToolParameters, ToolExecutionResult } from "./tool-api";
 
 // Export schema definitions

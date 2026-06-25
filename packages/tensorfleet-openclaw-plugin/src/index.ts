@@ -114,7 +114,8 @@ const TENSORFLEET_TOOLS: TensorFleetToolDefinition[] = [
   {
     name: "tensorfleet-vacuum",
     label: "TensorFleet Vacuum",
-    description: "Discover and read product-level TensorFleet vacuum capabilities/state through an explicitly selected simulation or real-vacuum backend",
+    description:
+      "Read product-level TensorFleet vacuum state and run gated simulation-only writes through an explicit backend. Actions include get-supported-actions, read/preflight actions, start-navigation with target {x,y,theta}, start-clean-area with area {type:'rectangle',x,y,width,height}, and active mission controls pause/resume/cancel/retry/skip. Real-vacuum writes, room/zone starts, raw ROS/Nav2/Foxglove/Valetudo, shell, filesystem, and arbitrary HTTP are not exposed.",
     parameters: vacuumSchema,
     executor: withErrorHandling(executeVacuumTool),
   },
@@ -135,7 +136,7 @@ function registerTensorFleetTool(api: any, definition: TensorFleetToolDefinition
 export default definePluginEntry({
   id: "tensorfleet-openclaw-plugin",
   name: "tensorfleet-openclaw-plugin",
-  description: "OpenClaw plugin for TensorFleet telemetry, auth, and product-level vacuum discovery tools",
+  description: "OpenClaw plugin for TensorFleet telemetry, auth, and product-level vacuum read/preflight plus gated simulation write tools",
   register(api) {
     for (const definition of TENSORFLEET_TOOLS) {
       registerTensorFleetTool(api, definition);

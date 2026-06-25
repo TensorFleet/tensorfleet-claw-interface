@@ -10,6 +10,8 @@
     "build": "sh -c 'cd ../..; bun run --filter tensorfleet-util build; bun run --filter tensorfleet-ros build || true; cd packages/tensorfleet-tools; bun run generate:schema-types; tsup'",
     "generate:schema-types": "node scripts/generate-schema-types.cjs",
     "test:vacuum-discovery": "bun scripts/vacuum-capability-discovery.test.mjs",
+    "test:vacuum-read-preflight": "bun scripts/vacuum-read-preflight.test.mjs",
+    "test:vacuum-write-actions": "bun scripts/vacuum-write-actions.test.mjs",
     "codegen": "bun run generate:schema-types",
     "start": "bun dist/index.js"
   },

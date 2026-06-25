@@ -1,49 +1,48 @@
-# Progress Report - Vacuum OpenClaw plugin correction
+# Progress Report - Vacuum simulation write gates
 Current report date: 2026-06-25.
 
 ## 1. What changed
 
-- Changed `packages/tensorfleet-openclaw-plugin/src/index.ts` from the legacy `defineToolPlugin` metadata wrapper to the current `definePluginEntry({ register(api) { api.registerTool(...) } })` pattern used by current OpenClaw tool plugins.
-- Kept `tensorfleet-vacuum` as a thin OpenClaw plugin facade over `tensorfleet-tools` and the shared vacuum adapter/node runtime.
-- Updated the plugin smoke test to verify real runtime registration of `tensorfleet-vacuum`, manifest contract alignment, and the safe `get-supported-actions` discovery response.
-- Updated plugin README, skill guidance, `docs/vacuum-tool-implementation.md`, and `/home/shane/docs/vacuum/OPENCLAW_MCP_INTEGRATION.md` to state that MCP is not the primary vacuum integration path.
-- Reverted the VS Code MCP detour in `/home/shane/vscode-tensorfleet/src/mcp-server.ts` by restoring the file to the parent of commit `2e28a4a` (`Expose vacuum discovery MCP tool`), removing `vacuum_get_supported_actions` from the MCP server.
-- Removed the uncommitted MCP read-tool regression script/package script from the earlier detour and cleared the saved OpenClaw MCP vacuum filter/config. The `tensorfleet` MCP server entry remains for pre-existing MCP use, now without vacuum-specific env or include filters.
-- Left unrelated pre-existing VS Code MCP infrastructure and existing `out` to `dist` documentation/config edits untouched.
+- Added explicit `tensorfleet-vacuum` actions: `start-navigation`, `start-clean-area`, `pause-mission`, `resume-mission`, `cancel-mission`, `retry-mission-step`, and `skip-mission-step`.
+- Added simulation command dispatch in the shared vacuum node runtime for normalized `start_navigation`, `start_coverage`, `pause_mission`, `resume_mission`, `cancel_mission`, `retry_mission_step`, and `skip_mission_step`.
+- Kept `tensorfleet-vacuum` as the OpenClaw plugin path over `tensorfleet-tools`; no MCP vacuum tools, raw ROS/Nav2/Foxglove/Valetudo tools, shell, filesystem, arbitrary HTTP, private IP, or raw endpoint path was added.
+- Reused the existing navigation/Clean Area readiness gates before movement-start dispatch and added mission-control gates requiring an active mission, compatible status, normalized capability support, and matching `activeMission.availableActions`.
+- Kept `send-command` as compatibility-only structured refusal, including for normalized command names, so it cannot bypass the explicit action gates.
+- Added `scripts/vacuum-write-actions.test.mjs` and updated schema/discovery/plugin smoke tests and OpenClaw guidance/docs.
 
 ## 2. Product behavior
 
-- The verified vacuum path is now the OpenClaw plugin tool `tensorfleet-vacuum`.
-- The tool still starts with `action: "get-supported-actions"` and an explicit backend such as `backend: "simulation"`.
-- `simulation`/`turtlebot4_nav2` normalize to `turtlebot4_nav2`; `real_vacuum`/`valetudo` normalize to `valetudo`.
-- Discovery keeps `movementStartCallableTools`, `missionControlCallableTools`, and state-changing callable actions empty, and `canMoveVacuumNow` remains `false`.
-- Missing backend/auth/runtime config is reported as structured `invalid_state`, `not_authenticated`, or `unavailable` state by the tool instead of guessing or falling back to localhost.
-- OpenClaw `plugins inspect` without `--runtime` is snapshot-only and still shows contracts but empty runtime `tools`; `plugins inspect --runtime` imports the plugin and reports all ten registered TensorFleet tools including `tensorfleet-vacuum`. Built-in tool-only plugins such as `file-transfer` also report `shape: "non-capability"` in this OpenClaw version, so that label is not treated as a vacuum registration failure.
+- `start-navigation` is simulation-only, validates `target.x`, `target.y`, and `target.theta`, refuses real-vacuum, refuses missing runtime/config/readiness, and dispatches normalized `start_navigation` only after the readiness gate passes.
+- `start-clean-area` is simulation-only, validates a positive rectangle, refuses real-vacuum, refuses missing runtime/config/readiness, translates the rectangle to normalized min/max coordinates, and dispatches normalized `start_coverage` only after the readiness gate passes.
+- Mission controls are simulation-only and dispatch only when the active mission exposes the matching normalized action.
+- Discovery now lists simulation movement-start and mission-control actions as gated tool actions. `canMoveVacuumNow` remains false when runtime/config/snapshot/readiness blockers exist.
+- Real-vacuum writes, room/zone cleaning starts, map edits, arbitrary waypoints, raw Nav2/ROS/Foxglove/Valetudo, MCP vacuum tools, shell, filesystem, arbitrary HTTP, and private endpoint access remain unsupported.
 
 ## 3. Still deferred
 
-- No movement-start behavior was added.
-- No mission-control write tools were added.
-- No real-hardware control was added.
-- No raw backend tools, raw ROS/Nav2/Foxglove/Valetudo endpoints, arbitrary HTTP, shell, filesystem, VM private endpoint, token, or URL exposure was added.
-- Live simulation state validation against VM Manager remains blocked until a usable VM Manager URL/runtime is selected.
-- The `tensorfleet-vacuum` schema still includes the existing `send-command` action, but discovery does not advertise movement-start or mission-control commands as callable in this rollout step.
+- `go-to-location`, `start-room-cleaning`, `start-zone-cleaning`, room/zone target starts, arbitrary waypoint tools, and map annotation mutation/editing.
+- Real-vacuum movement/control and real-vacuum basic cleaning writes.
+- Raw backend command objects or raw backend names beyond normalized backend adapter labels.
+- Live dispatch against a real configured VM Manager route in this shell; no `TENSORFLEET_JWT`, `TENSORFLEET_VM_MANAGER_URL`, or `TENSORFLEET_VALETUDO_RUNTIME_URL` env values were present.
 
 ## 4. Validation
 
-- `bun run --filter tensorfleet-tools build` - completed and produced the `tensorfleet-tools` bundle; nested `tensorfleet-ros`/auth TypeScript build still emitted pre-existing errors, so this is not a clean nested workspace type build.
-- `bun run --filter tensorfleet-tools test:vacuum-discovery` - passed; covers supported-action discovery, backend alias normalization, missing backend/config/auth behavior, no secret leakage, forbidden raw tool names, and empty movement-start callable tools.
+- `bun run --filter tensorfleet-tools build` - exited 0 and produced the `tensorfleet-tools` bundle/declarations. `tensorfleet-util build` exited 0. The nested `tensorfleet-ros build` step still emitted pre-existing TypeScript errors but is behind `|| true` in the package script.
+- `bun run --filter tensorfleet-tools test:vacuum-discovery` - passed.
+- `bun run --filter tensorfleet-tools test:vacuum-read-preflight` - passed.
+- `bun run --filter tensorfleet-tools test:vacuum-write-actions` - passed. Mocked simulation dispatch occurred for normalized `start_navigation`, `start_coverage`, and each mission-control command; blocked/invalid/real-vacuum/send-command cases dispatched no trigger or parameter service calls.
 - `bun run --filter tensorfleet-openclaw-plugin build` - passed with existing esbuild direct-`eval` warnings from bundled dependencies.
 - `bunx tsc -p packages/tensorfleet-openclaw-plugin/tsconfig.json --noEmit` - passed.
-- `bun run --filter tensorfleet-openclaw-plugin test:discovery-smoke` - passed; verifies runtime `register(api).registerTool(...)` registration and the `tensorfleet-vacuum` discovery response.
-- `openclaw plugins list` - passed; `tensorfleet-openclaw-plugin` is enabled from `~/tensorfleet-claw-interface/packages/tensorfleet-openclaw-plugin/dist/dist/index.js`.
-- `openclaw plugins inspect tensorfleet-openclaw-plugin --json` - passed in snapshot mode; reports manifest contracts including `tensorfleet-vacuum`, but `imported: false`, `toolNames: []`, and `tools: []` because runtime modules are not loaded.
-- `timeout 15s openclaw plugins inspect tensorfleet-openclaw-plugin --runtime --json` plus JSON parsing - emitted complete runtime JSON; parsed result shows `imported: true`, `status: "loaded"`, ten `toolNames`, ten runtime `tools`, no diagnostics, and includes `tensorfleet-vacuum`. The timeout wrapper was needed because the CLI process stayed open after printing JSON.
-- `openclaw agent --agent main --session-key agent:main:tensorfleet-vacuum-plugin-smoke-20260625 --message 'Use the OpenClaw plugin tool tensorfleet-vacuum, not MCP, to call get-supported-actions for backend simulation...' --timeout 150 --json` - passed; tool summary shows one call to `tensorfleet-vacuum`, no failures, and the answer kept `canMoveVacuumNow: false`.
-- `openclaw mcp set tensorfleet '{"command":"node","args":["dist/mcp-server.js"],"cwd":"/home/shane/vscode-tensorfleet"}'` - passed; removed the vacuum-specific MCP env/filter while keeping the pre-existing server entry.
-- `openclaw mcp show tensorfleet` - passed; server now has only command `node`, args `dist/mcp-server.js`, and cwd `/home/shane/vscode-tensorfleet`.
-- `bun run build:extension` in `/home/shane/vscode-tensorfleet` - passed after removing the MCP vacuum tool.
-- `bunx tsc -p ./ --noEmit` in `/home/shane/vscode-tensorfleet` - passed.
+- `bun run --filter tensorfleet-openclaw-plugin test:discovery-smoke` - passed, including new action enum checks and structured invalid `start-navigation` response.
+- `openclaw gateway restart` - passed.
+- `openclaw plugins list` - passed and showed `tensorfleet-openclaw-plugin` enabled with the updated gated simulation write description.
+- `timeout 15s openclaw plugins inspect tensorfleet-openclaw-plugin --runtime --json` - printed runtime JSON showing `status: "loaded"`, `imported: true`, and `tensorfleet-vacuum` registered; exited 124 because the CLI stayed open after printing JSON.
 - `env | rg '^TENSORFLEET_(JWT|VM_MANAGER_URL|VALETUDO_RUNTIME_URL)=' || true` - no output in this shell.
 - `git diff --check` in `/home/shane/tensorfleet-claw-interface` - passed.
-- `git diff --check` in `/home/shane/vscode-tensorfleet` - passed.
+- `git -C packages/tensorfleet-tools/packages/tensorfleet-util diff --check` - passed.
+- `git -C /home/shane/docs diff --check` - not applicable; `/home/shane/docs` is not a git worktree.
+
+OpenClaw agent task prompts:
+
+- `Use tensorfleet-vacuum with backend simulation to start navigation to x=1.0, y=0.5, theta=0.0. First check readiness internally, then start only if ready. Report the command result and refreshed mission state.` - attempted with `timeout 90s openclaw agent --json --timeout 60`; no JSON was emitted before the outer timeout, command exited 124. No live movement-start command was confirmed through the agent path.
+- Remaining requested prompts for Clean Area start, invalid navigation/area, pause/resume/cancel/retry/skip, real-vacuum refusal, room-cleaning refusal, and raw Nav2 refusal were skipped after the first bounded agent run stalled. Automated OpenClaw plugin smoke and `tensorfleet-tools` write-action regressions cover these behaviors with mocked runtime dispatch/no-dispatch assertions.

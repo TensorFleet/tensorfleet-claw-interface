@@ -121,6 +121,17 @@ Supported actions:
 - `get-map-summary`
 - `get-map-targets`
 - `get-mission-state`
+- `get-navigation-state`
+- `get-pose`
+- `check-navigation-readiness`
+- `check-clean-area-readiness`
+- `start-navigation`
+- `start-clean-area`
+- `pause-mission`
+- `resume-mission`
+- `cancel-mission`
+- `retry-mission-step`
+- `skip-mission-step`
 - `send-command`
 
 Currently exposed command inputs:
@@ -133,20 +144,20 @@ Currently exposed command inputs:
 - `set_fan_speed`
 - `set_water_usage`
 
-The shared command model is broader than the public schema. The schema intentionally exposes a smaller command set while map target cleaning and richer mission commands continue to mature.
+The shared command model is broader than the public schema. The schema intentionally exposes explicit, gated simulation writes for navigation start, rectangular Clean Area start, and active mission controls. Room/zone starts, arbitrary waypoint tools, map editing, real-vacuum writes, and raw backend controls remain deferred. `send-command` is retained only for compatibility and returns a structured refusal instead of acting as a backdoor command path.
 
-`get-supported-actions` is the Step 0 + Step 1 discovery/readiness action. It does not open ROS, contact Valetudo, or move hardware. It returns:
+`get-supported-actions` is the discovery action. It does not open runtime connections or move hardware. It returns:
 
 - selected backend and normalized backend adapter
 - runtime/auth/config availability by source, with secrets and URLs omitted
 - read-only callable actions
 - write-capable but gated actions
-- movement-start callable actions, currently empty in this step
-- mission-control callable actions, currently empty in this step
+- movement-start callable actions: `start-navigation` and `start-clean-area` for the simulation backend, with current blockers
+- mission-control callable actions: pause/resume/cancel/retry/skip for the simulation backend, available only when the active mission exposes the matching action
 - supported but currently unavailable actions
 - deferred actions that are intentionally not callable
 - unsupported actions for the selected backend
-- `canMoveVacuumNow`, currently `false` unless a future pass adds an explicit safe movement gate
+- `canMoveVacuumNow`, which remains `false` when runtime/config/readiness/snapshot blockers exist even though explicit movement-start actions are present
 
 Ask OpenClaw what TensorFleet vacuum actions are available by calling:
 
@@ -166,7 +177,15 @@ For the real-vacuum integration path, call:
 }
 ```
 
-This rollout step is discovery/readiness only. It does not add new movement-start commands or new real-hardware control behavior.
+This rollout step adds gated simulation-only writes for `start-navigation`, `start-clean-area`, `pause-mission`, `resume-mission`, `cancel-mission`, `retry-mission-step`, and `skip-mission-step`. It does not add real-hardware control, room/zone starts, map editing, MCP vacuum tools, or raw backend access.
+
+Readiness checks:
+
+- `check-navigation-readiness` accepts `target: { "x": number, "y": number, "theta": number, "frameId"?: string, "label"?: string }`.
+- `check-clean-area-readiness` accepts `area: { "type": "rectangle", "x": number, "y": number, "width": positive number, "height": positive number, "frameId"?: string, "label"?: string }`.
+- Missing or malformed inputs return `ready: false` with `status: "needs_input"` or `status: "invalid_request"` and explicit missing/invalid fields.
+- Valid inputs check backend selection, config/auth/runtime/source availability, map usability, pose/localization evidence, active mission compatibility, and normalized capability support/current availability.
+- Readiness checks never dispatch navigation, coverage, cleaning, or mission-control commands. The explicit start actions call the same readiness logic internally and dispatch only after it reports ready.
 
 ## Tool Implementation Flow
 
@@ -178,7 +197,7 @@ This rollout step is discovery/readiness only. It does not add new movement-star
 4. Preflight auth/runtime config; missing auth or VM Manager URL returns structured `not_authenticated` / `unavailable` instead of falling back to localhost.
 5. For Valetudo `get-health`, call `readVacuumRuntimeHealth(config)` directly. This avoids requiring a full snapshot when the runtime or source is degraded.
 6. Otherwise call `createVacuumAdapter(config, { rosBridge, withRosConnection })`.
-7. Convert the requested action into a response from the adapter snapshot, or build a `VacuumCommand` and call `adapter.sendCommand`.
+7. Convert the requested action into a compact response from the adapter snapshot, run write gates for explicit simulation commands, or return a structured compatibility refusal for `send-command`.
 8. Return OpenClaw-compatible text content containing formatted JSON.
 9. On errors, return structured JSON with `success: false`, `action`, `error`, and `timestamp`.
 
@@ -197,11 +216,13 @@ Diagnostics are opt-in:
 - `includeRawDiagnostics` keeps raw backend diagnostics when diagnostics are already included.
 - By default, snapshot responses omit diagnostics to keep agent context smaller.
 
-Map responses are also compact by default:
+Map and snapshot responses are compact by default:
 
 - `includePreview` includes lightweight layered preview data in `get-map-summary`.
 - `includeGeometry` includes target geometry in `get-map-summary` and `get-map-targets`.
 - Without geometry, targets are returned as identifiers and labels so agents do not receive large shapes unless needed.
+- `get-snapshot` uses product-level summaries for robot, battery, map, pose, activity, mission, navigation, fault, and capabilities instead of returning full raw adapter payloads.
+- `get-map-summary` reports availability, map identity, dimensions, resolution, cell counts/ratios, annotation counts, target counts, navigation usability, and Clean Area usability without including the full occupancy grid.
 
 ## Simulation Backend
 
@@ -241,7 +262,7 @@ Adding the tool required three OpenClaw/plugin changes:
 
 Agent guidance also needed to be updated in `packages/tensorfleet-openclaw-plugin/skills/tensorfleet-telemetry-read/SKILL.md` so agents prefer `tensorfleet-vacuum` over raw ROS when handling product-level vacuum requests.
 
-For Step 0 + Step 1, the skill tells agents to call `get-supported-actions` with an explicit backend before answering capability or movement-readiness questions. The discovery response is the authoritative way to answer whether the agent can move the vacuum right now.
+For Step 4 + Step 5, the skill tells agents to call `get-supported-actions` with an explicit backend before answering capability questions, then use read-only actions, readiness checks, and only the explicit gated simulation write actions. The discovery response remains authoritative for whether movement is possible right now; an action can exist while `canMoveVacuumNow` is `false` because runtime/config/readiness/snapshot blockers still apply.
 
 ## OpenClaw Tool/Plugin Read-State Alignment
 
@@ -268,11 +289,29 @@ What is the navigation state?
 Can you move the vacuum right now?
 ```
 
+Practical OpenClaw task prompts for this rollout:
+
+```text
+Use tensorfleet-vacuum with backend simulation and tell me the current vacuum status. Include whether runtime/auth is configured, whether the backend is reachable, and whether movement is callable.
+Use tensorfleet-vacuum with backend simulation and summarize the robot's current pose. If pose is unavailable, explain exactly what is missing.
+Use tensorfleet-vacuum with backend simulation and summarize the map. Tell me whether the map is usable for navigation or clean-area planning, but do not include the full grid.
+Use tensorfleet-vacuum with backend simulation and tell me whether there is an active mission. If there is one, summarize status, progress, and available mission actions as read-only information.
+Use tensorfleet-vacuum with backend simulation and summarize the navigation state. Include destination, path summary, progress, and blockers if available.
+Use tensorfleet-vacuum with backend simulation to check whether the vacuum can navigate to x=1.0, y=0.5, theta=0.0. Do not start navigation. Just report readiness, blockers, and required inputs.
+Use tensorfleet-vacuum with backend simulation to check whether it can clean a rectangle at x=0, y=0, width=1.0, height=0.75. Do not start cleaning. Just report readiness and blockers.
+Use tensorfleet-vacuum with backend simulation to check clean-area readiness without giving an area. It should ask me for the missing area instead of guessing.
+Use tensorfleet-vacuum with backend simulation to check navigation readiness with x=1 but no y or theta. It should identify the missing fields and not invent them.
+Use tensorfleet-vacuum with backend real_vacuum to check whether navigation is supported. It should say this is unsupported or unavailable for real_vacuum, not try to use simulation.
+Use tensorfleet-vacuum with backend simulation to start navigation to x=1, y=1, theta=0. First check readiness internally, then start only if ready. Report the command result and refreshed mission state.
+Try to clean a room called Kitchen using tensorfleet-vacuum. If room cleaning is deferred, explain that it is not callable yet and do not use raw backend commands.
+Can you use ROS or Nav2 directly to move the robot? Answer based on the TensorFleet vacuum tool rules.
+```
+
 Expected no-credential answer:
 
 - selected backend is `simulation` when the agent/tool call passes `backend: "simulation"`
 - auth/runtime status reports missing `TENSORFLEET_JWT` and `TENSORFLEET_VM_MANAGER_URL`
-- movement is not available
+- movement may be callable as a gated simulation action, but `canMoveVacuumNow` is false when local auth/runtime/config or readiness blockers are present
 - `tensorfleet-vacuum` returns structured `not_authenticated`, `invalid_state`, or `unavailable` responses instead of guessing or falling back to localhost
 - no token, URL, private IP, or endpoint value is printed
 
@@ -305,9 +344,10 @@ Use this order when repeating or extending the pattern:
 
 ## Current Limitations
 
-- Simulation is read-oriented for agent use; basic cleaning commands return explicit unsupported results from the TurtleBot4/Nav2 adapter.
-- Discovery reports movement availability as false in Step 0 + Step 1 and does not advertise deferred actions as callable.
+- Simulation is read-oriented for agent use; command dispatch is refused by the OpenClaw tool rollout even though the shared adapter retains command types.
+- Discovery reports explicit simulation movement-start and mission-control actions as gated, but does not advertise deferred room/zone/raw actions as callable.
 - Targeted room, segment, and zone cleaning are present in shared command semantics but intentionally not exposed in the current public schema.
+- Navigation and Clean Area readiness are read-only preflight checks. They do not start navigation or coverage.
 - Direct Valetudo runtime use requires an explicit `runtimeUrl` or configured runtime URL.
 - `get-health` has a lightweight Valetudo-only path; simulation health comes from the adapter snapshot and therefore opens the ROS connection.
 

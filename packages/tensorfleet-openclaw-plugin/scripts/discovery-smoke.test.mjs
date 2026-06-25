@@ -33,7 +33,22 @@ async function main() {
   const vacuumTool = registeredTools.find((tool) => tool.name === "tensorfleet-vacuum");
   assert.ok(vacuumTool, "runtime registration must include tensorfleet-vacuum");
 
-  assert.ok(vacuumSchema.properties.action.enum.includes("get-supported-actions"));
+  for (const action of [
+    "get-supported-actions",
+    "get-navigation-state",
+    "get-pose",
+    "check-navigation-readiness",
+    "check-clean-area-readiness",
+    "start-navigation",
+    "start-clean-area",
+    "pause-mission",
+    "resume-mission",
+    "cancel-mission",
+    "retry-mission-step",
+    "skip-mission-step",
+  ]) {
+    assert.ok(vacuumSchema.properties.action.enum.includes(action), `schema must include ${action}`);
+  }
 
   const resultText = await vacuumTool.execute("openclaw-plugin-discovery-smoke", {
     action: "get-supported-actions",
@@ -48,8 +63,23 @@ async function main() {
   assert.equal(response.status, "not_authenticated");
   assert.deepEqual(response.vacuumTool.exposedOpenClawTools, ["tensorfleet-vacuum"]);
   assert.ok(response.actions.readOnlyCallableTools.some((entry) => entry.action === "get-supported-actions"));
-  assert.deepEqual(response.actions.movementStartCallableTools, []);
+  assert.ok(response.actions.readOnlyActions.some((entry) => entry.action === "get-navigation-state"));
+  assert.ok(response.actions.readOnlyActions.some((entry) => entry.action === "get-pose"));
+  assert.ok(response.actions.readOnlyActions.some((entry) => entry.action === "check-navigation-readiness"));
+  assert.ok(response.actions.readOnlyActions.some((entry) => entry.action === "check-clean-area-readiness"));
+  assert.ok(response.actions.missionControlCallableTools.some((entry) => entry.action === "pause-mission"));
+  assert.ok(response.actions.movementStartCallableTools.some((entry) => entry.action === "start-navigation"));
   assert.equal(response.canMoveVacuumNow, false);
+
+  const invalidText = await vacuumTool.execute("openclaw-plugin-write-smoke", {
+    action: "start-navigation",
+    backend: "simulation",
+    target: { x: 1 },
+  });
+  const invalid = JSON.parse(invalidText);
+  assert.equal(invalid.success, false);
+  assert.equal(invalid.status, "needs_input");
+  assert.deepEqual(invalid.missingFields, ["target.y", "target.theta"]);
 
   console.log("OpenClaw plugin vacuum discovery smoke passed");
 }
