@@ -75,7 +75,8 @@ Always pass an explicit `backend`. Use `backend: "simulation"` for the TurtleBot
 
 First discovery step:
 - Call `tensorfleet-vacuum` with `action: "get-supported-actions"` and the explicit backend to learn which actions are read-only, write-capable but gated, deferred, unsupported, and currently unavailable.
-- Use the response's `canMoveVacuumNow` boolean to answer whether the agent can move/start the vacuum right now. In the Step 0 + Step 1 rollout this is expected to be `false`.
+- Do not bypass `tensorfleet-vacuum` with OpenClaw-managed MCP, raw ROS/Nav2/Foxglove, raw Valetudo, shell, filesystem, arbitrary HTTP, or private endpoint tools for product-level vacuum answers.
+- Use the response's `canMoveVacuumNow` boolean to answer whether the agent can move/start the vacuum right now. In the Step 0 through Step 2 rollout this is expected to be `false`.
 - If the response reports `invalid_state`, ask for or select a supported backend instead of guessing silently.
 - If the response reports `not_authenticated` or `unavailable`, follow the auth + VM selection workflow or ask for the missing direct runtime config. Do not invent URLs or tokens.
 
