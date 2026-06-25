@@ -13,7 +13,7 @@
                 "set-return-to-launch",
                 "wait-for"
             ],
-            "description": "Use status to read mission state. Use set-local or set-go-to with coordinate triples. Use set-takeoff, set-land, or set-return-to-launch for mission items matching the controller-supported MAVROS waypoint commands. Use wait-for with mission and index to wait until that mission index is reached, or until the mission/mode changes."
+            "description": "Use status to read mission state. Use set-local or set-go-to with coordinate triples. Use set-takeoff, set-land, or set-return-to-launch for mission items matching the controller-supported MAVROS waypoint commands. Use wait-for with either mission or missionHash plus index to wait until that mission index is reached, or until the mission/mode changes."
         },
         "tensorfleet-project-path": {
             "type": "string",
@@ -92,9 +92,26 @@
                 }
             }
         },
+        "missionHash": {
+            "type": "string",
+            "pattern": "^[a-fA-F0-9]{64}$",
+            "description": "SHA-256 mission hash returned by status/set actions. For wait-for, provide either mission or missionHash."
+        },
+        "waypointStart": {
+            "type": "number",
+            "description": "First mission waypoint index to show for status output. Defaults to current index minus waypointRadius."
+        },
+        "waypointEnd": {
+            "type": "number",
+            "description": "Last mission waypoint index to show for status output. Defaults to current index plus waypointRadius."
+        },
+        "waypointRadius": {
+            "type": "number",
+            "description": "Number of waypoints to show before and after the current waypoint when waypointStart/waypointEnd are omitted. Defaults to 3."
+        },
         "index": {
             "type": "number",
-            "description": "Mission waypoint index to wait for when action is wait-for. Keep in mind for this to work the entire mission data must be identical "
+            "description": "Mission waypoint index to wait for when action is wait-for."
         }
     },
     "required": [

@@ -1,4 +1,5 @@
 import {
+  createMissionDataHash,
   DroneController,
   DroneStateModel,
   MavrosMissionCommand,
@@ -49,7 +50,7 @@ type HighLevelMissionWaypoint = {
   index: number;
   current: boolean;
 } & (
-  | NonNullable<TensorfleetDroneMission["mission"]>[number]
+  | Record<string, unknown>
   | {
       unknown: {
         command: number;
@@ -127,14 +128,18 @@ async function runDroneMissionAction(
       const pullResult = await controller.mavrosMissionPull();
       const state = await model.getState();
       const mission = model.getCurrentState().mission ?? null;
+      const missionStatus = await formatMissionStatus(mission, params);
 
       return {
+        missionHash: missionStatus?.missionHash ?? null,
+        droneStatus: summarizeDroneStatus(state),
+        missionStatus: missionStatus?.missionStatus ?? null,
         pull: {
           success: pullResult?.success === true,
           receivedWaypointCount: pullResult?.wp_received ?? 0,
         },
-        state,
-        mission: formatMissionStatus(mission),
+        range: missionStatus?.range ?? null,
+        waypoints: missionStatus?.waypoints ?? [],
       };
     }
 
@@ -150,24 +155,48 @@ async function runDroneMissionAction(
 
       return {
         waypointCount: mission.length,
+        missionHash: await createMissionDataHash(mission),
         mission,
         state: await model.getState(),
       };
     }
 
     case "wait-for": {
-      const mission = getMission(params);
-      const index = getMissionIndex(params, mission.length);
+      const missionMatch = await getMissionMatch(params);
+      const index = getMissionIndex(params, missionMatch.missionLength);
 
       await controller.initialize();
-      const wait = await controller.wait_for_mission_index(mission, index);
+      const wait = await controller.wait_for_mission_index(missionMatch.value, index);
 
-      return wait;
+      return {
+        ...wait,
+        missionHash: missionMatch.missionHash,
+      };
     }
 
     default:
       throw new Error(`Unknown drone mission action: ${(params as { action: string }).action}`);
   }
+}
+
+async function getMissionMatch(params: DroneMissionParams): Promise<{
+  value: MavrosMsgsWaypoint[] | string;
+  missionHash: string;
+  missionLength?: number;
+}> {
+  if (typeof params.missionHash === "string") {
+    return {
+      value: params.missionHash,
+      missionHash: params.missionHash,
+    };
+  }
+
+  const mission = getMission(params);
+  return {
+    value: mission,
+    missionHash: await createMissionDataHash(mission),
+    missionLength: mission.length,
+  };
 }
 
 function getMission(params: DroneMissionParams): MavrosMsgsWaypoint[] {
@@ -179,7 +208,7 @@ function getMission(params: DroneMissionParams): MavrosMsgsWaypoint[] {
   return mission.map((item) => new MavrosMissionWaypoint(normalizeMissionItem(item)));
 }
 
-function getMissionIndex(params: DroneMissionParams, missionLength: number): number {
+function getMissionIndex(params: DroneMissionParams, missionLength?: number): number {
   const index = params.index;
 
   if (!Number.isInteger(index)) {
@@ -188,7 +217,11 @@ function getMissionIndex(params: DroneMissionParams, missionLength: number): num
 
   const missionIndex = index as number;
 
-  if (missionIndex < 0 || missionIndex >= missionLength) {
+  if (missionIndex < 0) {
+    throw new Error("wait-for index must be non-negative");
+  }
+
+  if (missionLength !== undefined && missionIndex >= missionLength) {
     throw new Error(`wait-for index must be between 0 and ${missionLength - 1}`);
   }
 
@@ -207,20 +240,29 @@ function isSuccessResult(result: unknown): result is { success: boolean } {
   return isPlainObject(result) && typeof result.success === "boolean";
 }
 
-function formatMissionStatus(mission: DroneStateModel["state"]["mission"] | null) {
+async function formatMissionStatus(mission: DroneStateModel["state"]["mission"] | null, params: DroneMissionParams) {
   if (!mission) {
     return null;
   }
 
-  const waypoints = mission.waypoints.map(formatMissionWaypoint);
   const currentIndex = mission.current_seq ?? 0;
-  const currentWaypoint = waypoints.find((waypoint) => waypoint.current) ?? waypoints[currentIndex] ?? null;
+  const range = getWaypointDisplayRange(params, currentIndex, mission.waypoints.length);
+  const waypoints = mission.waypoints
+    .slice(range.start, range.end + 1)
+    .map((waypoint, offset) => {
+      const index = range.start + offset;
+      return formatMissionWaypoint(waypoint, index, offset === 0 ? undefined : mission.waypoints[index - 1]);
+    });
+  const currentWaypoint = waypoints.find((waypoint) => waypoint.current) ?? null;
+  const missionHash = await createMissionDataHash(mission.waypoints);
 
   return {
-    summary: {
+    missionHash,
+    missionStatus: {
       completed: mission.completed,
       waypointCount: mission.waypoint_count,
       currentIndex,
+      reachedIndex: mission.reached_seq ?? null,
       currentWaypoint,
       lastPull: {
         success: mission.last_pull_success,
@@ -228,11 +270,77 @@ function formatMissionStatus(mission: DroneStateModel["state"]["mission"] | null
         at: mission.last_pull_at,
       },
     },
+    range: {
+      start: range.start,
+      end: range.end,
+      count: waypoints.length,
+      before: { more: range.start },
+      after: { more: mission.waypoints.length - range.end - 1 },
+    },
     waypoints,
   };
 }
 
-function formatMissionWaypoint(waypoint: MavrosMsgsWaypoint, index: number): HighLevelMissionWaypoint {
+function getWaypointDisplayRange(
+  params: DroneMissionParams,
+  currentIndex: number,
+  waypointCount: number,
+): { start: number; end: number } {
+  if (waypointCount <= 0) {
+    return { start: 0, end: -1 };
+  }
+
+  const radius = getOptionalNonNegativeInteger(params.waypointRadius, 3, "waypointRadius");
+  const requestedStart = getOptionalNonNegativeInteger(params.waypointStart, undefined, "waypointStart");
+  const requestedEnd = getOptionalNonNegativeInteger(params.waypointEnd, undefined, "waypointEnd");
+
+  const defaultStart = currentIndex - radius;
+  const defaultEnd = currentIndex + radius;
+  const start = clampIndex(requestedStart ?? defaultStart, waypointCount);
+  const end = clampIndex(requestedEnd ?? defaultEnd, waypointCount);
+
+  if (start > end) {
+    throw new Error("waypointStart must be less than or equal to waypointEnd");
+  }
+
+  return { start, end };
+}
+
+function getOptionalNonNegativeInteger(value: unknown, fallback: number, name: string): number;
+function getOptionalNonNegativeInteger(value: unknown, fallback: undefined, name: string): number | undefined;
+function getOptionalNonNegativeInteger(value: unknown, fallback: number | undefined, name: string): number | undefined {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  if (!Number.isInteger(value) || (value as number) < 0) {
+    throw new Error(`${name} must be a non-negative integer`);
+  }
+
+  return value as number;
+}
+
+function clampIndex(index: number, waypointCount: number): number {
+  return Math.min(Math.max(index, 0), waypointCount - 1);
+}
+
+function summarizeDroneStatus(state: DroneStateModel["state"]) {
+  return {
+    connected: state.vehicle?.connected ?? null,
+    armed: state.vehicle?.armed ?? null,
+    mode: state.vehicle?.mode ?? null,
+    landedState: state.extended?.landed_state ?? null,
+    armable: state.status?.armable ?? null,
+    faults: state.status?.faults ?? null,
+    batteryPercentage: state.battery?.percentage ?? null,
+  };
+}
+
+function formatMissionWaypoint(
+  waypoint: MavrosMsgsWaypoint,
+  index: number,
+  previousWaypoint?: MavrosMsgsWaypoint,
+): HighLevelMissionWaypoint {
   const base = {
     index,
     current: waypoint.is_current,
@@ -242,7 +350,7 @@ function formatMissionWaypoint(waypoint: MavrosMsgsWaypoint, index: number): Hig
     case MavrosMissionCommand.GO_TO:
       return withDefined({
         ...base,
-        goTo: withDefined({
+        goTo: omitRepeatedWaypointValues({
           ...getWaypointCoordinates(waypoint),
           frame: waypoint.frame,
           isCurrent: waypoint.is_current,
@@ -251,13 +359,13 @@ function formatMissionWaypoint(waypoint: MavrosMsgsWaypoint, index: number): Hig
           acceptanceRadiusMeters: waypoint.param2,
           passRadiusMeters: waypoint.param3,
           yawDegrees: normalizeOptionalNumber(waypoint.param4),
-        }),
+        }, previousWaypoint),
       });
 
     case MavrosMissionCommand.TAKEOFF:
       return withDefined({
         ...base,
-        takeoff: withDefined({
+        takeoff: omitRepeatedWaypointValues({
           ...getWaypointCoordinates(waypoint),
           frame: waypoint.frame,
           isCurrent: waypoint.is_current,
@@ -265,13 +373,13 @@ function formatMissionWaypoint(waypoint: MavrosMsgsWaypoint, index: number): Hig
           minimumPitchDegrees: waypoint.param1,
           flags: waypoint.param3,
           yawDegrees: normalizeOptionalNumber(waypoint.param4),
-        }),
+        }, previousWaypoint),
       });
 
     case MavrosMissionCommand.LAND:
       return withDefined({
         ...base,
-        land: withDefined({
+        land: omitRepeatedWaypointValues({
           ...getWaypointCoordinates(waypoint),
           frame: waypoint.frame,
           isCurrent: waypoint.is_current,
@@ -279,17 +387,17 @@ function formatMissionWaypoint(waypoint: MavrosMsgsWaypoint, index: number): Hig
           abortAltitudeMeters: waypoint.param1,
           precisionLandMode: waypoint.param2,
           yawDegrees: normalizeOptionalNumber(waypoint.param4),
-        }),
+        }, previousWaypoint),
       });
 
     case MavrosMissionCommand.RETURN_TO_LAUNCH:
       return {
         ...base,
-        returnToLaunch: {
+        returnToLaunch: omitRepeatedWaypointValues({
           frame: waypoint.frame,
           isCurrent: waypoint.is_current,
           autocontinue: waypoint.autocontinue,
-        },
+        }, previousWaypoint),
       };
 
     default:
@@ -303,6 +411,36 @@ function formatMissionWaypoint(waypoint: MavrosMsgsWaypoint, index: number): Hig
         },
       };
   }
+}
+
+function omitRepeatedWaypointValues(
+  value: Record<string, unknown>,
+  previousWaypoint?: MavrosMsgsWaypoint,
+): Record<string, unknown> {
+  if (!previousWaypoint) {
+    return withDefined(value);
+  }
+
+  const previousValue: Record<string, unknown> = withDefined({
+    latitude: previousWaypoint.x_lat,
+    longitude: previousWaypoint.y_long,
+    altitude: previousWaypoint.z_alt,
+    frame: previousWaypoint.frame,
+    isCurrent: previousWaypoint.is_current,
+    autocontinue: previousWaypoint.autocontinue,
+    holdSeconds: previousWaypoint.param1,
+    acceptanceRadiusMeters: previousWaypoint.param2,
+    passRadiusMeters: previousWaypoint.param3,
+    minimumPitchDegrees: previousWaypoint.param1,
+    flags: previousWaypoint.param3,
+    abortAltitudeMeters: previousWaypoint.param1,
+    precisionLandMode: previousWaypoint.param2,
+    yawDegrees: normalizeOptionalNumber(previousWaypoint.param4),
+  });
+
+  return Object.fromEntries(
+    Object.entries(withDefined(value)).filter(([key, fieldValue]) => previousValue[key] !== fieldValue),
+  );
 }
 
 function getWaypointCoordinates(waypoint: MavrosMsgsWaypoint) {
