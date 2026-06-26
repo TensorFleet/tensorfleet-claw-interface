@@ -1,0 +1,23 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "tensorfleet-project-path": {
+            "type": "string",
+            "description": "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback."
+        },
+        "type": {
+            "type": "string",
+            "enum": [
+                "request",
+                "state_change"
+            ],
+            "description": "Optional log entry type filter."
+        },
+        "count": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Optional max number of most recent entries to return."
+        }
+    }
+}

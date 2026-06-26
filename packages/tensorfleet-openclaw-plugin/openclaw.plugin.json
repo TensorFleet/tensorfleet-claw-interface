@@ -24,7 +24,9 @@
       "tensorfleet-auth",
       "tensorfleet-vm",
       "tensorfleet-drone",
-      "tensorfleet-ros-diagnostics"
+      "tensorfleet-ros-diagnostics",
+      "tensorfleet-drone-logs",
+      "tensorfleet-drone-mission"
     ]
   }
 }

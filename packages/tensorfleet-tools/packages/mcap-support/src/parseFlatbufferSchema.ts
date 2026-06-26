@@ -48,6 +48,8 @@ function typeForSimpleField(type: BaseType): string {
     case BaseType.MaxBaseType:
       throw new Error("None is not a valid type.");
   }
+
+  throw new Error(`Unsupported flatbuffer base type: ${type}`);
 }
 
 // eslint-disable-next-line no-restricted-syntax

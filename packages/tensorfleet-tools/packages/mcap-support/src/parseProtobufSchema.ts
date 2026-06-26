@@ -6,6 +6,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import protobufjs from "protobufjs";
+import "protobufjs/ext/descriptor";
 import { FileDescriptorSet } from "protobufjs/ext/descriptor";
 
 import { protobufDefinitionsToDatatypes, stripLeadingDot } from "./protobufDefinitionsToDatatypes";
@@ -24,7 +25,11 @@ export function parseProtobufSchema(
 } {
   const descriptorSet = FileDescriptorSet.decode(schemaData);
 
-  const root = protobufjs.Root.fromDescriptor(descriptorSet);
+  const root = (
+    protobufjs.Root as typeof protobufjs.Root & {
+      fromDescriptor: (descriptor: protobufjs.Message) => protobufjs.Root;
+    }
+  ).fromDescriptor(descriptorSet);
   root.resolveAll();
   const rootType = root.lookupType(schemaName);
 

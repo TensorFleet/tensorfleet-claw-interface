@@ -1,0 +1,120 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "action": {
+            "type": "string",
+            "enum": [
+                "status",
+                "set-local",
+                "set-go-to",
+                "set-takeoff",
+                "set-land",
+                "set-return-to-launch",
+                "wait-for"
+            ],
+            "description": "Use status to read mission state. Use set-local or set-go-to with coordinate triples. Use set-takeoff, set-land, or set-return-to-launch for mission items matching the controller-supported MAVROS waypoint commands. Use wait-for with either mission or missionHash plus index to wait until that mission index is reached, or until the mission/mode changes."
+        },
+        "tensorfleet-project-path": {
+            "type": "string",
+            "description": "Optional Tensorfleet project directory path for legacy .tensorfleet/.env fallback."
+        },
+        "mission": {
+            "type": "array",
+            "description": "High-level mission item inputs. The tool converts these through MavrosMissionWaypoint before calling DroneController.sendMissionRequest(). Bare CLI point shorthand is parsed only by tensorfleet-cli.",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "One high-level mission item. Provide exactly one of goTo, takeoff, land, or returnToLaunch.",
+                "properties": {
+                    "goTo": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Go-to mission item constructor args.",
+                        "properties": {
+                            "latitude": { "type": "number", "description": "Target latitude in degrees." },
+                            "longitude": { "type": "number", "description": "Target longitude in degrees." },
+                            "altitude": { "type": "number", "description": "Target altitude in meters." },
+                            "frame": { "type": "number", "description": "Optional MAVROS mission frame. Defaults to GLOBAL_RELATIVE_ALT." },
+                            "isCurrent": { "type": "boolean", "description": "Whether this item should initially be marked current." },
+                            "autocontinue": { "type": "boolean", "description": "Whether the mission should automatically continue to the next item." },
+                            "holdSeconds": { "type": "number", "description": "Time to remain at the target before continuing." },
+                            "acceptanceRadiusMeters": { "type": "number", "description": "Distance at which the target may be considered reached." },
+                            "passRadiusMeters": { "type": "number", "description": "Pass-through radius in meters." },
+                            "yawDegrees": { "type": "number", "description": "Optional yaw target in degrees. Omit to leave yaw unspecified." }
+                        },
+                        "required": ["latitude", "longitude", "altitude"]
+                    },
+                    "takeoff": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Takeoff mission item constructor args.",
+                        "properties": {
+                            "latitude": { "type": "number", "description": "Takeoff latitude in degrees." },
+                            "longitude": { "type": "number", "description": "Takeoff longitude in degrees." },
+                            "altitude": { "type": "number", "description": "Target takeoff altitude in meters." },
+                            "frame": { "type": "number", "description": "Optional MAVROS mission frame. Defaults to GLOBAL_RELATIVE_ALT." },
+                            "isCurrent": { "type": "boolean", "description": "Whether this item should initially be marked current." },
+                            "autocontinue": { "type": "boolean", "description": "Whether the mission should automatically continue to the next item." },
+                            "minimumPitchDegrees": { "type": "number", "description": "Minimum requested pitch during takeoff." },
+                            "flags": { "type": "number", "description": "Additional takeoff behavior flags." },
+                            "yawDegrees": { "type": "number", "description": "Optional yaw target in degrees. Omit to leave yaw unspecified." }
+                        },
+                        "required": ["latitude", "longitude", "altitude"]
+                    },
+                    "land": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Land mission item constructor args.",
+                        "properties": {
+                            "latitude": { "type": "number", "description": "Landing latitude in degrees." },
+                            "longitude": { "type": "number", "description": "Landing longitude in degrees." },
+                            "altitude": { "type": "number", "description": "Optional landing altitude in meters. Defaults to 0." },
+                            "frame": { "type": "number", "description": "Optional MAVROS mission frame. Defaults to GLOBAL_RELATIVE_ALT." },
+                            "isCurrent": { "type": "boolean", "description": "Whether this item should initially be marked current." },
+                            "autocontinue": { "type": "boolean", "description": "Whether the mission should automatically continue to the next item." },
+                            "abortAltitudeMeters": { "type": "number", "description": "Altitude at which an aborted landing should stop descending." },
+                            "precisionLandMode": { "type": "number", "description": "Precision landing mode." },
+                            "yawDegrees": { "type": "number", "description": "Optional landing yaw in degrees. Omit to leave yaw unspecified." }
+                        },
+                        "required": ["latitude", "longitude"]
+                    },
+                    "returnToLaunch": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Return-to-launch mission item constructor args.",
+                        "properties": {
+                            "frame": { "type": "number", "description": "Optional MAVROS mission frame. Defaults to GLOBAL_RELATIVE_ALT." },
+                            "isCurrent": { "type": "boolean", "description": "Whether this item should initially be marked current." },
+                            "autocontinue": { "type": "boolean", "description": "Whether the mission should automatically continue to the next item." }
+                        }
+                    }
+                }
+            }
+        },
+        "missionHash": {
+            "type": "string",
+            "pattern": "^[a-fA-F0-9]{64}$",
+            "description": "SHA-256 mission hash returned by status/set actions. For wait-for, provide either mission or missionHash."
+        },
+        "waypointStart": {
+            "type": "number",
+            "description": "First mission waypoint index to show for status output. Defaults to current index minus waypointRadius."
+        },
+        "waypointEnd": {
+            "type": "number",
+            "description": "Last mission waypoint index to show for status output. Defaults to current index plus waypointRadius."
+        },
+        "waypointRadius": {
+            "type": "number",
+            "description": "Number of waypoints to show before and after the current waypoint when waypointStart/waypointEnd are omitted. Defaults to 3."
+        },
+        "index": {
+            "type": "number",
+            "description": "Mission waypoint index to wait for when action is wait-for."
+        }
+    },
+    "required": [
+        "action"
+    ]
+}
