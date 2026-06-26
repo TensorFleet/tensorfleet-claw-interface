@@ -49,6 +49,8 @@ async function main() {
     "check-clean-area-readiness",
     "check-room-cleaning-readiness",
     "check-zone-cleaning-readiness",
+    "start-room-cleaning",
+    "start-zone-cleaning",
     "start-navigation",
     "start-clean-area",
     "pause-mission",
@@ -92,6 +94,8 @@ async function main() {
   assert.ok(response.actions.readOnlyActions.some((entry) => entry.action === "check-zone-cleaning-readiness"));
   assert.ok(response.actions.missionControlCallableTools.some((entry) => entry.action === "pause-mission"));
   assert.ok(response.actions.movementStartCallableTools.some((entry) => entry.action === "start-navigation"));
+  assert.ok(response.actions.movementStartCallableTools.some((entry) => entry.action === "start-room-cleaning"));
+  assert.ok(response.actions.movementStartCallableTools.some((entry) => entry.action === "start-zone-cleaning"));
   assert.equal(response.canMoveVacuumNow, false);
   assertNoSecretLeakage(responseText);
 
@@ -104,6 +108,24 @@ async function main() {
   assert.equal(invalid.status, "needs_input");
   assert.deepEqual(invalid.missingFields, ["target.y", "target.theta"]);
   assertNoSecretLeakage(JSON.stringify(invalid));
+
+  const invalidRoom = normalizeToolResult(await vacuumTool.execute("openclaw-plugin-room-write-smoke", {
+    action: "start-room-cleaning",
+    backend: "simulation",
+  }));
+  assert.equal(invalidRoom.success, false);
+  assert.equal(invalidRoom.status, "needs_input");
+  assert.deepEqual(invalidRoom.missingFields, ["room"]);
+  assertNoSecretLeakage(JSON.stringify(invalidRoom));
+
+  const invalidZone = normalizeToolResult(await vacuumTool.execute("openclaw-plugin-zone-write-smoke", {
+    action: "start-zone-cleaning",
+    backend: "simulation",
+  }));
+  assert.equal(invalidZone.success, false);
+  assert.equal(invalidZone.status, "needs_input");
+  assert.deepEqual(invalidZone.missingFields, ["zone"]);
+  assertNoSecretLeakage(JSON.stringify(invalidZone));
 
   console.log("OpenClaw plugin vacuum discovery smoke passed");
 }

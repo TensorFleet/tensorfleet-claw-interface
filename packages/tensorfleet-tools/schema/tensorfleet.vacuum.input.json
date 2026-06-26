@@ -21,6 +21,8 @@
         "check-zone-cleaning-readiness",
         "start-navigation",
         "start-clean-area",
+        "start-room-cleaning",
+        "start-zone-cleaning",
         "pause-mission",
         "resume-mission",
         "cancel-mission",
@@ -29,7 +31,7 @@
         "get-supported-actions",
         "send-command"
       ],
-      "description": "Vacuum action to execute. get-supported-actions is a read-only discovery action that does not contact ROS or hardware. Read and readiness actions return product-level vacuum state, including read-only map/room/zone target inventory and room/zone preflight. start-navigation, start-clean-area, and mission-control actions are simulation-only writes with strict runtime/readiness/capability/active-mission gates. Room/zone starts remain deferred. send-command is retained for compatibility but is not a backdoor control path."
+      "description": "Vacuum action to execute. get-supported-actions is a read-only discovery action that does not contact ROS or hardware. Read and readiness actions return product-level vacuum state, including read-only map/room/zone target inventory and room/zone preflight. start-navigation, start-clean-area, start-room-cleaning, start-zone-cleaning, and mission-control actions are simulation-only writes with strict runtime/readiness/capability/active-mission gates. send-command is retained for compatibility but is not a backdoor control path."
     },
     "backend": {
       "type": "string",
@@ -155,7 +157,7 @@
     "room": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Room or segment selector for action=check-room-cleaning-readiness. This is read-only preflight; start-room-cleaning is deferred.",
+      "description": "Room or segment selector for action=check-room-cleaning-readiness and gated simulation-only action=start-room-cleaning.",
       "properties": {
         "id": {
           "type": "string",
@@ -174,7 +176,7 @@
     "zone": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Zone selector for action=check-zone-cleaning-readiness. This is read-only preflight; start-zone-cleaning is deferred.",
+      "description": "Zone selector for action=check-zone-cleaning-readiness and gated simulation-only action=start-zone-cleaning.",
       "properties": {
         "id": {
           "type": "string",

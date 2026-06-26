@@ -12,6 +12,7 @@
     "test:vacuum-discovery": "bun scripts/vacuum-capability-discovery.test.mjs",
     "test:vacuum-read-preflight": "bun scripts/vacuum-read-preflight.test.mjs",
     "test:vacuum-write-actions": "bun scripts/vacuum-write-actions.test.mjs",
+    "test:vacuum-room-zone-writes": "bun scripts/vacuum-room-zone-writes.test.mjs",
     "test:vacuum-boundary": "bun scripts/vacuum-boundary.test.mjs",
     "codegen": "bun run generate:schema-types",
     "start": "bun dist/index.js"

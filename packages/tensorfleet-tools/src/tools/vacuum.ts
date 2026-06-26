@@ -9,6 +9,7 @@ import {
   type VacuumCommandResult,
   type VacuumCommandName,
   type VacuumCapabilityName,
+  type VacuumMapTarget,
   checkVacuumTargetReadiness,
   type VacuumTargetSelector,
 } from "tensorfleet-util";
@@ -46,7 +47,7 @@ const READ_ONLY_ACTIONS = [
   "check-zone-cleaning-readiness",
 ] as const;
 
-const MOVEMENT_START_ACTIONS = ["start-navigation", "start-clean-area"] as const;
+const MOVEMENT_START_ACTIONS = ["start-navigation", "start-clean-area", "start-room-cleaning", "start-zone-cleaning"] as const;
 const MISSION_CONTROL_ACTIONS = [
   "pause-mission",
   "resume-mission",
@@ -104,8 +105,6 @@ const DEFERRED_COMMANDS = [
   "load_map",
   "save_map_annotation",
   "delete_map_annotation",
-  "start_room_cleaning",
-  "start_zone_cleaning",
   "segment_cleaning",
   "zone_cleaning",
 ] as const satisfies readonly VacuumCommandName[];
@@ -342,13 +341,13 @@ async function runVacuumAction(
       return {
         ...base,
         targets: roomTargets(snapshot, params.includeGeometry === true),
-        note: "Room/segment targets are read-only inventory; start-room-cleaning is deferred.",
+        note: "Room/segment targets are read-only inventory; start-room-cleaning is a gated simulation-only write action.",
       };
     case "get-zone-targets":
       return {
         ...base,
         targets: zoneTargets(snapshot, params.includeGeometry === true),
-        note: "Zone targets are read-only inventory; start-zone-cleaning is deferred.",
+        note: "Zone targets are read-only inventory; start-zone-cleaning is a gated simulation-only write action.",
       };
     case "get-mission-state":
       return {
@@ -393,6 +392,10 @@ async function runVacuumAction(
       return await startNavigation(params, config, snapshot, sendCommand, refreshSnapshot, base);
     case "start-clean-area":
       return await startCleanArea(params, config, snapshot, sendCommand, refreshSnapshot, base);
+    case "start-room-cleaning":
+      return await startTargetCleaning(params, config, snapshot, sendCommand, refreshSnapshot, base, "room");
+    case "start-zone-cleaning":
+      return await startTargetCleaning(params, config, snapshot, sendCommand, refreshSnapshot, base, "zone");
     case "pause-mission":
     case "resume-mission":
     case "cancel-mission":
@@ -591,7 +594,9 @@ function buildStaticActionGroups(backend: VacuumRuntimeConfig["backend"] | null,
         reason:
           runtimeBlockers.length > 0
             ? runtimeBlockers.join(" ")
-            : "Requires a fresh ready snapshot, map/pose evidence, no incompatible active mission, and normalized capability support.",
+            : action === "start-room-cleaning" || action === "start-zone-cleaning"
+              ? "Requires a fresh ready snapshot, callable normalized target, no incompatible active mission, and normalized room/zone capability support."
+              : "Requires a fresh ready snapshot, map/pose evidence, no incompatible active mission, and normalized capability support.",
       }))
     : [];
   const missionControlCallableTools = backendIsSimulation
@@ -704,8 +709,10 @@ function buildActionDiscoveryForSnapshot(config: VacuumRuntimeConfig, snapshot: 
     ...groups,
     movementStartCallableTools: (config.backend === "turtlebot4_nav2"
       ? MOVEMENT_START_ACTIONS.map((action) => {
-          const capabilityName = action === "start-navigation" ? "start_navigation" : "start_coverage";
-          const capabilityBlockers = capabilityBlockersFor(snapshot, capabilityName);
+          const capabilityName = movementCapabilityForAction(action);
+          const capabilityBlockers = targetStartAction(action)
+            ? targetActionDiscoveryBlockers(snapshot, action)
+            : capabilityBlockersFor(snapshot, capabilityName as "start_navigation" | "start_coverage");
           const actionBlockers = uniqueStrings([...generalMovementBlockers, ...capabilityBlockers]);
           return {
             tool: VACUUM_TOOL_NAME,
@@ -731,8 +738,13 @@ function buildActionDiscoveryForSnapshot(config: VacuumRuntimeConfig, snapshot: 
       : []),
     supportedByCurrentSnapshot: {
       commands: supportedPublicCommands,
-      movementStartCommands: ["start_navigation", "start_coverage"].filter((command) => {
-        const capability = capabilities[command as "start_navigation" | "start_coverage"];
+      movementStartCommands: ["start_navigation", "start_coverage", "start_room_cleaning", "start_zone_cleaning"].filter((command) => {
+        const capabilityName = command === "start_room_cleaning"
+          ? "room_cleaning"
+          : command === "start_zone_cleaning"
+            ? "zone_cleaning"
+            : command;
+        const capability = capabilities[capabilityName as "start_navigation" | "start_coverage" | "room_cleaning" | "zone_cleaning"];
         return capability.supported === true && capability.available !== false;
       }),
       missionControlCommands: (["pause_mission", "resume_mission", "cancel_mission", "retry_mission_step", "skip_mission_step"] as const)
@@ -950,6 +962,50 @@ async function startCleanArea(
   };
 }
 
+async function startTargetCleaning(
+  params: VacuumParams,
+  config: VacuumRuntimeConfig,
+  snapshot: VacuumAdapterSnapshot,
+  sendCommand: (command: VacuumCommand) => Promise<VacuumCommandResult>,
+  refreshSnapshot: () => Promise<VacuumAdapterSnapshot>,
+  base: Record<string, unknown>,
+  kind: "room" | "zone",
+) {
+  const preflight = targetCleaningReadiness(params, config, snapshot, kind);
+  const readiness = executionReadiness(preflight);
+  const targetCheck = preflight.evidence.targetCheck;
+  if (!preflight.ready || !preflight.target) {
+    return blockedWriteResponse(base, params.action, targetStartRefusalStatus(targetCheck.status, preflight.status), preflight.blockers, {
+      requestedTarget: (params as { room?: NamedTargetSelector; zone?: NamedTargetSelector })[kind],
+      resolvedTarget: preflight.target ? targetSummary(preflight.target) : null,
+      candidates: targetCheck.ready ? undefined : targetCheck.matches?.map(targetSummary),
+      readiness,
+      previousActiveMission: summarizeMission(snapshot.activeMission),
+      commandDispatched: false,
+    });
+  }
+
+  const command: VacuumCommand = {
+    command: kind === "room" ? "start_room_cleaning" : "start_zone_cleaning",
+    target: preflight.target,
+  };
+  const commandResult = await sendCommand(command);
+  const refreshed = await refreshMissionAfterCommand(refreshSnapshot);
+  return {
+    ...base,
+    success: commandResult.ok,
+    status: commandResult.ok ? "dispatched" : "backend_error",
+    ...(commandResult.ok ? {} : { error: commandResult.error }),
+    requestedTarget: (params as { room?: NamedTargetSelector; zone?: NamedTargetSelector })[kind],
+    resolvedTarget: targetSummary(preflight.target),
+    readiness,
+    command: commandSummary(commandResult),
+    previousActiveMission: summarizeMission(snapshot.activeMission),
+    refreshedActiveMission: refreshed.activeMission,
+    warnings: refreshed.warnings,
+  };
+}
+
 async function runMissionControl(
   params: VacuumParams,
   config: VacuumRuntimeConfig,
@@ -1062,6 +1118,28 @@ function requestedAreaSummary(area: CleanAreaRectangle) {
   };
 }
 
+function targetSummary(target: VacuumMapTarget) {
+  return {
+    id: target.id,
+    label: target.label,
+    kind: target.kind,
+    source: target.source,
+    available: target.available,
+    callable: target.callable,
+    readiness: target.readiness,
+    sourceMetadata: target.sourceMetadata,
+    geometry: targetGeometrySummary(target),
+  };
+}
+
+function targetGeometrySummary(target: VacuumMapTarget) {
+  const geometry = target.geometry;
+  if (!geometry) return undefined;
+  if (geometry.type === "rectangle") return { type: "rectangle", bounds: geometry.bounds };
+  if (geometry.type === "polygon") return { type: "polygon", pointCount: geometry.points.length };
+  return { type: geometry.type };
+}
+
 function executionReadiness<T extends { ready: boolean; blockers: string[]; note?: string; canDispatchCommand: boolean }>(preflight: T) {
   return {
     ...preflight,
@@ -1081,6 +1159,16 @@ function missionControlCommandForAction(action: MissionControlAction): MissionCo
     "skip-mission-step": "skip_mission_step",
   };
   return mapping[action];
+}
+
+function targetStartRefusalStatus(targetStatus: string, preflightStatus: string): string {
+  if (targetStatus === "missing_target") return "not_found";
+  if (targetStatus === "ambiguous_target") return "ambiguous_target";
+  if (targetStatus === "invalid_target_geometry") return "invalid_target";
+  if (targetStatus === "stale_or_unavailable_map_source" || preflightStatus === "unavailable") return "unavailable";
+  if (targetStatus === "unsupported_backend" || preflightStatus === "unsupported") return "unsupported";
+  if (targetStatus === "target_not_callable") return "unavailable";
+  return preflightStatus === "ready" ? "blocked" : preflightStatus;
 }
 
 function missionControlGate(snapshot: VacuumAdapterSnapshot, command: MissionControlCommand) {
@@ -1134,6 +1222,32 @@ function isMovementStartAction(action: string): action is MovementStartAction {
   return (MOVEMENT_START_ACTIONS as readonly string[]).includes(action);
 }
 
+function targetStartAction(action: string): action is "start-room-cleaning" | "start-zone-cleaning" {
+  return action === "start-room-cleaning" || action === "start-zone-cleaning";
+}
+
+function movementCapabilityForAction(action: MovementStartAction): "start_navigation" | "start_coverage" | "room_cleaning" | "zone_cleaning" {
+  if (action === "start-navigation") return "start_navigation";
+  if (action === "start-clean-area") return "start_coverage";
+  if (action === "start-room-cleaning") return "room_cleaning";
+  return "zone_cleaning";
+}
+
+function targetActionDiscoveryBlockers(snapshot: VacuumAdapterSnapshot, action: "start-room-cleaning" | "start-zone-cleaning"): string[] {
+  const kind = action === "start-room-cleaning" ? "room" : "zone";
+  const capabilityName = kind === "room" ? "room_cleaning" : "zone_cleaning";
+  const semanticCapabilityName = kind === "room" ? "room_semantics" : "zone_semantics";
+  const capability = snapshot.capabilities[capabilityName];
+  const semantics = snapshot.capabilities[semanticCapabilityName];
+  const targets = kind === "room" ? roomTargets(snapshot, false) : zoneTargets(snapshot, false);
+  const blockers: string[] = [];
+  if (!capability.supported) blockers.push(`${capabilityName} is not supported by the selected backend capabilities.`);
+  if (capability.available === false) blockers.push(productDetail(capability.availabilityReason) ?? `${capabilityName} is currently unavailable.`);
+  if (!semantics.supported) blockers.push(`${semanticCapabilityName} is not supported by the selected backend capabilities.`);
+  if (targets.length === 0) blockers.push(`No known ${kind} targets are available in the normalized target inventory.`);
+  return blockers;
+}
+
 function isMissionControlAction(action: string): action is MissionControlAction {
   return (MISSION_CONTROL_ACTIONS as readonly string[]).includes(action);
 }
@@ -1149,10 +1263,10 @@ function validateVacuumRequest(params: VacuumParams): ValidationResult {
   if (params.action === "check-clean-area-readiness" || params.action === "start-clean-area") {
     return validateCleanArea((params as { area?: unknown }).area);
   }
-  if (params.action === "check-room-cleaning-readiness") {
+  if (params.action === "check-room-cleaning-readiness" || params.action === "start-room-cleaning") {
     return validateNamedTarget((params as { room?: unknown }).room, "room");
   }
-  if (params.action === "check-zone-cleaning-readiness") {
+  if (params.action === "check-zone-cleaning-readiness" || params.action === "start-zone-cleaning") {
     return validateNamedTarget((params as { zone?: unknown }).zone, "zone");
   }
   return { ok: true };
@@ -1205,7 +1319,7 @@ function validateNamedTarget(target: unknown, kind: "room" | "zone"): Validation
       "needs_input",
       [kind],
       [],
-      `check-${kind}-cleaning-readiness requires a ${kind} target with id or name.`,
+      `${kind} cleaning requires a ${kind} target with id or name.`,
     );
   }
   const hasId = typeof target.id === "string" && target.id.trim() !== "";
@@ -1384,7 +1498,7 @@ function capabilitySummary(capabilities: VacuumCapabilities) {
     deferredActions: DEFERRED_COMMANDS.map((command) => ({
       command,
       callable: false,
-      reason: "Deferred; this rollout exposes only simulation navigation, rectangular Clean Area, and active mission-control writes.",
+      reason: "Deferred; this rollout exposes simulation navigation, rectangular Clean Area, room/zone target starts, and active mission-control writes.",
     })),
   };
 }
@@ -1577,7 +1691,7 @@ function targetCleaningReadiness(
       targetCheck,
     },
     canDispatchCommand: false,
-    note: `Read-only ${kind} cleaning preflight only; start-${kind}-cleaning is deferred and no command was dispatched.`,
+    note: `Read-only ${kind} cleaning preflight only; no command was dispatched.`,
   };
 }
 
@@ -1765,8 +1879,8 @@ function requiredInputsForAction(action: string) {
   if (action === "check-clean-area-readiness" || action === "start-clean-area") {
     return ["area.type=rectangle", "area.x", "area.y", "area.width", "area.height"];
   }
-  if (action === "check-room-cleaning-readiness") return ["room.id or room.name"];
-  if (action === "check-zone-cleaning-readiness") return ["zone.id or zone.name"];
+  if (action === "check-room-cleaning-readiness" || action === "start-room-cleaning") return ["room.id or room.name"];
+  if (action === "check-zone-cleaning-readiness" || action === "start-zone-cleaning") return ["zone.id or zone.name"];
   return [];
 }
 

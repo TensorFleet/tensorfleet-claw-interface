@@ -91,15 +91,17 @@ Read before write:
 - Use `get-pose` for compact pose/localization state. If pose is unavailable, explain the normalized missing reason.
 - Use `check-navigation-readiness` with `target: { "x": number, "y": number, "theta": number }` to check whether navigation appears ready without side effects.
 - Use `check-clean-area-readiness` with `area: { "type": "rectangle", "x": number, "y": number, "width": positive number, "height": positive number }` to check whether Clean Area appears ready without side effects.
-- Use `check-room-cleaning-readiness` with `room: { "id"?: string, "name"?: string }` and `check-zone-cleaning-readiness` with `zone: { "id"?: string, "name"?: string }` only as read-only preflight. If a room or zone is missing, stale, unsupported, ambiguous, or not callable, report that blocker and ask for a specific target when needed.
+- Use `check-room-cleaning-readiness` with `room: { "id"?: string, "name"?: string }` and `check-zone-cleaning-readiness` with `zone: { "id"?: string, "name"?: string }` as read-only preflight. If a room or zone is missing, stale, unsupported, ambiguous, or not callable, report that blocker and ask for a specific target when needed.
 - If a readiness input is missing or malformed, report the missing/invalid fields and ask for them. Do not invent coordinates, headings, dimensions, labels, or frame ids.
 
 Command rules:
-- Simulation-only writes currently exposed are `start-navigation`, `start-clean-area`, `pause-mission`, `resume-mission`, `cancel-mission`, `retry-mission-step`, and `skip-mission-step`.
+- Simulation-only writes currently exposed are `start-navigation`, `start-clean-area`, `start-room-cleaning`, `start-zone-cleaning`, `pause-mission`, `resume-mission`, `cancel-mission`, `retry-mission-step`, and `skip-mission-step`.
 - For `start-navigation`, pass `backend: "simulation"` and `target: { "x": number, "y": number, "theta": number, "frameId"?: string, "label"?: string }`. The tool internally reuses the navigation readiness gate and dispatches only if ready.
 - For `start-clean-area`, pass `backend: "simulation"` and `area: { "type": "rectangle", "x": number, "y": number, "width": positive number, "height": positive number, "frameId"?: string, "label"?: string }`. The tool internally reuses the Clean Area readiness gate and dispatches only if ready.
+- For `start-room-cleaning`, pass `backend: "simulation"` and `room: { "id"?: string, "name"?: string }`. The tool internally reuses the shared room target readiness gate and dispatches the normalized `start_room_cleaning` command only if ready.
+- For `start-zone-cleaning`, pass `backend: "simulation"` and `zone: { "id"?: string, "name"?: string }`. The tool internally reuses the shared zone target readiness gate and dispatches the normalized `start_zone_cleaning` command only if ready.
 - Mission-control writes require an active mission whose `activeMission.availableActions` includes the matching normalized action. If unavailable, report the blocker and do not try another tool.
-- `start-room-cleaning`, `start-zone-cleaning`, and map annotation mutation are deferred. Do not attempt them through `send-command`, raw backend tools, MCP, shell, HTTP, or map edit endpoints.
+- Map annotation mutation is deferred. Do not attempt it through `send-command`, raw backend tools, MCP, shell, HTTP, or map edit endpoints.
 - Real-vacuum writes, room/zone starts, map edits, arbitrary waypoints, raw Nav2/ROS/Foxglove/Valetudo/private endpoints, arbitrary HTTP, shell, filesystem, and MCP vacuum tools are not allowed as fallbacks for product-level vacuum control.
 - `send-command` remains in the schema only for compatibility and is not a callable control path in this rollout.
 

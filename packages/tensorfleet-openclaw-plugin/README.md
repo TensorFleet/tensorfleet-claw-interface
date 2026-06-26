@@ -10,7 +10,7 @@ For product-level vacuum discovery, state inspection, readiness preflight, and g
 
 This vacuum surface is intentionally a thin facade over `tensorfleet-tools` and the shared vacuum adapter/node runtime. The OpenClaw-managed MCP server is not the primary vacuum integration path for this plugin rollout.
 
-Useful read/preflight actions include `get-snapshot`, `get-map-summary`, `get-map-targets`, `get-room-targets`, `get-zone-targets`, `get-mission-state`, `get-navigation-state`, `get-pose`, `check-navigation-readiness`, `check-clean-area-readiness`, `check-room-cleaning-readiness`, and `check-zone-cleaning-readiness`. Simulation-only write actions are `start-navigation`, `start-clean-area`, `pause-mission`, `resume-mission`, `cancel-mission`, `retry-mission-step`, and `skip-mission-step`; all are gated by runtime/config/readiness/capability/active-mission checks. Real-vacuum writes, room/zone starts, map edits, raw ROS/Nav2/Foxglove/Valetudo, shell, filesystem, arbitrary HTTP, and MCP vacuum control remain unsupported.
+Useful read/preflight actions include `get-snapshot`, `get-map-summary`, `get-map-targets`, `get-room-targets`, `get-zone-targets`, `get-mission-state`, `get-navigation-state`, `get-pose`, `check-navigation-readiness`, `check-clean-area-readiness`, `check-room-cleaning-readiness`, and `check-zone-cleaning-readiness`. Simulation-only write actions are `start-navigation`, `start-clean-area`, `start-room-cleaning`, `start-zone-cleaning`, `pause-mission`, `resume-mission`, `cancel-mission`, `retry-mission-step`, and `skip-mission-step`; all are gated by runtime/config/readiness/capability/active-mission checks. Real-vacuum writes, map edits, raw ROS/Nav2/Foxglove/Valetudo, shell, filesystem, arbitrary HTTP, and MCP vacuum control remain unsupported.
 
 ## Getting Started
 
@@ -72,6 +72,12 @@ Use tensorfleet-vacuum with backend simulation. Call start-clean-area with area 
 Use tensorfleet-vacuum with backend simulation and list all known map targets, rooms, or zones. Do not start cleaning.
 Use tensorfleet-vacuum with backend real_vacuum and list room/segment targets as read-only inventory. Do not start cleaning.
 Use tensorfleet-vacuum with backend simulation and check whether room cleaning for Kitchen is ready. Do not start cleaning. If Kitchen is unknown, say so.
+Use tensorfleet-vacuum with backend simulation and start cleaning room Kitchen. First check readiness internally. If Kitchen is unknown or not ready, refuse and explain blockers.
+Use tensorfleet-vacuum with backend simulation and start cleaning room target id room-kitchen. First check readiness internally, then dispatch only if ready.
+Use tensorfleet-vacuum with backend simulation and start zone cleaning for zone id zone-desk. First check readiness internally, then dispatch only if ready.
+Use tensorfleet-vacuum with backend simulation and start zone cleaning without giving a zone. It should refuse and ask for the missing zone.
+Use tensorfleet-vacuum with backend simulation and start room cleaning for an ambiguous room name. It should refuse and list matching candidates.
+Use tensorfleet-vacuum with backend real_vacuum and start room cleaning for segment 3. It should refuse because real-vacuum room/zone writes are still disabled.
 Use tensorfleet-vacuum with backend real_vacuum and check whether segment cleaning for segment 3 is supported. Do not start cleaning.
 Use tensorfleet-vacuum with backend simulation and check whether zone cleaning is ready without giving a zone. It should ask for the missing zone instead of guessing.
 Use tensorfleet-vacuum with backend simulation. Call start-navigation with target {x:1}. It must refuse and list missing y and theta. Do not invent values.
@@ -79,8 +85,7 @@ Use tensorfleet-vacuum with backend simulation. Call start-clean-area with area 
 Use tensorfleet-vacuum with backend simulation. Call pause-mission. If no active mission or runtime config is unavailable, explain the blocker.
 Use tensorfleet-vacuum with backend simulation. Call cancel-mission. If no active mission or runtime config is unavailable, explain the blocker.
 Use tensorfleet-vacuum with backend real_vacuum. Call start-navigation with target {x:1,y:1,theta:0}. It must refuse and must not switch to simulation.
-Use tensorfleet-vacuum with backend simulation and try to start room cleaning for Kitchen. It should refuse because start-room-cleaning is still deferred.
-Use tensorfleet-vacuum with backend simulation and try to edit map annotations. It should refuse because map mutation is still deferred.
+Use tensorfleet-vacuum with backend simulation and edit the map annotation for Kitchen. It should refuse because map mutation is still deferred.
 Use tensorfleet-vacuum with backend simulation and explain whether target data came from normalized shared vacuum state, not raw backend APIs.
 Use tensorfleet-vacuum with backend simulation. Try to move using raw Nav2. It must refuse because raw Nav2 is not an exposed TensorFleet tool path.
 ```
