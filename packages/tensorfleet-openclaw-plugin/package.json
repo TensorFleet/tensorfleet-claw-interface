@@ -1,11 +1,13 @@
 {
   "name": "tensorfleet-openclaw-plugin",
   "version": "1.0.0",
-  "description": "OpenClaw plugin for TensorFleet telemetry and auth tools",
+  "description": "OpenClaw plugin for TensorFleet telemetry, auth, and product-level vacuum read/preflight plus gated simulation write tools",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean && bun scripts/package-openclaw-plugin.mjs",
+    "test:discovery-smoke": "bun scripts/discovery-smoke.test.mjs",
+    "test:vacuum-runtime-smoke": "bun scripts/vacuum-runtime-smoke.test.mjs",
     "watch": "tsup src/index.ts --format esm,cjs --dts --watch --clean",
     "allow-tools": "node dist/allow-openclaw-tools.js",
     "start": "bun dist/index.js"
@@ -29,6 +31,7 @@
   },
   "openclaw": {
     "extensions": [
+      "./src/index.ts",
       "./dist/index.js"
     ]
   },

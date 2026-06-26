@@ -68,6 +68,43 @@ We have a couple of tools we can use to perform a read operation.
 When interfacing with drones first use our `tensorfleet-drone` tool unless you need lower level telemetry.
 For lower level telemetry a default drone will be available under the `/mavros/*` topic path if the virtual machine has spawned one. use `.*mavros.*` in your regex-filter (you can expand on that) to filter for this.
 
+### Vacuum interfacing
+When interfacing with product-level robot vacuum state, readiness, or the explicitly supported simulation writes, use `tensorfleet-vacuum` before raw ROS tools. This tool is shaped around the shared `tensorfleet-util/vacuum` boundary: callers choose a backend, then receive normalized vacuum state, capabilities, map summaries, map targets, mission state, navigation state, pose state, readiness preflight results, and gated simulation-only command results. The VS Code extension is not required for OpenClaw vacuum control.
+
+Always pass an explicit `backend`. Use `backend: "simulation"` for the TurtleBot4/Nav2 simulation backend that runs in the selected TensorFleet VM. Use `backend: "real_vacuum"` only when the user asks about the real-vacuum / Valetudo integration runtime path.
+
+First discovery step:
+- Call `tensorfleet-vacuum` with `action: "get-supported-actions"` and the explicit backend to learn which actions are read-only, write-capable but gated, deferred, unsupported, and currently unavailable.
+- Do not bypass `tensorfleet-vacuum` with OpenClaw-managed MCP, raw ROS/Nav2/Foxglove, raw Valetudo, shell, filesystem, arbitrary HTTP, or private endpoint tools for product-level vacuum answers.
+- Use the response's `canMoveVacuumNow` boolean to answer whether the agent can move/start the vacuum right now. The action can exist while `canMoveVacuumNow` is still `false` because runtime/config/readiness/snapshot blockers are current-state dependent.
+- If the response reports `invalid_state`, ask for or select a supported backend instead of guessing silently.
+- If the response reports `not_authenticated` or `unavailable`, follow the auth + VM selection workflow or ask for the missing direct runtime config. Do not invent URLs or tokens.
+
+For hosted TensorFleet VMs, follow the auth + VM selection workflow first, then call `tensorfleet-vacuum` with the default `routeMode` of `vm-manager`. For local or direct real-vacuum runtime debugging, use `routeMode: "direct"` with `runtimeUrl` only when the user has provided the runtime URL or the development context makes it explicit.
+
+Read before write:
+- Use `get-supported-actions` before `get-snapshot` or `get-capabilities` when the current backend/runtime readiness is not already known.
+- Use `get-snapshot` or `get-capabilities` for compact product-level state and normalized capability descriptors.
+- Use `get-map-summary`, `get-map-targets`, `get-room-targets`, and `get-zone-targets` for read-only map target inspection.
+- Use `get-mission-state` for a compact answer about whether the vacuum is actively cleaning, paused, returning, docked, or idle.
+- Use `get-navigation-state` for current destination, path summary, navigation progress, and blockers.
+- Use `get-pose` for compact pose/localization state. If pose is unavailable, explain the normalized missing reason.
+- Use `check-navigation-readiness` with `target: { "x": number, "y": number, "theta": number }` to check whether navigation appears ready without side effects.
+- Use `check-clean-area-readiness` with `area: { "type": "rectangle", "x": number, "y": number, "width": positive number, "height": positive number }` to check whether Clean Area appears ready without side effects.
+- Use `check-room-cleaning-readiness` with `room: { "id"?: string, "name"?: string }` and `check-zone-cleaning-readiness` with `zone: { "id"?: string, "name"?: string }` as read-only preflight. If a room or zone is missing, stale, unsupported, ambiguous, or not callable, report that blocker and ask for a specific target when needed.
+- If a readiness input is missing or malformed, report the missing/invalid fields and ask for them. Do not invent coordinates, headings, dimensions, labels, or frame ids.
+
+Command rules:
+- Simulation-only writes currently exposed are `start-navigation`, `start-clean-area`, `start-room-cleaning`, `start-zone-cleaning`, `pause-mission`, `resume-mission`, `cancel-mission`, `retry-mission-step`, and `skip-mission-step`.
+- For `start-navigation`, pass `backend: "simulation"` and `target: { "x": number, "y": number, "theta": number, "frameId"?: string, "label"?: string }`. The tool internally reuses the navigation readiness gate and dispatches only if ready.
+- For `start-clean-area`, pass `backend: "simulation"` and `area: { "type": "rectangle", "x": number, "y": number, "width": positive number, "height": positive number, "frameId"?: string, "label"?: string }`. The tool internally reuses the Clean Area readiness gate and dispatches only if ready.
+- For `start-room-cleaning`, pass `backend: "simulation"` and `room: { "id"?: string, "name"?: string }`. The tool internally reuses the shared room target readiness gate and dispatches the normalized `start_room_cleaning` command only if ready.
+- For `start-zone-cleaning`, pass `backend: "simulation"` and `zone: { "id"?: string, "name"?: string }`. The tool internally reuses the shared zone target readiness gate and dispatches the normalized `start_zone_cleaning` command only if ready.
+- Mission-control writes require an active mission whose `activeMission.availableActions` includes the matching normalized action. If unavailable, report the blocker and do not try another tool.
+- Map annotation mutation is deferred. Do not attempt it through `send-command`, raw backend tools, MCP, shell, HTTP, or map edit endpoints.
+- Real-vacuum writes, real-vacuum room/zone starts, map edits, arbitrary waypoints, raw Nav2/ROS/Foxglove/Valetudo/private endpoints, arbitrary HTTP, shell, filesystem, and MCP vacuum tools are not allowed as fallbacks for product-level vacuum control.
+- `send-command` remains in the schema only for compatibility and is not a callable control path in this rollout.
+
 ### Other robot type interfacing
 Do not do anything unless the user asks for low level telemetry. Its still in development.
 

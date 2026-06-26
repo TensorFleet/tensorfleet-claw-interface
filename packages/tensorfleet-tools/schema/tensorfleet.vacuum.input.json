@@ -1,0 +1,201 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "type": "string",
+      "enum": [
+        "get-health",
+        "get-snapshot",
+        "get-capabilities",
+        "get-map-summary",
+        "get-map-targets",
+        "get-room-targets",
+        "get-zone-targets",
+        "get-mission-state",
+        "get-navigation-state",
+        "get-pose",
+        "check-navigation-readiness",
+        "check-clean-area-readiness",
+        "check-room-cleaning-readiness",
+        "check-zone-cleaning-readiness",
+        "start-navigation",
+        "start-clean-area",
+        "start-room-cleaning",
+        "start-zone-cleaning",
+        "pause-mission",
+        "resume-mission",
+        "cancel-mission",
+        "retry-mission-step",
+        "skip-mission-step",
+        "get-supported-actions",
+        "send-command"
+      ],
+      "description": "Vacuum action to execute. get-supported-actions is a read-only discovery action that does not contact ROS or hardware. Read and readiness actions return product-level vacuum state, including read-only map/room/zone target inventory and room/zone preflight. start-navigation, start-clean-area, start-room-cleaning, start-zone-cleaning, and mission-control actions are simulation-only writes with strict runtime/readiness/capability/active-mission gates. send-command is retained for compatibility but is not a backdoor control path."
+    },
+    "backend": {
+      "type": "string",
+      "enum": ["simulation", "real_vacuum", "turtlebot4_nav2", "valetudo"],
+      "description": "Vacuum backend. Pass simulation for the TurtleBot4/Nav2 VM backend, or real_vacuum for the Valetudo-backed real-vacuum integration. turtlebot4_nav2 and valetudo are accepted compatibility aliases."
+    },
+    "token": {
+      "type": "string",
+      "description": "Optional TensorFleet JWT auth token. Defaults to the token stored by tensorfleet-auth login or TENSORFLEET_JWT config."
+    },
+    "vmManagerUrl": {
+      "type": "string",
+      "description": "Optional VM Manager API base URL override. Used with routeMode=vm-manager."
+    },
+    "runtimeUrl": {
+      "type": "string",
+      "description": "Optional direct real-vacuum runtime base URL override. Used with routeMode=direct."
+    },
+    "routeMode": {
+      "type": "string",
+      "enum": ["vm-manager", "direct"],
+      "description": "Use vm-manager to call the backend runtime through the VM Manager, or direct to call the runtime host."
+    },
+    "timeoutMs": {
+      "type": "number",
+      "minimum": 1,
+      "description": "Optional HTTP timeout in milliseconds. Defaults to 5000."
+    },
+    "includeDiagnostics": {
+      "type": "boolean",
+      "description": "Include normalized diagnostics in snapshot-style responses. Raw diagnostics remain omitted unless includeRawDiagnostics is also true."
+    },
+    "includeRawDiagnostics": {
+      "type": "boolean",
+      "description": "Include raw backend diagnostics. Use only for debugging; product-facing callers should leave this false."
+    },
+    "includePreview": {
+      "type": "boolean",
+      "description": "For map summary, include lightweight layered preview counts and optionally preview content."
+    },
+    "includeGeometry": {
+      "type": "boolean",
+      "description": "For map targets, include normalized target geometry. Defaults to false to keep responses compact."
+    },
+    "command": {
+      "type": "string",
+      "enum": [
+        "start_cleaning",
+        "pause",
+        "resume",
+        "stop",
+        "return_to_dock",
+        "set_fan_speed",
+        "set_water_usage"
+      ],
+      "description": "Compatibility command field for action=send-command. send-command is refused as a control backdoor; use explicit gated actions for supported simulation writes."
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Navigation target. Used with action=check-navigation-readiness for read-only preflight and action=start-navigation for gated simulation dispatch.",
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "Target x coordinate in the normalized map frame."
+        },
+        "y": {
+          "type": "number",
+          "description": "Target y coordinate in the normalized map frame."
+        },
+        "theta": {
+          "type": "number",
+          "description": "Target heading/yaw in radians."
+        },
+        "frameId": {
+          "type": "string",
+          "description": "Optional normalized frame id for the target."
+        },
+        "label": {
+          "type": "string",
+          "description": "Optional human label for the target."
+        }
+      }
+    },
+    "area": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Clean-area rectangle. Used with action=check-clean-area-readiness for read-only preflight and action=start-clean-area for gated simulation dispatch.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["rectangle"],
+          "description": "Area shape. Only rectangle is accepted in this rollout."
+        },
+        "x": {
+          "type": "number",
+          "description": "Rectangle origin x coordinate in the normalized map frame."
+        },
+        "y": {
+          "type": "number",
+          "description": "Rectangle origin y coordinate in the normalized map frame."
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Rectangle width in meters; must be positive."
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Rectangle height in meters; must be positive."
+        },
+        "frameId": {
+          "type": "string",
+          "description": "Optional normalized frame id for the area."
+        },
+        "label": {
+          "type": "string",
+          "description": "Optional human label for the area."
+        }
+      }
+    },
+    "room": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Room or segment selector for action=check-room-cleaning-readiness and gated simulation-only action=start-room-cleaning.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Normalized room/segment target id."
+        },
+        "name": {
+          "type": "string",
+          "description": "Human room name to match exactly against known normalized targets."
+        },
+        "label": {
+          "type": "string",
+          "description": "Compatibility alias for name."
+        }
+      }
+    },
+    "zone": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Zone selector for action=check-zone-cleaning-readiness and gated simulation-only action=start-zone-cleaning.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Normalized zone target id."
+        },
+        "name": {
+          "type": "string",
+          "description": "Human zone name to match exactly against known normalized targets."
+        },
+        "label": {
+          "type": "string",
+          "description": "Compatibility alias for name."
+        }
+      }
+    },
+    "value": {
+      "type": "string",
+      "description": "Required for command=set_fan_speed and command=set_water_usage. Must match a currently advertised option when options are present."
+    }
+  },
+  "required": ["action"]
+}
