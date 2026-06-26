@@ -1,4 +1,4 @@
-import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { defineToolPlugin } from "openclaw/plugin-sdk/tool-plugin";
 import { executeEntityRead, executeRosNodeRead, executeRosTopicRead, executeRosServiceRead, executeRosConnect, executeRosDiagnostics, executeAuthTool, executeVmTool, executeDroneTool, executeVacuumTool } from "tensorfleet-tools";
 
 // Import schema definitions from tensorfleet-tools
@@ -123,23 +123,19 @@ const TENSORFLEET_TOOLS: TensorFleetToolDefinition[] = [
 
 export const tensorfleetToolNames = TENSORFLEET_TOOLS.map((tool) => tool.name);
 
-function registerTensorFleetTool(api: any, definition: TensorFleetToolDefinition): void {
-  api.registerTool({
-    name: definition.name,
-    label: definition.label,
-    description: definition.description,
-    parameters: definition.parameters,
-    execute: (toolCallId: string, params: any) => runTensorFleetTool(definition.executor, toolCallId, params),
-  });
-}
-
-export default definePluginEntry({
+export default defineToolPlugin({
   id: "tensorfleet-openclaw-plugin",
   name: "tensorfleet-openclaw-plugin",
   description: "OpenClaw plugin for TensorFleet telemetry, auth, and product-level vacuum read/preflight plus gated simulation write tools",
-  register(api) {
-    for (const definition of TENSORFLEET_TOOLS) {
-      registerTensorFleetTool(api, definition);
-    }
-  },
+  tools: (tool: any) =>
+    TENSORFLEET_TOOLS.map((definition) =>
+      tool({
+        name: definition.name,
+        label: definition.label,
+        description: definition.description,
+        parameters: definition.parameters,
+        execute: (params: any, _config: unknown, context: { toolCallId: string }) =>
+          runTensorFleetTool(definition.executor, context.toolCallId, params),
+      })
+    ),
 });
