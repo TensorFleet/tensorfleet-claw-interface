@@ -21,6 +21,14 @@ const WRITE_ACTIONS = [
   "skip-mission-step",
 ];
 
+const TARGET_READ_ACTIONS = [
+  "get-map-targets",
+  "get-room-targets",
+  "get-zone-targets",
+  "check-room-cleaning-readiness",
+  "check-zone-cleaning-readiness",
+];
+
 async function main() {
   resetRuntimeConfig();
   const vacuumTool = registeredVacuumTool();
@@ -53,7 +61,7 @@ function registeredVacuumTool() {
 }
 
 async function testSchemaIncludesWriteActions() {
-  for (const action of WRITE_ACTIONS) {
+  for (const action of [...WRITE_ACTIONS, ...TARGET_READ_ACTIONS]) {
     assert.ok(vacuumSchema.properties.action.enum.includes(action), `schema must include ${action}`);
   }
 }

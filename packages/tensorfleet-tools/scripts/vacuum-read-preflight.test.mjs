@@ -16,10 +16,12 @@ async function main() {
   await testReadActionsWithMissingRuntime();
   await testNavigationReadinessInputValidation();
   await testCleanAreaReadinessInputValidation();
+  await testRoomZoneReadinessInputValidation();
   await testReadinessWithMissingRuntime();
   await withRuntimeFixture(async (runtime) => {
     await testCompactSnapshotProjection(runtime);
     await testMapPoseMissionNavigationReadActions(runtime);
+    await testRealVacuumTargetInventoryAndReadiness(runtime);
     await testRealVacuumReadinessUnsupported(runtime);
     await testSendCommandRefusesWithoutDispatch(runtime);
   });
@@ -90,6 +92,29 @@ async function testCleanAreaReadinessInputValidation() {
   });
   assert.equal(malformed.status, "invalid_request");
   assert.deepEqual(malformed.preflight.invalidFields, ["area.width", "area.height"]);
+}
+
+async function testRoomZoneReadinessInputValidation() {
+  resetRuntimeConfig();
+  const missingRoom = await callVacuum({ action: "check-room-cleaning-readiness", backend: "simulation" });
+  assert.equal(missingRoom.success, true);
+  assert.equal(missingRoom.status, "needs_input");
+  assert.deepEqual(missingRoom.preflight.missingFields, ["room"]);
+  assert.equal(missingRoom.preflight.canDispatchCommand, false);
+
+  resetRuntimeConfig();
+  const missingZone = await callVacuum({ action: "check-zone-cleaning-readiness", backend: "simulation" });
+  assert.equal(missingZone.status, "needs_input");
+  assert.deepEqual(missingZone.preflight.missingFields, ["zone"]);
+
+  resetRuntimeConfig();
+  const malformed = await callVacuum({
+    action: "check-room-cleaning-readiness",
+    backend: "simulation",
+    room: { id: 3 },
+  });
+  assert.equal(malformed.status, "invalid_request");
+  assert.deepEqual(malformed.preflight.invalidFields, ["room.id"]);
 }
 
 async function testReadinessWithMissingRuntime() {
@@ -180,6 +205,55 @@ async function testMapPoseMissionNavigationReadActions(runtime) {
   });
   assert.equal(navigation.navigation.active, false);
   assert.equal(navigation.navigation.pathSummary.available, false);
+}
+
+async function testRealVacuumTargetInventoryAndReadiness(runtime) {
+  resetRuntimeConfig();
+  const rooms = await callVacuum({
+    action: "get-room-targets",
+    backend: "real_vacuum",
+    routeMode: "direct",
+    runtimeUrl: runtime.url,
+  });
+  assert.equal(rooms.success, true);
+  assert.equal(rooms.targets.length, 1);
+  assert.equal(rooms.targets[0].label, "Kitchen");
+  assert.equal(rooms.targets[0].geometry, undefined);
+  assert.equal(rooms.note.includes("read-only"), true);
+
+  resetRuntimeConfig();
+  const zones = await callVacuum({
+    action: "get-zone-targets",
+    backend: "real_vacuum",
+    routeMode: "direct",
+    runtimeUrl: runtime.url,
+  });
+  assert.equal(zones.success, true);
+  assert.deepEqual(zones.targets, []);
+
+  resetRuntimeConfig();
+  const roomReadiness = await callVacuum({
+    action: "check-room-cleaning-readiness",
+    backend: "real_vacuum",
+    routeMode: "direct",
+    runtimeUrl: runtime.url,
+    room: { name: "Kitchen" },
+  });
+  assert.equal(roomReadiness.success, true);
+  assert.equal(roomReadiness.preflight.ready, false);
+  assert.equal(roomReadiness.preflight.canDispatchCommand, false);
+  assert.ok(roomReadiness.preflight.blockers.some((blocker) => blocker.includes("Real-vacuum room cleaning remains read-only")));
+
+  resetRuntimeConfig();
+  const unknownRoom = await callVacuum({
+    action: "check-room-cleaning-readiness",
+    backend: "real_vacuum",
+    routeMode: "direct",
+    runtimeUrl: runtime.url,
+    room: { name: "Pantry" },
+  });
+  assert.equal(unknownRoom.preflight.ready, false);
+  assert.ok(unknownRoom.preflight.blockers.some((blocker) => blocker.includes("No known room target")));
 }
 
 async function testRealVacuumReadinessUnsupported(runtime) {

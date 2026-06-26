@@ -85,12 +85,13 @@ For hosted TensorFleet VMs, follow the auth + VM selection workflow first, then 
 Read before write:
 - Use `get-supported-actions` before `get-snapshot` or `get-capabilities` when the current backend/runtime readiness is not already known.
 - Use `get-snapshot` or `get-capabilities` for compact product-level state and normalized capability descriptors.
-- Use `get-map-summary` and `get-map-targets` for map inspection. Targeted room, segment, or zone cleaning is intentionally not exposed by this tool yet.
+- Use `get-map-summary`, `get-map-targets`, `get-room-targets`, and `get-zone-targets` for read-only map target inspection.
 - Use `get-mission-state` for a compact answer about whether the vacuum is actively cleaning, paused, returning, docked, or idle.
 - Use `get-navigation-state` for current destination, path summary, navigation progress, and blockers.
 - Use `get-pose` for compact pose/localization state. If pose is unavailable, explain the normalized missing reason.
 - Use `check-navigation-readiness` with `target: { "x": number, "y": number, "theta": number }` to check whether navigation appears ready without side effects.
 - Use `check-clean-area-readiness` with `area: { "type": "rectangle", "x": number, "y": number, "width": positive number, "height": positive number }` to check whether Clean Area appears ready without side effects.
+- Use `check-room-cleaning-readiness` with `room: { "id"?: string, "name"?: string }` and `check-zone-cleaning-readiness` with `zone: { "id"?: string, "name"?: string }` only as read-only preflight. If a room or zone is missing, stale, unsupported, ambiguous, or not callable, report that blocker and ask for a specific target when needed.
 - If a readiness input is missing or malformed, report the missing/invalid fields and ask for them. Do not invent coordinates, headings, dimensions, labels, or frame ids.
 
 Command rules:
@@ -98,6 +99,7 @@ Command rules:
 - For `start-navigation`, pass `backend: "simulation"` and `target: { "x": number, "y": number, "theta": number, "frameId"?: string, "label"?: string }`. The tool internally reuses the navigation readiness gate and dispatches only if ready.
 - For `start-clean-area`, pass `backend: "simulation"` and `area: { "type": "rectangle", "x": number, "y": number, "width": positive number, "height": positive number, "frameId"?: string, "label"?: string }`. The tool internally reuses the Clean Area readiness gate and dispatches only if ready.
 - Mission-control writes require an active mission whose `activeMission.availableActions` includes the matching normalized action. If unavailable, report the blocker and do not try another tool.
+- `start-room-cleaning`, `start-zone-cleaning`, and map annotation mutation are deferred. Do not attempt them through `send-command`, raw backend tools, MCP, shell, HTTP, or map edit endpoints.
 - Real-vacuum writes, room/zone starts, map edits, arbitrary waypoints, raw Nav2/ROS/Foxglove/Valetudo/private endpoints, arbitrary HTTP, shell, filesystem, and MCP vacuum tools are not allowed as fallbacks for product-level vacuum control.
 - `send-command` remains in the schema only for compatibility and is not a callable control path in this rollout.
 

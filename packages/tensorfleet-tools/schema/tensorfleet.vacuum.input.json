@@ -10,11 +10,15 @@
         "get-capabilities",
         "get-map-summary",
         "get-map-targets",
+        "get-room-targets",
+        "get-zone-targets",
         "get-mission-state",
         "get-navigation-state",
         "get-pose",
         "check-navigation-readiness",
         "check-clean-area-readiness",
+        "check-room-cleaning-readiness",
+        "check-zone-cleaning-readiness",
         "start-navigation",
         "start-clean-area",
         "pause-mission",
@@ -25,7 +29,7 @@
         "get-supported-actions",
         "send-command"
       ],
-      "description": "Vacuum action to execute. get-supported-actions is a read-only discovery action that does not contact ROS or hardware. Read and readiness actions return product-level vacuum state. start-navigation, start-clean-area, and mission-control actions are simulation-only writes with strict runtime/readiness/capability/active-mission gates. send-command is retained for compatibility but is not a backdoor control path."
+      "description": "Vacuum action to execute. get-supported-actions is a read-only discovery action that does not contact ROS or hardware. Read and readiness actions return product-level vacuum state, including read-only map/room/zone target inventory and room/zone preflight. start-navigation, start-clean-area, and mission-control actions are simulation-only writes with strict runtime/readiness/capability/active-mission gates. Room/zone starts remain deferred. send-command is retained for compatibility but is not a backdoor control path."
     },
     "backend": {
       "type": "string",
@@ -145,6 +149,44 @@
         "label": {
           "type": "string",
           "description": "Optional human label for the area."
+        }
+      }
+    },
+    "room": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Room or segment selector for action=check-room-cleaning-readiness. This is read-only preflight; start-room-cleaning is deferred.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Normalized room/segment target id."
+        },
+        "name": {
+          "type": "string",
+          "description": "Human room name to match exactly against known normalized targets."
+        },
+        "label": {
+          "type": "string",
+          "description": "Compatibility alias for name."
+        }
+      }
+    },
+    "zone": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Zone selector for action=check-zone-cleaning-readiness. This is read-only preflight; start-zone-cleaning is deferred.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Normalized zone target id."
+        },
+        "name": {
+          "type": "string",
+          "description": "Human zone name to match exactly against known normalized targets."
+        },
+        "label": {
+          "type": "string",
+          "description": "Compatibility alias for name."
         }
       }
     },

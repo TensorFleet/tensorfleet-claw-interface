@@ -9,6 +9,8 @@ import {
   type VacuumCommandResult,
   type VacuumCommandName,
   type VacuumCapabilityName,
+  checkVacuumTargetReadiness,
+  type VacuumTargetSelector,
 } from "tensorfleet-util";
 import {
   createVacuumAdapter,
@@ -33,11 +35,15 @@ const READ_ONLY_ACTIONS = [
   "get-capabilities",
   "get-map-summary",
   "get-map-targets",
+  "get-room-targets",
+  "get-zone-targets",
   "get-mission-state",
   "get-navigation-state",
   "get-pose",
   "check-navigation-readiness",
   "check-clean-area-readiness",
+  "check-room-cleaning-readiness",
+  "check-zone-cleaning-readiness",
 ] as const;
 
 const MOVEMENT_START_ACTIONS = ["start-navigation", "start-clean-area"] as const;
@@ -63,7 +69,12 @@ const PUBLIC_COMMANDS = [
 const STATE_CHANGING_COMMANDS = ["set_fan_speed", "set_water_usage"] as const satisfies readonly VacuumCommandName[];
 const MISSION_CONTROL_COMMANDS = ["pause", "resume", "stop"] as const satisfies readonly VacuumCommandName[];
 const MOVEMENT_START_COMMANDS = ["start_cleaning", "return_to_dock"] as const satisfies readonly VacuumCommandName[];
-const READINESS_ACTIONS = ["check-navigation-readiness", "check-clean-area-readiness"] as const;
+const READINESS_ACTIONS = [
+  "check-navigation-readiness",
+  "check-clean-area-readiness",
+  "check-room-cleaning-readiness",
+  "check-zone-cleaning-readiness",
+] as const;
 const FORBIDDEN_RAW_TERMS = [
   "BasicControlCapability",
   "BatteryStateCapability",
@@ -180,6 +191,8 @@ type CleanAreaRectangle = {
   frameId?: string;
   label?: string;
 };
+
+type NamedTargetSelector = VacuumTargetSelector;
 
 export type VacuumParams = TensorfleetVacuum & {
   TENSORFLEET_JWT?: string;
@@ -325,6 +338,18 @@ async function runVacuumAction(
         targets: mapTargets(snapshot, params.includeGeometry === true),
         note: "Map targets are read-only in this tool; target cleaning commands are exposed only when the shared adapter supports them.",
       };
+    case "get-room-targets":
+      return {
+        ...base,
+        targets: roomTargets(snapshot, params.includeGeometry === true),
+        note: "Room/segment targets are read-only inventory; start-room-cleaning is deferred.",
+      };
+    case "get-zone-targets":
+      return {
+        ...base,
+        targets: zoneTargets(snapshot, params.includeGeometry === true),
+        note: "Zone targets are read-only inventory; start-zone-cleaning is deferred.",
+      };
     case "get-mission-state":
       return {
         ...base,
@@ -353,6 +378,16 @@ async function runVacuumAction(
       return {
         ...base,
         preflight: cleanAreaReadiness(params, config, snapshot),
+      };
+    case "check-room-cleaning-readiness":
+      return {
+        ...base,
+        preflight: targetCleaningReadiness(params, config, snapshot, "room"),
+      };
+    case "check-zone-cleaning-readiness":
+      return {
+        ...base,
+        preflight: targetCleaningReadiness(params, config, snapshot, "zone"),
       };
     case "start-navigation":
       return await startNavigation(params, config, snapshot, sendCommand, refreshSnapshot, base);
@@ -1114,6 +1149,12 @@ function validateVacuumRequest(params: VacuumParams): ValidationResult {
   if (params.action === "check-clean-area-readiness" || params.action === "start-clean-area") {
     return validateCleanArea((params as { area?: unknown }).area);
   }
+  if (params.action === "check-room-cleaning-readiness") {
+    return validateNamedTarget((params as { room?: unknown }).room, "room");
+  }
+  if (params.action === "check-zone-cleaning-readiness") {
+    return validateNamedTarget((params as { zone?: unknown }).zone, "zone");
+  }
   return { ok: true };
 }
 
@@ -1155,6 +1196,34 @@ function validateCleanArea(area: unknown): ValidationResult {
 
   return missingFields.length > 0 || invalidFields.length > 0
     ? invalidRequest(missingFields.length > 0 ? "needs_input" : "invalid_request", missingFields, invalidFields, "Clean-area readiness needs a rectangle with numeric x/y and positive width/height.")
+    : { ok: true };
+}
+
+function validateNamedTarget(target: unknown, kind: "room" | "zone"): ValidationResult {
+  if (!isRecord(target)) {
+    return invalidRequest(
+      "needs_input",
+      [kind],
+      [],
+      `check-${kind}-cleaning-readiness requires a ${kind} target with id or name.`,
+    );
+  }
+  const hasId = typeof target.id === "string" && target.id.trim() !== "";
+  const hasName = typeof target.name === "string" && target.name.trim() !== "";
+  const hasLabel = typeof target.label === "string" && target.label.trim() !== "";
+  const invalidFields = [
+    target.id !== undefined && typeof target.id !== "string" ? `${kind}.id` : null,
+    target.name !== undefined && typeof target.name !== "string" ? `${kind}.name` : null,
+    target.label !== undefined && typeof target.label !== "string" ? `${kind}.label` : null,
+  ].filter((field): field is string => field != null);
+
+  return !hasId && !hasName && !hasLabel || invalidFields.length > 0
+    ? invalidRequest(
+        invalidFields.length > 0 ? "invalid_request" : "needs_input",
+        !hasId && !hasName && !hasLabel ? [`${kind}.id|name`] : [],
+        invalidFields,
+        `${kind === "room" ? "Room" : "Zone"} readiness needs a ${kind} id or name.`,
+      )
     : { ok: true };
 }
 
@@ -1457,6 +1526,61 @@ function cleanAreaReadiness(params: VacuumParams, config: VacuumRuntimeConfig, s
   };
 }
 
+function targetCleaningReadiness(
+  params: VacuumParams,
+  config: VacuumRuntimeConfig,
+  snapshot: VacuumAdapterSnapshot,
+  kind: "room" | "zone",
+) {
+  const selector = (params as { room?: NamedTargetSelector; zone?: NamedTargetSelector })[kind];
+  const capabilityName = kind === "room" ? "room_cleaning" : "zone_cleaning";
+  const semanticCapabilityName = kind === "room" ? "room_semantics" : "zone_semantics";
+  const blockers = commonReadinessBlockers(snapshot);
+  const mission = activeMissionCompatibility(snapshot);
+  const capability = snapshot.capabilities[capabilityName];
+  const semantics = snapshot.capabilities[semanticCapabilityName];
+  const targetCheck = checkVacuumTargetReadiness(snapshot.map.targets, kind, selector, {
+    supported: semantics.supported === true || capability.supported === true,
+    source: snapshot.source,
+    requireGeometry: true,
+  });
+
+  blockers.push(...mission.blockers);
+  if (!capability.supported) {
+    blockers.push(`${capabilityName} is not supported by the selected backend capabilities.`);
+  }
+  if (capability.available === false) {
+    blockers.push(productDetail(capability.availabilityReason) ?? `${capabilityName} is currently unavailable.`);
+  }
+  if (!targetCheck.ready) {
+    blockers.push(...targetCheck.blockers.map(productDetail).filter((blocker): blocker is string => blocker != null));
+  }
+  if (config.backend === "valetudo") {
+    blockers.push(`Real-vacuum ${kind} cleaning remains read-only until normalized write support is enabled.`);
+  }
+
+  const callable = targetCheck.ready && blockers.length === 0;
+  return {
+    ready: callable,
+    status: callable ? "ready" : targetReadinessStatus(snapshot, capabilityName, targetCheck.status, blockers),
+    [kind]: selector,
+    target: targetCheck.target,
+    matches: targetCheck.ready ? undefined : targetCheck.matches,
+    blockers: uniqueStrings(blockers),
+    evidence: {
+      backend: backendResponse(config.backend),
+      runtime: runtimeHealthSummary(snapshot),
+      map: mapTargetInventorySummary(snapshot),
+      mission,
+      semantics: capabilityDescriptor(semanticCapabilityName, semantics),
+      capability: capabilityDescriptor(capabilityName, capability),
+      targetCheck,
+    },
+    canDispatchCommand: false,
+    note: `Read-only ${kind} cleaning preflight only; start-${kind}-cleaning is deferred and no command was dispatched.`,
+  };
+}
+
 function commonReadinessBlockers(snapshot: VacuumAdapterSnapshot): string[] {
   return [
     ...(snapshot.availability.connected ? [] : [snapshot.availability.detail ?? "Runtime/source is not connected."]),
@@ -1487,6 +1611,23 @@ function readinessStatus(
   if (!snapshot.availability.connected || snapshot.source?.status === "unreachable" || snapshot.source?.status === "stale") {
     return "unavailable";
   }
+  if (blockers.length > 0) return "blocked";
+  return "ready";
+}
+
+function targetReadinessStatus(
+  snapshot: VacuumAdapterSnapshot,
+  capabilityName: "room_cleaning" | "zone_cleaning",
+  targetStatus: string,
+  blockers: string[],
+) {
+  const capability = snapshot.capabilities[capabilityName];
+  if (!capability.supported || targetStatus === "unsupported_backend") return "unsupported";
+  if (!snapshot.availability.connected || snapshot.source?.status === "unreachable" || snapshot.source?.status === "stale") {
+    return "unavailable";
+  }
+  if (targetStatus === "missing_target") return "needs_input";
+  if (targetStatus === "invalid_target_geometry" || targetStatus === "ambiguous_target") return "invalid_request";
   if (blockers.length > 0) return "blocked";
   return "ready";
 }
@@ -1559,9 +1700,21 @@ function annotationCounts(snapshot: VacuumAdapterSnapshot) {
 }
 
 function targetCounts(snapshot: VacuumAdapterSnapshot) {
+  const roomTargets = (snapshot.map.targets?.segments ?? []).filter((target) => target.kind === "room" || target.kind === "segment");
   return {
     segments: snapshot.map.targets?.segments?.length ?? 0,
+    rooms: roomTargets.length,
     zones: snapshot.map.targets?.zones?.length ?? 0,
+  };
+}
+
+function mapTargetInventorySummary(snapshot: VacuumAdapterSnapshot) {
+  return {
+    identity: mapIdentity(snapshot),
+    readiness: snapshot.map.readiness,
+    source: snapshot.source,
+    targetCounts: targetCounts(snapshot),
+    annotations: annotationCounts(snapshot),
   };
 }
 
@@ -1612,6 +1765,8 @@ function requiredInputsForAction(action: string) {
   if (action === "check-clean-area-readiness" || action === "start-clean-area") {
     return ["area.type=rectangle", "area.x", "area.y", "area.width", "area.height"];
   }
+  if (action === "check-room-cleaning-readiness") return ["room.id or room.name"];
+  if (action === "check-zone-cleaning-readiness") return ["zone.id or zone.name"];
   return [];
 }
 
@@ -1677,6 +1832,16 @@ function mapTargets(snapshot: VacuumAdapterSnapshot, includeGeometry: boolean) {
     segments: snapshot.map.targets?.segments?.map(({ geometry: _geometry, ...target }) => target),
     zones: snapshot.map.targets?.zones?.map(({ geometry: _geometry, ...target }) => target),
   };
+}
+
+function roomTargets(snapshot: VacuumAdapterSnapshot, includeGeometry: boolean) {
+  const targets = (snapshot.map.targets?.segments ?? []).filter((target) => target.kind === "room" || target.kind === "segment");
+  return includeGeometry ? targets : targets.map(({ geometry: _geometry, ...target }) => target);
+}
+
+function zoneTargets(snapshot: VacuumAdapterSnapshot, includeGeometry: boolean) {
+  const targets = snapshot.map.targets?.zones ?? [];
+  return includeGeometry ? targets : targets.map(({ geometry: _geometry, ...target }) => target);
 }
 
 function backendResponse(backend: VacuumRuntimeConfig["backend"]) {

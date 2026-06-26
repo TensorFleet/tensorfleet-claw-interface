@@ -1,42 +1,39 @@
-# Progress Report - Vacuum shared-core boundary closeout
+# Progress Report - Vacuum room zone target read preflight
 Current report date: 2026-06-26.
 
 ## 1. What changed
 
-- Finalized the architecture boundary in docs: `tensorfleet-util/vacuum` is the shared vacuum control foundation for tools, agents, and UI clients; `vscode-tensorfleet` is one UI client; `tensorfleet-vacuum` is the OpenClaw plugin tool facade over `tensorfleet-tools` and `tensorfleet-util`.
-- Added `packages/tensorfleet-tools/scripts/vacuum-boundary.test.mjs` and `test:vacuum-boundary` to guard that `tensorfleet-tools` and `tensorfleet-openclaw-plugin` do not import extension-local vacuum adapter code, React hook entrypoints, or `vscode-tensorfleet`.
-- Updated `docs/vacuum-tool-implementation.md` with the shared-core boundary and marked older pre-6C analysis as superseded.
-- Verified Step 6C remains complete: extension pure modules are shared re-export shims, while extension-local hooks/runtime clients remain local.
+- Added shared target semantics in `tensorfleet-util/vacuum`: normalized room/segment/zone target types, source metadata, readiness statuses, geometry validation, annotation-to-target mapping, runtime target mapping, and read-only target readiness helpers.
+- Valetudo runtime target normalization now delegates to the shared target mapper, and simulation snapshots now derive room/zone targets from normalized map annotations.
+- Added OpenClaw read-only actions: `get-room-targets`, `get-zone-targets`, `check-room-cleaning-readiness`, and `check-zone-cleaning-readiness`; existing `get-map-targets` now sits beside the room/zone inventory actions.
+- Updated the vacuum schema, generated schema types, OpenClaw plugin discovery smoke, runtime smoke schema checks, plugin description, README prompts, and skill guidance.
 
 ## 2. Product behavior
 
-- Product behavior is unchanged; this pass added boundary guardrails and documentation only.
-- OpenClaw/tools do not depend on extension-local adapter code. `tensorfleet-vacuum` continues through `tensorfleet-tools` and `tensorfleet-util/vacuum/node-runtime`.
-- The VS Code extension adapter was not removed. It is thinner through shared shims, while `useVacuumAdapter.ts`, TurtleBot4/Nav2 hooks, Valetudo hooks/runtime client, local annotation migration, TurtleBot4 state mapper, and TurtleBot4 command dispatcher remain extension-local.
-- Extension panel and extension host source do not import `tensorfleet-util/vacuum/node-runtime`.
+- Agents can list normalized map targets, room/segment targets, and zone targets without starting cleaning.
+- Agents can preflight a requested room or zone by id/name and receive structured blockers for missing, ambiguous, stale/unavailable, unsupported, invalid-geometry, or not-callable targets.
+- Room/zone preflight is read-only and always reports `canDispatchCommand: false`; `start-room-cleaning`, `start-zone-cleaning`, and map annotation mutation remain deferred.
+- Real-vacuum behavior remains conservative: target inventory is readable, but real-vacuum room/zone writes are blocked until normalized write support is explicitly enabled.
+- Simulation target inventory comes from shared annotation semantics, not raw backend APIs.
 
 ## 3. Still deferred
 
-- No new vacuum actions, room/zone tools, real-vacuum writes, MCP changes, or OpenClaw config changes were added.
-- No React hooks, browser runtime clients, polling, localStorage behavior, VS Code SecretStorage/auth behavior, or rendering/presentation code was moved.
-- No local adapter entrypoints were deleted.
-- No live robot/runtime validation was performed or claimed.
-- Future product-level vacuum behavior should start in `tensorfleet-util/vacuum`; OpenClaw-specific response shape or tool policy belongs in `tensorfleet-tools`; UI lifecycle/presentation stays in `vscode-tensorfleet`.
+- `start-room-cleaning` and `start-zone-cleaning`.
+- Map annotation mutation/editing through OpenClaw.
+- Real-vacuum write/control behavior for room/zone targets.
+- Arbitrary waypoint tools and raw ROS/Nav2/Foxglove/Valetudo tool paths.
+- MCP vacuum tools as a primary integration path.
+- Live robot validation was not performed or claimed.
 
 ## 4. Validation
 
-- `bun run --cwd /home/shane/vscode-tensorfleet/panels-standalone prepare:tensorfleet-util` - passed.
-- `bun run --cwd /home/shane/vscode-tensorfleet test:vacuum-shared-parity` - passed with all shared parity checks and no known drift.
-- `bun run --cwd /home/shane/vscode-tensorfleet test:vacuum-shared-boundary` - passed.
-- `bun run --cwd /home/shane/vscode-tensorfleet/panels-standalone build` - passed; Vite still emitted existing browser-externalization, eval, and chunk-size warnings.
-- `bun run --cwd /home/shane/vscode-tensorfleet compile` - passed; Vite still emitted the same panel warnings and the existing CJS Node API deprecation warning during extension build.
-- `bun run --cwd /home/shane/vscode-tensorfleet build:extension` - passed; Vite still emitted the existing CJS Node API deprecation warning.
-- `git -C /home/shane/vscode-tensorfleet diff --check` - passed.
+- `bun run --filter tensorfleet-tools build` - passed; the script still prints existing `tensorfleet-ros` TypeScript errors under its `|| true` build leg before completing `tensorfleet-tools`.
 - `bun run --filter tensorfleet-tools test:vacuum-discovery` - passed.
 - `bun run --filter tensorfleet-tools test:vacuum-read-preflight` - passed.
 - `bun run --filter tensorfleet-tools test:vacuum-write-actions` - passed.
 - `bun run --filter tensorfleet-tools test:vacuum-boundary` - passed.
-- `bun run --filter tensorfleet-openclaw-plugin test:discovery-smoke` - passed.
+- `bun run --filter tensorfleet-openclaw-plugin test:discovery-smoke` - passed after rebuilding the plugin bundle.
 - `bun run --filter tensorfleet-openclaw-plugin build` - passed; tsup still emitted existing direct-`eval` bundler warnings from `tensorfleet-tools/dist/index.mjs`.
 - `bunx tsc -p packages/tensorfleet-openclaw-plugin/tsconfig.json --noEmit` - passed.
 - `git -C /home/shane/tensorfleet-claw-interface diff --check` - passed.
+- Practical prompts covered by regression/docs: list map/room/zone targets, list real-vacuum room inventory, check Kitchen room readiness, check real-vacuum segment support, missing zone readiness, room-cleaning start refusal, map-edit refusal, and normalized shared-state provenance.

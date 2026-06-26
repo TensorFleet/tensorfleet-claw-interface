@@ -40,10 +40,15 @@ async function main() {
 
   for (const action of [
     "get-supported-actions",
+    "get-map-targets",
+    "get-room-targets",
+    "get-zone-targets",
     "get-navigation-state",
     "get-pose",
     "check-navigation-readiness",
     "check-clean-area-readiness",
+    "check-room-cleaning-readiness",
+    "check-zone-cleaning-readiness",
     "start-navigation",
     "start-clean-area",
     "pause-mission",
@@ -81,6 +86,10 @@ async function main() {
   assert.ok(response.actions.readOnlyActions.some((entry) => entry.action === "get-pose"));
   assert.ok(response.actions.readOnlyActions.some((entry) => entry.action === "check-navigation-readiness"));
   assert.ok(response.actions.readOnlyActions.some((entry) => entry.action === "check-clean-area-readiness"));
+  assert.ok(response.actions.readOnlyActions.some((entry) => entry.action === "get-room-targets"));
+  assert.ok(response.actions.readOnlyActions.some((entry) => entry.action === "get-zone-targets"));
+  assert.ok(response.actions.readOnlyActions.some((entry) => entry.action === "check-room-cleaning-readiness"));
+  assert.ok(response.actions.readOnlyActions.some((entry) => entry.action === "check-zone-cleaning-readiness"));
   assert.ok(response.actions.missionControlCallableTools.some((entry) => entry.action === "pause-mission"));
   assert.ok(response.actions.movementStartCallableTools.some((entry) => entry.action === "start-navigation"));
   assert.equal(response.canMoveVacuumNow, false);
