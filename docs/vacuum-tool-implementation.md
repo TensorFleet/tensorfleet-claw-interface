@@ -366,3 +366,211 @@ Use this order when repeating or extending the pattern:
 ## Extension Guidance
 
 Keep future additions inside the shared adapter first. The tool should stay small: validate public inputs, resolve config, call the adapter, and shape compact responses for agents. If a new backend field is useful to agents, normalize it into `VacuumAdapterSnapshot` or `VacuumCommandResult` before exposing it through the tool.
+
+
+current state :
+```
+
+• 1. Executive Summary
+  tensorfleet-vacuum is not a standalone package. It is an OpenClaw tool registered by tensorfleet-openclaw-plugin and implemented in tensorfleet-tools.
+
+  Current OpenClaw path is:
+
+  OpenClaw plugin
+    -> tensorfleet-tools
+       -> tensorfleet-auth
+       -> tensorfleet-ros
+       -> tensorfleet-util
+          -> vacuum/node-runtime
+             -> turtlebot4_nav2 simulation via ROS
+             -> valetudo via HTTP runtime
+
+  The VS Code extension is not on the same vacuum implementation yet. It still uses its own local React-facing adapter at /home/shane/vscode-tensorfleet/panels-standalone/src/vacuum-adapter. The shared tensorfleet-util/src/vacuum implementation appears derived from that UI adapter, but the extension has not been refactored to consume it.
+
+  2. Repository Relationship Diagram
+  OpenClaw/tool repo:
+
+  /home/shane/tensorfleet-claw-interface
+    -> packages/tensorfleet-openclaw-plugin
+       -> imports tensorfleet-tools
+          -> imports tensorfleet-auth
+          -> imports tensorfleet-ros
+          -> imports tensorfleet-util
+             -> drone controller/state
+             -> vacuum adapter/node-runtime
+
+  VS Code extension repo:
+
+  /home/shane/vscode-tensorfleet
+    -> extension host src/*
+       -> tensorfleet-auth only
+       -> VS Code SecretStorage / regions / webview injection
+    -> panels-standalone
+       -> tensorfleet-ros
+       -> tensorfleet-util for drone/ROS/entity helpers
+       -> local src/vacuum-adapter for vacuum UI
+
+  3. Drone Tool Implementation Pattern
+  Drone follows the established tool pattern:
+
+  - Schema: packages/tensorfleet-tools/schema/tensorfleet.drone.input.json
+  - Tool: packages/tensorfleet-tools/src/tools/drone.ts:1
+  - Executor: packages/tensorfleet-tools/src/tools/drone-executor.ts:1
+  - Export: packages/tensorfleet-tools/src/index.ts:9
+  - Plugin registration: packages/tensorfleet-openclaw-plugin/src/index.ts:108
+  - Runtime: DroneStateModel + DroneController from tensorfleet-util, ros2Bridge from tensorfleet-ros, withRosConnection.
+
+  Drone is ROS-only and relatively thin: hydrate config, open ROS, run controller, return JSON text.
+
+  4. Vacuum Tool Implementation Pattern
+  Vacuum follows the same public pattern:
+
+  - Schema: packages/tensorfleet-tools/schema/tensorfleet.vacuum.input.json
+  - Tool: packages/tensorfleet-tools/src/tools/vacuum.ts:1
+  - Executor: packages/tensorfleet-tools/src/tools/vacuum-executor.ts:1
+  - Export: packages/tensorfleet-tools/src/index.ts:10
+  - Plugin registration: packages/tensorfleet-openclaw-plugin/src/index.ts:115
+  - Runtime: createVacuumAdapter, normalizeVacuumBackend, readVacuumRuntimeHealth from tensorfleet-util/vacuum/node-runtime.
+
+  Vacuum intentionally diverges internally: it has backend selection, discovery, preflight, read shaping, real-vacuum refusal/gating, and simulation-only writes.
+
+  5. Drone Vs Vacuum Table
+
+   Layer                  Drone                            Vacuum                                                          Same?              Notes
+  ━━━━━━━━━━━━━━━━━━━━━  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  ━━━━━━━━━━━━━━━━━  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Schema                 tensorfleet.drone.input.json     tensorfleet.vacuum.input.json                                   Yes                Vacuum schema is much broader.
+  ─────────────────────  ───────────────────────────────  ──────────────────────────────────────────────────────────────  ─────────────────  ───────────────────────────────────────────────────────────────
+   Executor               Thin wrapper                     Thin wrapper                                                    Yes                Both just call tool function.
+  ─────────────────────  ───────────────────────────────  ──────────────────────────────────────────────────────────────  ─────────────────  ───────────────────────────────────────────────────────────────
+   Tool file              drone.ts                         vacuum.ts                                                       Partly             Vacuum owns product gating/read shaping.
+  ─────────────────────  ───────────────────────────────  ──────────────────────────────────────────────────────────────  ─────────────────  ───────────────────────────────────────────────────────────────
+   Package export         executeDroneTool, droneSchema    executeVacuumTool, vacuumSchema                                 Yes                packages/tensorfleet-tools/src/index.ts:1.
+  ─────────────────────  ───────────────────────────────  ──────────────────────────────────────────────────────────────  ─────────────────  ───────────────────────────────────────────────────────────────
+   Plugin registration    tensorfleet-drone                tensorfleet-vacuum                                              Yes                Same array in plugin source.
+  ─────────────────────  ───────────────────────────────  ──────────────────────────────────────────────────────────────  ─────────────────  ───────────────────────────────────────────────────────────────
+   Manifest               Listed contract                  Listed contract                                                 Yes                packages/tensorfleet-openclaw-plugin/openclaw.plugin.json:17.
+  ─────────────────────  ───────────────────────────────  ──────────────────────────────────────────────────────────────  ─────────────────  ───────────────────────────────────────────────────────────────
+   Skill guidance         Drone section                    Vacuum section                                                  Yes                Same skill doc.
+  ─────────────────────  ───────────────────────────────  ──────────────────────────────────────────────────────────────  ─────────────────  ───────────────────────────────────────────────────────────────
+   Config/auth            Params -> config-store           Params/env/config-store/global auth                             Similar            Vacuum has more explicit source reporting.
+  ─────────────────────  ───────────────────────────────  ──────────────────────────────────────────────────────────────  ─────────────────  ───────────────────────────────────────────────────────────────
+   Runtime connection     withRosConnection always         ROS for simulation; HTTP for Valetudo                           Diverges           Healthy due multiple backends.
+  ─────────────────────  ───────────────────────────────  ──────────────────────────────────────────────────────────────  ─────────────────  ───────────────────────────────────────────────────────────────
+   Shared utility         Drone model/controller           Vacuum adapter/node-runtime                                     Yes                Both depend on tensorfleet-util.
+  ─────────────────────  ───────────────────────────────  ──────────────────────────────────────────────────────────────  ─────────────────  ───────────────────────────────────────────────────────────────
+   Tests                  Not obvious in current pass      Vacuum discovery/read/preflight/write + plugin smoke scripts    Vacuum stronger    See package scripts.
+  ─────────────────────  ───────────────────────────────  ──────────────────────────────────────────────────────────────  ─────────────────  ───────────────────────────────────────────────────────────────
+   Docs                   Basic README/skill               Dedicated implementation docs                                   Vacuum stronger    Docs reflect recent rollout.
+  ─────────────────────  ───────────────────────────────  ──────────────────────────────────────────────────────────────  ─────────────────  ───────────────────────────────────────────────────────────────
+   Smoke validation       Plugin registers tool            Plugin runtime smoke exists                                     Vacuum stronger    No live movement confirmed.
+
+  6. Submodule Usage And Impact
+  Current submodule pins:
+
+  tensorfleet-claw-interface:
+    auth  628465d
+    ros   17cb799
+    util  e8afbe6 feature/vacuum-tool-shared-core
+
+  vscode-tensorfleet:
+    auth  628465d
+    ros   17cb799
+    util  97fcb90 feature/drone-operations
+
+  So auth and ROS match across repos. tensorfleet-util does not. The VS Code util checkout has no src/vacuum directory; the OpenClaw/tools util checkout does.
+
+  If tensorfleet-util changes in tensorfleet-claw-interface, immediate users are tensorfleet-tools and then tensorfleet-openclaw-plugin after rebuild. Build chain is visible in packages/tensorfleet-tools/package.json:9: build util, build ros, generate schema types, bundle tools. Plugin also needs rebuild because it bundles/imports tensorfleet-tools.
+
+  7. Extension Impact Analysis
+  vscode-tensorfleet does import submodules directly, but split by host:
+
+  - Extension host imports tensorfleet-auth only: /home/shane/vscode-tensorfleet/src/auth.ts:17, /home/shane/vscode-tensorfleet/src/vm-manager.ts:6.
+  - Panels import tensorfleet-ros and tensorfleet-util: aliases in /home/shane/vscode-tensorfleet/panels-standalone/vite.config.ts:93.
+  - Panels generate a .generated/tensorfleet-util mirror before build: /home/shane/vscode-tensorfleet/panels-standalone/package.json:11.
+
+  Vacuum UI does not use tensorfleet-util/vacuum. It imports local files from ../../vacuum-adapter; selection happens in /home/shane/vscode-tensorfleet/panels-standalone/src/vacuum-adapter/useVacuumAdapter.ts:36.
+
+  Therefore tensorfleet-util vacuum changes do not automatically benefit the extension UI today.
+
+  8. Auth / VM / Runtime Config
+  OpenClaw tools:
+
+  - Auth stores token on globalThis through tensorfleet-auth.
+  - Tool params hydrate tensorfleet-auth config-store.
+  - ROS config path uses params/config-loader/config-store in packages/tensorfleet-tools/src/tools/ros-connect.ts:92.
+  - Vacuum resolves backend/token/VM/runtime URL from params, env, config-store, global auth in packages/tensorfleet-tools/src/tools/vacuum.ts:254.
+
+  VS Code extension:
+
+  - Token lives in VS Code SecretStorage, not globalThis: /home/shane/vscode-tensorfleet/src/auth.ts:133.
+  - VM state uses shared tensorfleet-auth VM helpers, but extension-local state and polling: /home/shane/vscode-tensorfleet/src/vm-manager.ts:295.
+  - Webviews receive injected window.TENSORFLEET_* values: /home/shane/vscode-tensorfleet/src/extension.ts:2057.
+
+  So there are two runtime config/state systems. That is acceptable for now, but it means OpenClaw and VS Code do not automatically share live credentials or selected VM state.
+
+  9. Duplication / Source-Of-Truth Risks
+  Duplication exists here:
+
+  OpenClaw/shared:
+    tensorfleet-util/src/vacuum/*
+
+  Extension UI:
+    panels-standalone/src/vacuum-adapter/*
+
+  diff -qr showed many corresponding files differ, plus UI-only files (useVacuumAdapter, React hooks, runtimeClient, local annotation migration) and Node-only file (node-runtime.ts).
+
+  Source of truth today is split:
+
+  - OpenClaw vacuum source of truth: tensorfleet-util/src/vacuum.
+  - Extension vacuum UI source of truth: panels-standalone/src/vacuum-adapter.
+
+  10. Design Assessment
+  Good foundation because OpenClaw vacuum now uses tensorfleet-tools and tensorfleet-util, matching the drone tool’s shared-runtime pattern while keeping OpenClaw plugin registration thin.
+
+  Risk because vacuum semantics are duplicated across shared util and extension UI. Capability names, state shapes, mission behavior, and Valetudo command mapping can drift.
+
+  Do not refactor everything yet because the extension adapter is React-hook based and includes UI/runtime behavior that should not be moved wholesale into Node utilities. The right split is shared pure contract/mappers/types in tensorfleet-util, with extension-local hooks and presentation state staying in the extension.
+
+  Recommended architectural target: tensorfleet-util owns backend-neutral vacuum types, mappers, command semantics, runtime client contracts, and Node/browser-neutral helpers; extension owns React hooks, local storage, rendering, and operator workflow UI.
+
+  11. Recommended Next Steps
+
+  1. Sync vscode-tensorfleet’s panels-standalone/packages/tensorfleet-util to the OpenClaw util commit or branch only after reviewing browser build impact.
+  2. Refactor extension vacuum imports gradually: start with shared types/commands/capabilities/state, not hooks.
+  3. Keep node-runtime.ts tool/runtime-only.
+  4. Keep useVacuumAdapter, polling hooks, local UI storage, and rendering extension-local.
+  5. Add a small parity test comparing local extension adapter outputs against shared mapper fixtures before deleting local mapper copies.
+  6. Rebuild in order after submodule changes: tensorfleet-util, tensorfleet-tools, tensorfleet-openclaw-plugin; for extension, run panel prepare/build because Vite consumes generated util.
+
+  12. Files Inspected
+  Key files inspected included:
+
+  - packages/tensorfleet-openclaw-plugin/src/index.ts:1
+  - packages/tensorfleet-openclaw-plugin/openclaw.plugin.json:1
+  - packages/tensorfleet-tools/src/index.ts:1
+  - packages/tensorfleet-tools/src/tools/drone.ts:1
+  - packages/tensorfleet-tools/src/tools/vacuum.ts:1
+  - packages/tensorfleet-tools/packages/tensorfleet-util/src/vacuum/node-runtime.ts:1
+  - /home/shane/vscode-tensorfleet/panels-standalone/src/vacuum-adapter/useVacuumAdapter.ts:1
+  - /home/shane/vscode-tensorfleet/src/auth.ts:1
+  - /home/shane/vscode-tensorfleet/src/vm-manager.ts:1
+  - /home/shane/vscode-tensorfleet/panels-standalone/vite.config.ts:1
+
+  13. Commands Run And Results
+  Read-only commands only. No files modified, no submodules synced, no tests run.
+
+  Important results:
+
+  git submodule status
+  # claw-interface: auth 628465d, ros 17cb799, util e8afbe6
+  # vscode-tensorfleet: auth 628465d, ros 17cb799, util 97fcb90
+
+  git -C .../tensorfleet-util status --short
+  # no output in both repos; submodule worktrees clean
+
+  find /home/shane/vscode-tensorfleet/panels-standalone/packages/tensorfleet-util/src -maxdepth 2 -type f
+  # no src/vacuum directory in VS Code util submodule
+
+  diff -qr claw-interface/.../tensorfleet-util/src/vacuum vscode-tensorfleet/.../src/vacuum-adapter
+  # many differing/copied counterparts; shared has node-runtime.ts, extension has React hooks/UI runtime files
+  ```
