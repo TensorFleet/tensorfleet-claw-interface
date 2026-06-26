@@ -61,12 +61,28 @@ The important design choice was to move backend semantics into `tensorfleet-util
 - `packages/tensorfleet-tools/packages/tensorfleet-util/src/vacuum/backends/turtlebot4-nav2/*`
 - `packages/tensorfleet-tools/packages/tensorfleet-util/src/vacuum/backends/valetudo/*`
 
-The UI adapter remains useful reference material, especially:
+The VS Code extension consumes the shared pure modules through local compatibility shims. Extension-local adapter entrypoints remain UI/client code, especially:
 
 - `~/vscode-tensorfleet/panels-standalone/src/vacuum-adapter/useVacuumAdapter.ts`
 - `~/vscode-tensorfleet/panels-standalone/src/vacuum-adapter/backends/turtlebot4-nav2/useTurtleBot4Nav2Adapter.ts`
 - `~/vscode-tensorfleet/panels-standalone/src/vacuum-adapter/backends/valetudo/useValetudoAdapter.ts`
 - `~/vscode-tensorfleet/panels-standalone/src/vacuum-adapter/backends/valetudo/runtimeClient.ts`
+
+## Vacuum Shared-Core Boundary
+
+`tensorfleet-util/vacuum` is the shared vacuum control foundation for tools, agents, and UI clients. It owns shared product-level semantics: commands, capabilities, state, errors, mapGrid, pure backend mappers, normalized runtime contracts, and the Node runtime used by agent/tool flows. It must not depend on the VS Code extension UI, and future backend-neutral vacuum logic should start here.
+
+`vscode-tensorfleet` is one UI client of that foundation, not the owner of vacuum semantics. It owns React hooks, polling, browser fetch runtime clients, webview config, localStorage, VS Code SecretStorage/auth injection, and rendering/presentation. Its pure vacuum modules are compatibility shims to `tensorfleet-util/vacuum`; extension-specific hooks and runtime clients stay local.
+
+`tensorfleet-tools` and `tensorfleet-vacuum` own the agent/tool behavior: OpenClaw schema, tool response shaping, safety gates, Node runtime config/env handling, and command dispatch through the product-level runtime. They must not depend on `vscode-tensorfleet` or extension-local adapter code.
+
+Future development rule:
+
+```text
+If the change is product-level vacuum behavior, add it to tensorfleet-util/vacuum first.
+If it is OpenClaw-specific response shape or tool policy, add it to tensorfleet-tools.
+If it is UI lifecycle/presentation, keep it in vscode-tensorfleet.
+```
 
 ## Backend Model
 
@@ -365,8 +381,11 @@ Use this order when repeating or extending the pattern:
 
 ## Extension Guidance
 
-Keep future additions inside the shared adapter first. The tool should stay small: validate public inputs, resolve config, call the adapter, and shape compact responses for agents. If a new backend field is useful to agents, normalize it into `VacuumAdapterSnapshot` or `VacuumCommandResult` before exposing it through the tool.
+Keep future product-level additions inside `tensorfleet-util/vacuum` first. The OpenClaw tool should stay small: validate public inputs, resolve config, call the shared runtime, and shape compact responses for agents. If a new backend field is useful to agents or UI clients, normalize it into `VacuumAdapterSnapshot` or `VacuumCommandResult` before exposing it through the tool.
 
+## Historical Pre-6C Notes
+
+The following fenced block is retained as old analysis. It is superseded by the shared-core boundary above: the extension now consumes shared pure vacuum modules through shims, while hooks/runtime clients remain extension-local.
 
 current state :
 ```
