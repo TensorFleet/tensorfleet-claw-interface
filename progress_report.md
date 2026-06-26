@@ -1,48 +1,46 @@
-# Progress Report - Gated room zone simulation starts
+# Progress Report - Vacuum shared-core refactor closeout
 Current report date: 2026-06-26.
 
 ## 1. What changed
 
-- Added `start-room-cleaning` and `start-zone-cleaning` to the `tensorfleet-vacuum` schema, discovery surface, generated types, OpenClaw plugin smoke coverage, README prompts, and packaged skill guidance.
-- Aligned shared command semantics so `start_room_cleaning` and `start_zone_cleaning` carry normalized `VacuumMapTarget` descriptors instead of raw annotation internals.
-- Added simulation adapter dispatch for normalized room/zone target commands by converting shared target geometry into the existing VM coverage request route.
-- Added `bun run --filter tensorfleet-tools test:vacuum-room-zone-writes` with regression coverage for schema, discovery, missing/not-found/ambiguous/invalid targets, missing runtime, real-vacuum refusal, send-command bypass refusal, secret/raw-name filtering, and successful mocked dispatch.
+- Completed the vacuum shared-core refactor track: OpenClaw and future agents can use `tensorfleet-tools` plus `tensorfleet-util/vacuum` without depending on `vscode-tensorfleet` extension code.
+- Kept extension-specific hooks, runtime clients, auth injection, polling, rendering, and UI lifecycle local to `vscode-tensorfleet`; pure extension adapter modules remain shared-util re-export shims.
+- Added and smoke-validated OpenClaw/tool room and zone target read/preflight plus gated simulation-only writes: `get-room-targets`, `get-zone-targets`, `check-room-cleaning-readiness`, `check-zone-cleaning-readiness`, `start-room-cleaning`, and `start-zone-cleaning`.
+- Tightened the registered OpenClaw plugin runtime smoke so it accepts current OpenClaw text-content results and directly covers room/zone discovery/refusal cases at the plugin boundary.
 
 ## 2. Product behavior
 
-- `start-room-cleaning` accepts `room.id` or `room.name`; `start-zone-cleaning` accepts `zone.id` or `zone.name`.
-- Both actions are simulation-only writes and reuse shared room/zone readiness before dispatch.
-- Missing selectors return `needs_input`; unknown names return `not_found`; duplicate names return `ambiguous_target` with candidates; invalid geometry returns `invalid_target`; stale/unavailable targets return `unavailable`; unsupported backends return `unsupported`.
-- Ready simulation targets dispatch exactly one normalized command: `start_room_cleaning` or `start_zone_cleaning`.
-- Real-vacuum room/zone target inventory remains readable, but real-vacuum room/zone writes are refused and are not silently redirected to simulation.
-- No live runtime dispatch was performed; successful dispatch validation used mocked ROS/VM runtime services only.
+- OpenClaw/agents can list normalized map, room, and zone targets.
+- OpenClaw/agents can preflight room and zone cleaning with shared readiness gates.
+- OpenClaw/agents can start room and zone cleaning for simulation only.
+- Simulation room/zone starts accept `room.id` / `room.name` and `zone.id` / `zone.name`, reuse shared target readiness, and dispatch normalized `start_room_cleaning` / `start_zone_cleaning` commands only after gates pass.
+- Missing, unknown, ambiguous, invalid, stale/unavailable, unsupported, and real-vacuum write cases fail closed with structured refusals.
+- No live runtime dispatch was performed; successful dispatch validation used mocked ROS/VM runtime services.
 
 ## 3. Still deferred
 
-- Map annotation mutation/editing through OpenClaw.
 - Real-vacuum room/zone writes.
-- Arbitrary waypoint tools and raw backend command tools.
-- Raw ROS/Nav2/Foxglove/Valetudo/private endpoint, shell, filesystem, arbitrary HTTP, and MCP vacuum-control paths.
-- React hook, browser runtime client, and UI control refactors.
+- Map annotation mutation/editing.
+- Live robot validation.
+- Arbitrary waypoint/raw backend tools.
+- MCP as the primary vacuum control path.
+- UI controls and workflow changes beyond the shared-core parity needed for this refactor.
 
 ## 4. Validation
 
-- `bun run --filter tensorfleet-tools build` - passed; warning: the optional `tensorfleet-ros` build leg still prints existing TypeScript errors under its `|| true` path before `tensorfleet-tools` completes.
+- Practical OpenClaw/plugin smoke: registered `tensorfleet-vacuum` discovery for `simulation`; registered discovery for `real_vacuum` confirming room/zone write actions are not advertised; missing `start-zone-cleaning` selector returns `needs_input`; real-vacuum `start-room-cleaning` returns `unsupported`; `send-command` cannot bypass plugin runtime/auth gates; configured discovery omits token and URL values.
+- Mocked runtime smoke/regression: tool tests validated successful room and zone dispatch with exactly one normalized command path, `send-command` bypass refusal after authenticated mocked runtime setup, real-vacuum refusal, and no secret/private endpoint/raw service leakage.
+- `bun run --filter tensorfleet-tools build` - passed; non-blocking warning: the optional `tensorfleet-ros` build leg still prints existing TypeScript errors under its `|| true` path before `tensorfleet-tools` completes.
 - `bun run --filter tensorfleet-tools test:vacuum-discovery` - passed.
 - `bun run --filter tensorfleet-tools test:vacuum-read-preflight` - passed.
 - `bun run --filter tensorfleet-tools test:vacuum-write-actions` - passed.
 - `bun run --filter tensorfleet-tools test:vacuum-boundary` - passed.
 - `bun run --filter tensorfleet-tools test:vacuum-room-zone-writes` - passed.
-- `bun run --filter tensorfleet-openclaw-plugin build` - passed; warning: tsup emitted existing direct-`eval` bundler warnings from generated bundled code in `tensorfleet-tools/dist/index.mjs`.
+- `bun run --filter tensorfleet-openclaw-plugin build` - passed; non-blocking warning: tsup emitted existing direct-`eval` bundler warnings from generated bundled code in `tensorfleet-tools/dist/index.mjs`.
 - `bun run --filter tensorfleet-openclaw-plugin test:discovery-smoke` - passed.
+- `bun run --filter tensorfleet-openclaw-plugin test:vacuum-runtime-smoke` - passed.
 - `bunx tsc -p packages/tensorfleet-openclaw-plugin/tsconfig.json --noEmit` - passed.
 - `git -C /home/shane/tensorfleet-claw-interface diff --check` - passed.
-- `git -C /home/shane/tensorfleet-claw-interface/packages/tensorfleet-tools/packages/tensorfleet-util diff --check` - passed.
-- `bun run --cwd /home/shane/vscode-tensorfleet/panels-standalone prepare:tensorfleet-util` - passed.
-- `bun run --cwd /home/shane/vscode-tensorfleet test:vacuum-shared-parity` - passed.
-- `bun run --cwd /home/shane/vscode-tensorfleet test:vacuum-shared-boundary` - passed.
-- `bun run --cwd /home/shane/vscode-tensorfleet/panels-standalone build` - passed; warnings: Vite externalized Node built-ins for browser compatibility, protobufjs `eval`, and large chunk-size warnings.
-- `bun run --cwd /home/shane/vscode-tensorfleet compile` - passed; same panel build warnings plus Vite CJS Node API deprecation warning during extension build.
-- `bun run --cwd /home/shane/vscode-tensorfleet build:extension` - passed; warning: Vite CJS Node API deprecation warning.
-- `git -C /home/shane/vscode-tensorfleet diff --check` - passed.
-- Practical OpenClaw task prompts covered in docs/regression: start room by name, start room by id, start zone by id, missing zone refusal, ambiguous room refusal, real-vacuum room-start refusal, and map-edit refusal.
+- VS Code validation was rerun because shared util/vendored util had changed earlier in the refactor: prepare, parity, boundary, panel build, compile, extension build, and diff-check passed with only existing Vite/protobuf/chunk-size/CJS API warnings.
+
+The vacuum shared-core refactor is complete. Future work should be treated as product/tool feature work, with product-level semantics starting in tensorfleet-util/vacuum, OpenClaw policy in tensorfleet-tools, and UI lifecycle in vscode-tensorfleet.

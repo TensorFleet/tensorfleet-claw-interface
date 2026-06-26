@@ -136,13 +136,19 @@ Supported actions:
 - `get-capabilities`
 - `get-map-summary`
 - `get-map-targets`
+- `get-room-targets`
+- `get-zone-targets`
 - `get-mission-state`
 - `get-navigation-state`
 - `get-pose`
 - `check-navigation-readiness`
 - `check-clean-area-readiness`
+- `check-room-cleaning-readiness`
+- `check-zone-cleaning-readiness`
 - `start-navigation`
 - `start-clean-area`
+- `start-room-cleaning`
+- `start-zone-cleaning`
 - `pause-mission`
 - `resume-mission`
 - `cancel-mission`
@@ -159,8 +165,10 @@ Currently exposed command inputs:
 - `return_to_dock`
 - `set_fan_speed`
 - `set_water_usage`
+- `start_room_cleaning`
+- `start_zone_cleaning`
 
-The shared command model is broader than the public schema. The schema intentionally exposes explicit, gated simulation writes for navigation start, rectangular Clean Area start, and active mission controls. Room/zone starts, arbitrary waypoint tools, map editing, real-vacuum writes, and raw backend controls remain deferred. `send-command` is retained only for compatibility and returns a structured refusal instead of acting as a backdoor command path.
+The shared command model is broader than the public schema. The schema intentionally exposes explicit, gated simulation writes for navigation start, rectangular Clean Area start, room cleaning start, zone cleaning start, and active mission controls. Arbitrary waypoint tools, map editing, real-vacuum writes, live robot validation, and raw backend controls remain deferred. `send-command` is retained only for compatibility and returns a structured refusal instead of acting as a backdoor command path.
 
 `get-supported-actions` is the discovery action. It does not open runtime connections or move hardware. It returns:
 
@@ -168,7 +176,7 @@ The shared command model is broader than the public schema. The schema intention
 - runtime/auth/config availability by source, with secrets and URLs omitted
 - read-only callable actions
 - write-capable but gated actions
-- movement-start callable actions: `start-navigation` and `start-clean-area` for the simulation backend, with current blockers
+- movement-start callable actions: `start-navigation`, `start-clean-area`, `start-room-cleaning`, and `start-zone-cleaning` for the simulation backend, with current blockers
 - mission-control callable actions: pause/resume/cancel/retry/skip for the simulation backend, available only when the active mission exposes the matching action
 - supported but currently unavailable actions
 - deferred actions that are intentionally not callable
@@ -193,12 +201,27 @@ For the real-vacuum integration path, call:
 }
 ```
 
-This rollout step adds gated simulation-only writes for `start-navigation`, `start-clean-area`, `pause-mission`, `resume-mission`, `cancel-mission`, `retry-mission-step`, and `skip-mission-step`. It does not add real-hardware control, room/zone starts, map editing, MCP vacuum tools, or raw backend access.
+Current OpenClaw/agent support:
+
+- OpenClaw and future agents can list normalized map, room, and zone targets through `tensorfleet-vacuum`.
+- OpenClaw and future agents can preflight navigation, Clean Area, room cleaning, and zone cleaning with read-only readiness checks.
+- OpenClaw and future agents can start room and zone cleaning for simulation only.
+- Simulation room/zone starts use shared target readiness and normalized `start_room_cleaning` / `start_zone_cleaning` commands.
+
+Still deferred:
+
+- real-vacuum room/zone writes
+- map annotation mutation/editing
+- live robot validation
+- arbitrary waypoint/raw backend tools
+- MCP as the primary vacuum control path
 
 Readiness checks:
 
 - `check-navigation-readiness` accepts `target: { "x": number, "y": number, "theta": number, "frameId"?: string, "label"?: string }`.
 - `check-clean-area-readiness` accepts `area: { "type": "rectangle", "x": number, "y": number, "width": positive number, "height": positive number, "frameId"?: string, "label"?: string }`.
+- `check-room-cleaning-readiness` accepts `room: { "id"?: string, "name"?: string }`.
+- `check-zone-cleaning-readiness` accepts `zone: { "id"?: string, "name"?: string }`.
 - Missing or malformed inputs return `ready: false` with `status: "needs_input"` or `status: "invalid_request"` and explicit missing/invalid fields.
 - Valid inputs check backend selection, config/auth/runtime/source availability, map usability, pose/localization evidence, active mission compatibility, and normalized capability support/current availability.
 - Readiness checks never dispatch navigation, coverage, cleaning, or mission-control commands. The explicit start actions call the same readiness logic internally and dispatch only after it reports ready.
@@ -372,12 +395,13 @@ Use this order when repeating or extending the pattern:
 
 ## Current Limitations
 
-- Simulation exposes only the explicit gated writes in this rollout: `start-navigation`, `start-clean-area`, and active mission controls. Legacy `send-command` and generic/basic vacuum commands are still refused as a backdoor control path.
-- Discovery reports explicit simulation movement-start and mission-control actions as gated, but does not advertise deferred room/zone/raw actions as callable.
-- Targeted room, segment, and zone cleaning are present in shared command semantics but intentionally not exposed in the current public schema.
-- Navigation and Clean Area readiness actions are read-only preflight checks. They do not start navigation or coverage; only `start-navigation` and `start-clean-area` can dispatch after reusing those gates.
+- Simulation exposes only the explicit gated writes in this rollout: `start-navigation`, `start-clean-area`, `start-room-cleaning`, `start-zone-cleaning`, and active mission controls. Legacy `send-command` and generic/basic vacuum commands are still refused as a backdoor control path.
+- Discovery reports explicit simulation movement-start and mission-control actions as gated, but does not advertise real-vacuum room/zone writes, map edits, arbitrary waypoint tools, or raw backend actions as callable.
+- Targeted room and zone cleaning are exposed only for simulation. Real-vacuum segment/room/zone writes remain deferred.
+- Navigation, Clean Area, room, and zone readiness actions are read-only preflight checks. They do not start movement; only the matching explicit start actions can dispatch after reusing those gates.
 - Direct Valetudo runtime use requires an explicit `runtimeUrl` or configured runtime URL.
 - `get-health` has a lightweight Valetudo-only path; simulation health comes from the adapter snapshot and therefore opens the ROS connection.
+- No live robot validation is claimed by this refactor closeout; dispatch success was validated with mocked ROS/VM runtime services.
 
 ## Extension Guidance
 
@@ -404,7 +428,7 @@ current state :
              -> turtlebot4_nav2 simulation via ROS
              -> valetudo via HTTP runtime
 
-  The VS Code extension is not on the same vacuum implementation yet. It still uses its own local React-facing adapter at /home/shane/vscode-tensorfleet/panels-standalone/src/vacuum-adapter. The shared tensorfleet-util/src/vacuum implementation appears derived from that UI adapter, but the extension has not been refactored to consume it.
+  Historical note superseded by the closeout above: the VS Code extension now consumes shared pure vacuum modules through local shims, while React hooks, browser runtime clients, rendering, auth injection, polling, and UI lifecycle remain extension-local.
 
   2. Repository Relationship Diagram
   OpenClaw/tool repo:

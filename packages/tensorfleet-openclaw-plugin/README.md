@@ -1,6 +1,6 @@
 # Tensorfleet OpenClaw Plugin
 
-This plugin provides integration between OpenClaw and the ROS environment in the Tensorfleet runtime. It also assists users by controlling the VS Code extension's UI.
+This plugin provides integration between OpenClaw and TensorFleet runtime tools. Vacuum control uses `tensorfleet-tools` and `tensorfleet-util/vacuum`; the VS Code extension is not required for OpenClaw vacuum control.
 
 For product-level vacuum discovery, state inspection, readiness preflight, and gated simulation-only writes, use the OpenClaw plugin tool `tensorfleet-vacuum` with:
 
@@ -9,6 +9,8 @@ For product-level vacuum discovery, state inspection, readiness preflight, and g
 ```
 
 This vacuum surface is intentionally a thin facade over `tensorfleet-tools` and the shared vacuum adapter/node runtime. The OpenClaw-managed MCP server is not the primary vacuum integration path for this plugin rollout.
+
+Current support: OpenClaw/agents can list normalized map, room, and zone targets; preflight room/zone cleaning; and start room/zone cleaning for simulation only. Simulation room/zone starts use shared target readiness and normalized commands. Real-vacuum room/zone writes, map annotation mutation/editing, live robot validation, arbitrary waypoint/raw backend tools, and MCP as the primary vacuum control path remain deferred.
 
 Useful read/preflight actions include `get-snapshot`, `get-map-summary`, `get-map-targets`, `get-room-targets`, `get-zone-targets`, `get-mission-state`, `get-navigation-state`, `get-pose`, `check-navigation-readiness`, `check-clean-area-readiness`, `check-room-cleaning-readiness`, and `check-zone-cleaning-readiness`. Simulation-only write actions are `start-navigation`, `start-clean-area`, `start-room-cleaning`, `start-zone-cleaning`, `pause-mission`, `resume-mission`, `cancel-mission`, `retry-mission-step`, and `skip-mission-step`; all are gated by runtime/config/readiness/capability/active-mission checks. Real-vacuum writes, map edits, raw ROS/Nav2/Foxglove/Valetudo, shell, filesystem, arbitrary HTTP, and MCP vacuum control remain unsupported.
 

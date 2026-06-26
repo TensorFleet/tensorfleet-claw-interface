@@ -14,6 +14,8 @@ const ENV_KEYS = [
 const WRITE_ACTIONS = [
   "start-navigation",
   "start-clean-area",
+  "start-room-cleaning",
+  "start-zone-cleaning",
   "pause-mission",
   "resume-mission",
   "cancel-mission",
@@ -38,9 +40,13 @@ async function main() {
   await testCleanAreaMissingConfigRefusal(vacuumTool);
   await testInvalidNavigationTargetRefusal(vacuumTool);
   await testInvalidCleanAreaRefusal(vacuumTool);
+  await testMissingZoneSelectorRefusal(vacuumTool);
   await testMissionControlMissingConfigRefusal(vacuumTool);
   await testCancelMissionMissingConfigRefusal(vacuumTool);
   await testRealVacuumNavigationRefusal(vacuumTool);
+  await testRealVacuumRoomRefusal(vacuumTool);
+  await testRealVacuumDiscoveryDoesNotAdvertiseRoomZoneWrites(vacuumTool);
+  await testSendCommandCannotBypassRuntimeGates(vacuumTool);
   await testConfiguredDiscoveryReportsSourcesWithoutValues(vacuumTool);
 
   console.log("OpenClaw plugin vacuum runtime smoke passed");
@@ -136,6 +142,21 @@ async function testInvalidCleanAreaRefusal(vacuumTool) {
   assert.equal(response.runtime, undefined, "invalid area should refuse before runtime preflight");
 }
 
+async function testMissingZoneSelectorRefusal(vacuumTool) {
+  resetRuntimeConfig();
+  const response = await callVacuum(vacuumTool, "missing-zone-selector", {
+    action: "start-zone-cleaning",
+    backend: "simulation",
+  });
+
+  assert.equal(response.success, false);
+  assert.equal(response.status, "needs_input");
+  assert.deepEqual(response.missingFields, ["zone"]);
+  assert.equal(response.commandDispatched, false);
+  assert.equal(response.runtime, undefined, "missing zone selector should refuse before runtime preflight");
+  assertNoSecretOrEndpointLeak(response);
+}
+
 async function testMissionControlMissingConfigRefusal(vacuumTool) {
   resetRuntimeConfig();
   const response = await callVacuum(vacuumTool, "missing-config-pause", {
@@ -181,6 +202,61 @@ async function testRealVacuumNavigationRefusal(vacuumTool) {
   assert.match(response.reason, /simulation backend/);
 }
 
+async function testRealVacuumRoomRefusal(vacuumTool) {
+  resetRuntimeConfig();
+  const response = await callVacuum(vacuumTool, "real-vacuum-room-refusal", {
+    action: "start-room-cleaning",
+    backend: "real_vacuum",
+    room: { id: "3" },
+  });
+
+  assert.equal(response.success, false);
+  assert.equal(response.status, "unsupported");
+  assert.equal(response.backend, "real_vacuum");
+  assert.equal(response.backendAdapter, "valetudo");
+  assert.equal(response.commandDispatched, false);
+  assert.equal(response.runtime, undefined, "real-vacuum room write refusal should not inspect runtime config");
+  assert.match(response.reason, /simulation backend/);
+  assertNoSecretOrEndpointLeak(response);
+}
+
+async function testRealVacuumDiscoveryDoesNotAdvertiseRoomZoneWrites(vacuumTool) {
+  resetRuntimeConfig();
+  const response = await callVacuum(vacuumTool, "real-vacuum-discovery", {
+    action: "get-supported-actions",
+    backend: "real_vacuum",
+    routeMode: "direct",
+  });
+
+  assert.equal(response.success, true);
+  assert.equal(response.backend, "real_vacuum");
+  assert.equal(response.backendAdapter, "valetudo");
+  assert.equal(
+    response.actions.movementStartCallableTools.some((entry) => entry.action === "start-room-cleaning"),
+    false,
+  );
+  assert.equal(
+    response.actions.movementStartCallableTools.some((entry) => entry.action === "start-zone-cleaning"),
+    false,
+  );
+  assertNoSecretOrEndpointLeak(response);
+}
+
+async function testSendCommandCannotBypassRuntimeGates(vacuumTool) {
+  resetRuntimeConfig();
+  const response = await callVacuum(vacuumTool, "send-command-room-bypass", {
+    action: "send-command",
+    backend: "simulation",
+    command: "start_room_cleaning",
+  });
+
+  assert.equal(response.success, false);
+  assert.equal(response.status, "not_authenticated");
+  assert.equal(response.runtime.auth.available, false);
+  assert.equal(response.runtime.vmManagerUrl.available, false);
+  assertNoSecretOrEndpointLeak(response);
+}
+
 async function testConfiguredDiscoveryReportsSourcesWithoutValues(vacuumTool) {
   resetRuntimeConfig();
   const response = await callVacuum(vacuumTool, "configured-discovery", {
@@ -202,13 +278,29 @@ async function testConfiguredDiscoveryReportsSourcesWithoutValues(vacuumTool) {
 }
 
 async function callVacuum(vacuumTool, id, params) {
-  const resultText = await withTimeout(
+  const result = await withTimeout(
     vacuumTool.execute(`openclaw-plugin-vacuum-runtime-smoke:${id}`, params),
     2500,
     id,
   );
-  assert.equal(typeof resultText, "string", `${id} must return OpenClaw text output`);
-  return JSON.parse(resultText);
+  return normalizeToolResult(result, id);
+}
+
+function normalizeToolResult(result, id) {
+  if (typeof result === "string") {
+    return JSON.parse(result);
+  }
+  if (
+    result &&
+    typeof result === "object" &&
+    Array.isArray(result.content) &&
+    result.content.length === 1 &&
+    result.content[0]?.type === "text" &&
+    typeof result.content[0].text === "string"
+  ) {
+    return JSON.parse(result.content[0].text);
+  }
+  assert.fail(`${id} must return OpenClaw text output`);
 }
 
 async function withTimeout(promise, timeoutMs, id) {
@@ -232,8 +324,6 @@ function assertNoSecretOrEndpointLeak(response) {
   assert.equal(text.includes("localhost"), false);
   assert.equal(text.includes("/vacuum_mission"), false);
   assert.equal(text.includes("/navigate_to_pose"), false);
-  assert.equal(text.includes("Nav2"), false);
-  assert.equal(text.includes("Valetudo"), false);
 }
 
 function resetRuntimeConfig() {

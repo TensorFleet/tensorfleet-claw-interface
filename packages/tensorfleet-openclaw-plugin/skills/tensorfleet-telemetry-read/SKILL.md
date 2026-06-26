@@ -69,7 +69,7 @@ When interfacing with drones first use our `tensorfleet-drone` tool unless you n
 For lower level telemetry a default drone will be available under the `/mavros/*` topic path if the virtual machine has spawned one. use `.*mavros.*` in your regex-filter (you can expand on that) to filter for this.
 
 ### Vacuum interfacing
-When interfacing with product-level robot vacuum state, readiness, or the explicitly supported simulation writes, use `tensorfleet-vacuum` before raw ROS tools. This tool is shaped around the extension's `vacuum_adapter` boundary: callers choose a backend, then receive normalized vacuum state, capabilities, map summaries, map targets, mission state, navigation state, pose state, readiness preflight results, and gated simulation-only command results.
+When interfacing with product-level robot vacuum state, readiness, or the explicitly supported simulation writes, use `tensorfleet-vacuum` before raw ROS tools. This tool is shaped around the shared `tensorfleet-util/vacuum` boundary: callers choose a backend, then receive normalized vacuum state, capabilities, map summaries, map targets, mission state, navigation state, pose state, readiness preflight results, and gated simulation-only command results. The VS Code extension is not required for OpenClaw vacuum control.
 
 Always pass an explicit `backend`. Use `backend: "simulation"` for the TurtleBot4/Nav2 simulation backend that runs in the selected TensorFleet VM. Use `backend: "real_vacuum"` only when the user asks about the real-vacuum / Valetudo integration runtime path.
 
@@ -102,7 +102,7 @@ Command rules:
 - For `start-zone-cleaning`, pass `backend: "simulation"` and `zone: { "id"?: string, "name"?: string }`. The tool internally reuses the shared zone target readiness gate and dispatches the normalized `start_zone_cleaning` command only if ready.
 - Mission-control writes require an active mission whose `activeMission.availableActions` includes the matching normalized action. If unavailable, report the blocker and do not try another tool.
 - Map annotation mutation is deferred. Do not attempt it through `send-command`, raw backend tools, MCP, shell, HTTP, or map edit endpoints.
-- Real-vacuum writes, room/zone starts, map edits, arbitrary waypoints, raw Nav2/ROS/Foxglove/Valetudo/private endpoints, arbitrary HTTP, shell, filesystem, and MCP vacuum tools are not allowed as fallbacks for product-level vacuum control.
+- Real-vacuum writes, real-vacuum room/zone starts, map edits, arbitrary waypoints, raw Nav2/ROS/Foxglove/Valetudo/private endpoints, arbitrary HTTP, shell, filesystem, and MCP vacuum tools are not allowed as fallbacks for product-level vacuum control.
 - `send-command` remains in the schema only for compatibility and is not a callable control path in this rollout.
 
 ### Other robot type interfacing
