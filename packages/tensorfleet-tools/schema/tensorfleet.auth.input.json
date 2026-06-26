@@ -10,6 +10,14 @@
         "backendUrl": {
             "type": "string",
             "description": "Optional custom backend URL for OAuth authentication. Defaults to https://app.tensorfleet.net/"
+        },
+        "cacheAuth": {
+            "type": "boolean",
+            "description": "Whether to load and store authentication using the auth cache. Defaults to true."
+        },
+        "forceLogin": {
+            "type": "boolean",
+            "description": "Ignore existing in-memory and cached authentication and start a new login flow."
         }
     },
     "required": []
