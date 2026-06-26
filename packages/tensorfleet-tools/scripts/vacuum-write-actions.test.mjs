@@ -189,13 +189,27 @@ async function testMissionControlDispatch(fixture) {
 async function testSendCommandCannotBypass(fixture) {
   resetRuntimeConfig();
   fixture.reset();
-  const response = await callVacuum(authenticated({
+  let response = await callVacuum(authenticated({
     action: "send-command",
     backend: "simulation",
-    command: "start_navigation",
+    command: "start_cleaning",
   }));
   assert.equal(response.success, false);
-  assert.equal(response.result.command, "start_navigation");
+  assert.equal(response.result.command, "start_cleaning");
+  assert.equal(response.result.error.code, "unsupported");
+  assert.equal(fixture.calls.triggerTotal, 0);
+  assert.equal(fixture.calls.parameterTotal, 0);
+
+  resetRuntimeConfig();
+  fixture.reset();
+  response = await callVacuum(authenticated({
+    action: "send-command",
+    backend: "simulation",
+    command: "pause",
+  }));
+  assert.equal(response.success, false);
+  assert.equal(response.result.command, "pause");
+  assert.equal(response.result.error.code, "unsupported");
   assert.equal(fixture.calls.triggerTotal, 0);
   assert.equal(fixture.calls.parameterTotal, 0);
 }
