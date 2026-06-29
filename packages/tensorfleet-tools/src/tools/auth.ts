@@ -7,10 +7,12 @@ import {
   isTokenExpired,
   isValidJwtShape,
 } from "tensorfleet-auth";
-import { createServer } from "node:http";
+import { isBun, isNode } from "std-env";
 
 const logger = new TensorfleetLogger("Tools");
 const DEFAULT_AUTH_BACKEND_URL = "https://app.tensorfleet.net/";
+const AUTH_CACHE_SERVICE = "tensorfleet";
+const AUTH_CACHE_ACCOUNT = "auth-token";
 
 export interface AuthParams {
   command?: "status" | "login" | "logout";
@@ -24,6 +26,20 @@ type CachedAuthResult = {
 };
 
 type AuthInfo = NonNullable<ReturnType<typeof getGlobalAuthInfo>>;
+type CreateServer = Parameters<typeof startOAuthRedirectFlow>[0]["createServer"];
+type KeyringEntry = {
+  getPassword?: () => string | Promise<string | null> | null;
+  setPassword?: (password: string) => void | Promise<void>;
+  deletePassword?: () => boolean | void | Promise<boolean | void>;
+};
+type KeyringModule = {
+  Entry?: new (service: string, account: string) => KeyringEntry;
+  Keyring?: new (service: string, account: string) => KeyringEntry;
+  default?: {
+    Entry?: new (service: string, account: string) => KeyringEntry;
+    Keyring?: new (service: string, account: string) => KeyringEntry;
+  };
+};
 
 function createTextResponse(value: unknown) {
   return {
@@ -47,19 +63,213 @@ function redactAuthInfo(authInfo: AuthInfo | null | undefined) {
   };
 }
 
+function isNodeOrBunRuntime(): boolean {
+  return isNode || isBun;
+}
+
+async function importOptionalRuntimeDependency(specifier: string): Promise<unknown> {
+  const runtimeImport = new Function(
+    "specifier",
+    "return import(specifier)",
+  ) as (specifier: string) => Promise<unknown>;
+
+  return await runtimeImport(specifier);
+}
+
+async function getCreateServer(): Promise<CreateServer> {
+  if (!isNodeOrBunRuntime()) {
+    throw new Error("OAuth redirect login requires a Node-compatible runtime");
+  }
+
+  const http = await import("node:http");
+  return http.createServer;
+}
+
+async function getKeyringEntry(): Promise<KeyringEntry | null> {
+  if (!isNodeOrBunRuntime()) {
+    return null;
+  }
+
+  try {
+    const keyring = (await importOptionalRuntimeDependency("@napi-rs/keyring")) as KeyringModule;
+    const Entry =
+      keyring.Entry ??
+      keyring.Keyring ??
+      keyring.default?.Entry ??
+      keyring.default?.Keyring;
+
+    return Entry ? new Entry(AUTH_CACHE_SERVICE, AUTH_CACHE_ACCOUNT) : null;
+  } catch (error) {
+    logger.debug(
+      "Auth keyring unavailable, falling back to file cache:",
+      error instanceof Error ? error.message : String(error),
+    );
+    return null;
+  }
+}
+
+async function getAuthCacheFilePath(): Promise<string | null> {
+  if (!isNodeOrBunRuntime()) {
+    return null;
+  }
+
+  const [{ homedir }, path] = await Promise.all([
+    import("node:os"),
+    import("node:path"),
+  ]);
+  const home = homedir();
+
+  if (process.platform === "win32") {
+    const appData = process.env.APPDATA ?? path.join(home, "AppData", "Roaming");
+    return path.join(appData, "TensorFleet", "auth.json");
+  }
+
+  return path.join(home, ".tensorfleet", "auth.json");
+}
+
+async function readTokenFromKeyring(): Promise<string | null> {
+  try {
+    const entry = await getKeyringEntry();
+
+    if (!entry?.getPassword) {
+      return null;
+    }
+
+    const token = await entry.getPassword();
+    return typeof token === "string" && token.length > 0 ? token : null;
+  } catch (error) {
+    logger.debug(
+      "Auth keyring read failed, falling back to file cache:",
+      error instanceof Error ? error.message : String(error),
+    );
+    return null;
+  }
+}
+
+async function writeTokenToKeyring(token: string): Promise<boolean> {
+  try {
+    const entry = await getKeyringEntry();
+
+    if (!entry?.setPassword) {
+      return false;
+    }
+
+    await entry.setPassword(token);
+    return true;
+  } catch (error) {
+    logger.debug(
+      "Auth keyring write failed, falling back to file cache:",
+      error instanceof Error ? error.message : String(error),
+    );
+    return false;
+  }
+}
+
+async function deleteTokenFromKeyring(): Promise<boolean> {
+  try {
+    const entry = await getKeyringEntry();
+
+    if (!entry?.deletePassword) {
+      return false;
+    }
+
+    await entry.deletePassword();
+    return true;
+  } catch (error) {
+    logger.debug(
+      "Auth keyring delete failed:",
+      error instanceof Error ? error.message : String(error),
+    );
+    return false;
+  }
+}
+
+async function readTokenFromFileCache(): Promise<string | null> {
+  const cachePath = await getAuthCacheFilePath();
+
+  if (!cachePath) {
+    return null;
+  }
+
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const rawCache = await readFile(cachePath, "utf8");
+    const cache = JSON.parse(rawCache) as { token?: unknown };
+    return typeof cache.token === "string" && cache.token.length > 0 ? cache.token : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeTokenToFileCache(token: string): Promise<void> {
+  const cachePath = await getAuthCacheFilePath();
+
+  if (!cachePath) {
+    return;
+  }
+
+  const [{ mkdir, writeFile }, { dirname }] = await Promise.all([
+    import("node:fs/promises"),
+    import("node:path"),
+  ]);
+  const cacheContent = JSON.stringify(
+    { token, updatedAt: new Date().toISOString() },
+    null,
+    2,
+  ) ?? "";
+
+  await mkdir(dirname(cachePath), { recursive: true });
+  await writeFile(
+    cachePath,
+    cacheContent,
+    { encoding: "utf8", mode: 0o600 },
+  );
+}
+
+async function deleteTokenFromFileCache(): Promise<void> {
+  const cachePath = await getAuthCacheFilePath();
+
+  if (!cachePath) {
+    return;
+  }
+
+  const { rm } = await import("node:fs/promises");
+  await rm(cachePath, { force: true });
+}
+
 async function tryLoadAndVerifyAuthTokenFromCache(): Promise<CachedAuthResult | null> {
-  // Placeholder: load and verify the token from durable auth cache.
-  // Return null when the cache is missing, invalid, revoked, or expired.
+  const keyringToken = await readTokenFromKeyring();
+
+  if (keyringToken && isUsableCachedToken(keyringToken)) {
+    return { token: keyringToken };
+  }
+
+  const token = await readTokenFromFileCache();
+
+  if (token && isUsableCachedToken(token)) {
+    // TODO: Call backend verification here when auth cache validation has backend context.
+    return { token };
+  }
+
   return null;
 }
 
 async function cacheAuthToken(token: string): Promise<void> {
-  void token;
-  // Placeholder: persist the token in durable auth cache.
+  const didWriteKeyring = await writeTokenToKeyring(token);
+
+  if (!didWriteKeyring) {
+    if (isNodeOrBunRuntime()) {
+      await writeTokenToFileCache(token);
+    }
+    return;
+  }
+
+  await deleteTokenFromFileCache();
 }
 
 async function clearCachedAuthToken(): Promise<void> {
-  // Placeholder: clear the token from durable auth cache.
+  await deleteTokenFromKeyring();
+  await deleteTokenFromFileCache();
 }
 
 function isUsableCachedToken(token: string): boolean {
@@ -138,7 +348,7 @@ export async function authTool(_id: string, params: AuthParams) {
 
     const session = await startOAuthRedirectFlow({
       backendUrl,
-      createServer,
+      createServer: await getCreateServer(),
       openBrowser: async () => {},
       onTokenReceived: async (token) => {
         storeAuthTokenOnGlobal(token, "oauth");
